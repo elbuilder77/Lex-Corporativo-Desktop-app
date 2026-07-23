@@ -1,0 +1,353 @@
+{
+  "schemaVersion": 1,
+  "corpusVersion": "2026.07-phase4-official-federal-core",
+  "jurisdiction": "MX-FED",
+  "embeddingModel": "Xenova/all-MiniLM-L6-v2",
+  "policy": {
+    "unsupportedClaimsAllowed": false,
+    "duplicateProvisionPolicy": "block_on_conflict",
+    "officialVerificationRequired": true,
+    "unknownDatesMustRemainNull": true
+  },
+  "summary": {
+    "configuredLaws": 9,
+    "corpusEntries": 4573,
+    "uniqueProvisionKeys": 4573,
+    "duplicateProvisionKeys": 0,
+    "duplicateRows": 0,
+    "conflictingDuplicateKeys": 0,
+    "extractionArtifacts": 0,
+    "pendingOfficialVerification": []
+  },
+  "vectorStore": {
+    "engine": "LanceDB",
+    "table": "legal_knowledge",
+    "exists": false,
+    "fileCount": 0,
+    "totalBytes": 0,
+    "sha256": null
+  },
+  "laws": [
+    {
+      "code": "CCom",
+      "name": "Código de Comercio",
+      "module": "mercantil",
+      "jurisdiction": "MX-FED",
+      "corpusFile": "codigo_comercio.md",
+      "source": {
+        "authority": "Cámara de Diputados del H. Congreso de la Unión",
+        "type": "official_pdf",
+        "url": "https://www.diputados.gob.mx/LeyesBiblio/pdf/CCom.pdf",
+        "provenance": "official_pdf_direct",
+        "verificationStatus": "verified_against_official_source",
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "officialLastCheckedAt": "2026-07-14"
+      },
+      "file": {
+        "exists": true,
+        "bytes": 512865,
+        "sha256": "6a6c86d07742323638bd89827f1431794a4c77fb1575efd440ad1f501e5c8ae2"
+      },
+      "structure": {
+        "entries": 1528,
+        "uniqueProvisionKeys": 1528,
+        "duplicateProvisionKeys": 0,
+        "duplicateRows": 0,
+        "conflictingDuplicateKeys": 0,
+        "extractionArtifacts": {
+          "pageMarkers": 0,
+          "replacementCharacters": 0,
+          "total": 0
+        },
+        "duplicates": []
+      }
+    },
+    {
+      "code": "LGSM",
+      "name": "Ley General de Sociedades Mercantiles",
+      "module": "mercantil",
+      "jurisdiction": "MX-FED",
+      "corpusFile": "lgsm.md",
+      "source": {
+        "authority": "Cámara de Diputados del H. Congreso de la Unión",
+        "type": "official_pdf",
+        "url": "https://www.diputados.gob.mx/LeyesBiblio/pdf/LGSM.pdf",
+        "provenance": "official_pdf_direct",
+        "verificationStatus": "verified_against_official_source",
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "officialLastCheckedAt": "2026-07-14"
+      },
+      "file": {
+        "exists": true,
+        "bytes": 139747,
+        "sha256": "046d9d3bc192be11ec74f0ad0bbda6bfc0e2b4cfe00eb8eb78d1a8e97714b2c9"
+      },
+      "structure": {
+        "entries": 276,
+        "uniqueProvisionKeys": 276,
+        "duplicateProvisionKeys": 0,
+        "duplicateRows": 0,
+        "conflictingDuplicateKeys": 0,
+        "extractionArtifacts": {
+          "pageMarkers": 0,
+          "replacementCharacters": 0,
+          "total": 0
+        },
+        "duplicates": []
+      }
+    },
+    {
+      "code": "LGTOC",
+      "name": "Ley General de Títulos y Operaciones de Crédito",
+      "module": "mercantil",
+      "jurisdiction": "MX-FED",
+      "corpusFile": "lgtoc.md",
+      "source": {
+        "authority": "Cámara de Diputados del H. Congreso de la Unión",
+        "type": "official_pdf",
+        "url": "https://www.diputados.gob.mx/LeyesBiblio/pdf/LGTOC.pdf",
+        "provenance": "official_pdf_direct",
+        "verificationStatus": "verified_against_official_source",
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "officialLastCheckedAt": "2026-07-14"
+      },
+      "file": {
+        "exists": true,
+        "bytes": 271367,
+        "sha256": "53cd6af2fa8d915c773a674e103abb8dcdcfde88e7dabd12f704b2df3fafcc3f"
+      },
+      "structure": {
+        "entries": 440,
+        "uniqueProvisionKeys": 440,
+        "duplicateProvisionKeys": 0,
+        "duplicateRows": 0,
+        "conflictingDuplicateKeys": 0,
+        "extractionArtifacts": {
+          "pageMarkers": 0,
+          "replacementCharacters": 0,
+          "total": 0
+        },
+        "duplicates": []
+      }
+    },
+    {
+      "code": "CFF",
+      "name": "Código Fiscal de la Federación",
+      "module": "fiscal",
+      "jurisdiction": "MX-FED",
+      "corpusFile": "cff.md",
+      "source": {
+        "authority": "Cámara de Diputados del H. Congreso de la Unión",
+        "type": "official_pdf",
+        "url": "https://www.diputados.gob.mx/LeyesBiblio/pdf/CFF.pdf",
+        "provenance": "official_pdf_direct",
+        "verificationStatus": "verified_against_official_source",
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "officialLastCheckedAt": "2026-07-14"
+      },
+      "file": {
+        "exists": true,
+        "bytes": 829372,
+        "sha256": "32a499f1efc39b99b2b0439f686eba61a74230bbb41b7e77f0affc6ad12870f7"
+      },
+      "structure": {
+        "entries": 421,
+        "uniqueProvisionKeys": 421,
+        "duplicateProvisionKeys": 0,
+        "duplicateRows": 0,
+        "conflictingDuplicateKeys": 0,
+        "extractionArtifacts": {
+          "pageMarkers": 0,
+          "replacementCharacters": 0,
+          "total": 0
+        },
+        "duplicates": []
+      }
+    },
+    {
+      "code": "LISR",
+      "name": "Ley del Impuesto sobre la Renta",
+      "module": "fiscal",
+      "jurisdiction": "MX-FED",
+      "corpusFile": "lisr.md",
+      "source": {
+        "authority": "Cámara de Diputados del H. Congreso de la Unión",
+        "type": "official_pdf",
+        "url": "https://www.diputados.gob.mx/LeyesBiblio/pdf/LISR.pdf",
+        "provenance": "official_pdf_direct",
+        "verificationStatus": "verified_against_official_source",
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "officialLastCheckedAt": "2026-07-14"
+      },
+      "file": {
+        "exists": true,
+        "bytes": 914093,
+        "sha256": "80cd774e32e3d5608fa002df408b7a5107d209831d97873a6f6553defd900f8a"
+      },
+      "structure": {
+        "entries": 236,
+        "uniqueProvisionKeys": 236,
+        "duplicateProvisionKeys": 0,
+        "duplicateRows": 0,
+        "conflictingDuplicateKeys": 0,
+        "extractionArtifacts": {
+          "pageMarkers": 0,
+          "replacementCharacters": 0,
+          "total": 0
+        },
+        "duplicates": []
+      }
+    },
+    {
+      "code": "RLISR",
+      "name": "Reglamento de la Ley del Impuesto sobre la Renta",
+      "module": "fiscal",
+      "jurisdiction": "MX-FED",
+      "corpusFile": "rlisr.md",
+      "source": {
+        "authority": "Cámara de Diputados del H. Congreso de la Unión",
+        "type": "official_pdf",
+        "url": "https://www.diputados.gob.mx/LeyesBiblio/regley/Reg_LISR_060516.pdf",
+        "provenance": "official_pdf_direct",
+        "verificationStatus": "verified_against_official_source",
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "officialLastCheckedAt": "2026-07-14"
+      },
+      "file": {
+        "exists": true,
+        "bytes": 323854,
+        "sha256": "d65b243a748c8913a05c157d6a0f088811171f9697ccd2930b1f0c154f19401c"
+      },
+      "structure": {
+        "entries": 313,
+        "uniqueProvisionKeys": 313,
+        "duplicateProvisionKeys": 0,
+        "duplicateRows": 0,
+        "conflictingDuplicateKeys": 0,
+        "extractionArtifacts": {
+          "pageMarkers": 0,
+          "replacementCharacters": 0,
+          "total": 0
+        },
+        "duplicates": []
+      }
+    },
+    {
+      "code": "LIVA",
+      "name": "Ley del Impuesto al Valor Agregado",
+      "module": "fiscal",
+      "jurisdiction": "MX-FED",
+      "corpusFile": "liva.md",
+      "source": {
+        "authority": "Cámara de Diputados del H. Congreso de la Unión",
+        "type": "official_pdf",
+        "url": "https://www.diputados.gob.mx/LeyesBiblio/pdf/LIVA.pdf",
+        "provenance": "official_pdf_direct",
+        "verificationStatus": "verified_against_official_source",
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "officialLastCheckedAt": "2026-07-14"
+      },
+      "file": {
+        "exists": true,
+        "bytes": 157239,
+        "sha256": "ee7d406682635990cdf310c25ff5bcfa8af7fc360d44c9af56887e2df432a1be"
+      },
+      "structure": {
+        "entries": 79,
+        "uniqueProvisionKeys": 79,
+        "duplicateProvisionKeys": 0,
+        "duplicateRows": 0,
+        "conflictingDuplicateKeys": 0,
+        "extractionArtifacts": {
+          "pageMarkers": 0,
+          "replacementCharacters": 0,
+          "total": 0
+        },
+        "duplicates": []
+      }
+    },
+    {
+      "code": "RLIVA",
+      "name": "Reglamento de la Ley del Impuesto al Valor Agregado",
+      "module": "fiscal",
+      "jurisdiction": "MX-FED",
+      "corpusFile": "rliva.md",
+      "source": {
+        "authority": "Cámara de Diputados del H. Congreso de la Unión",
+        "type": "official_pdf",
+        "url": "https://www.diputados.gob.mx/LeyesBiblio/regley/Reg_LIVA_250914.pdf",
+        "provenance": "official_pdf_direct",
+        "verificationStatus": "verified_against_official_source",
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "officialLastCheckedAt": "2026-07-14"
+      },
+      "file": {
+        "exists": true,
+        "bytes": 44039,
+        "sha256": "ac8934fe3f3b081df2b83948bcc5fce0f95f98ffbf2f2dadf9384229504e4a98"
+      },
+      "structure": {
+        "entries": 84,
+        "uniqueProvisionKeys": 84,
+        "duplicateProvisionKeys": 0,
+        "duplicateRows": 0,
+        "conflictingDuplicateKeys": 0,
+        "extractionArtifacts": {
+          "pageMarkers": 0,
+          "replacementCharacters": 0,
+          "total": 0
+        },
+        "duplicates": []
+      }
+    },
+    {
+      "code": "RMF",
+      "name": "Resolución Miscelánea Fiscal para 2026",
+      "module": "fiscal",
+      "jurisdiction": "MX-FED",
+      "corpusFile": "rmf.md",
+      "source": {
+        "authority": "Servicio de Administración Tributaria",
+        "type": "official_pdf",
+        "url": "https://wwwnp.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rmf/rmf/RMF_2026-DOF-28122025.pdf",
+        "provenance": "official_base_with_published_amendment_overlay",
+        "verificationStatus": "verified_against_official_source",
+        "effectiveFrom": "2026-07-10",
+        "effectiveTo": null,
+        "officialLastCheckedAt": "2026-07-14"
+      },
+      "file": {
+        "exists": true,
+        "bytes": 2610787,
+        "sha256": "8261ac65ba20f7bba53244988fab04ff6648c25a079efb61a6460af7aedf5ed9"
+      },
+      "structure": {
+        "entries": 1196,
+        "uniqueProvisionKeys": 1196,
+        "duplicateProvisionKeys": 0,
+        "duplicateRows": 0,
+        "conflictingDuplicateKeys": 0,
+        "extractionArtifacts": {
+          "pageMarkers": 0,
+          "replacementCharacters": 0,
+          "total": 0
+        },
+        "duplicates": []
+      }
+    }
+  ],
+  "releaseGate": {
+    "releaseEligible": true,
+    "status": "pass",
+    "failures": []
+  },
+  "artifactSha256": "0885cfce9195a15b988581cbca3e04d39d5aeaa710d049e471bc49055e8919d6"
+}

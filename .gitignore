@@ -1,0 +1,56 @@
+# Secrets and local environment
+.env
+.env.local
+.env.*.local
+*.local
+
+# JavaScript dependencies
+node_modules/
+.npm-cache/
+
+# Electron build and packaging output
+out/
+release/
+build/
+asar-out*/
+asar-unpacked/
+electron.zip
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.agents/
+.codex/
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.vs/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Local runtime and generated legal data
+.tmp-pdfs/
+scratch/
+tmp/
+tmp-asar-extract/
+tmp-packaged-package.json
+reports/
+src-rust/target/
+src-rust/lance_data/
+*.gguf
+src-rust/models/*.gguf

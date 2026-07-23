@@ -1,0 +1,172 @@
+import { mkdirSync } from 'fs';
+import { join } from 'path';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockState = vi.hoisted(() => ({
+  filters: [] as string[],
+  userDataPath: `${process.env.TEMP || process.cwd()}/lex-corp-vitest-userdata`,
+  legalRows: [
+    {
+      id: 'lgtoc-170',
+      title: 'Ley General de Títulos y Operaciones de Crédito',
+      law_code: 'LGTOC',
+      article: 'Artículo 170',
+      content: 'El pagaré debe contener la mención de ser pagaré inserta en el texto del documento.',
+      _distance: 0.1,
+      module: 'mercantil',
+    },
+    {
+      id: 'cff-69b',
+      title: 'Código Fiscal de la Federación',
+      law_code: 'CFF',
+      article: 'Artículo 69-B',
+      content: 'Procedimiento fiscal sobre CFDI, pagos y materialidad de operaciones inexistentes.',
+      _distance: 0.05,
+      module: 'fiscal',
+    },
+  ],
+  userRows: [
+    {
+      id: 'doc-1',
+      requestId: 'analysis-1',
+      fileName: 'contrato-mercantil.pdf',
+      content: 'La cláusula penal establece una pena convencional por incumplimiento del suministro.',
+      module: 'mercantil',
+      contentHash: 'hash-1',
+      chunkIndex: 0,
+      pageNumber: 2,
+      _distance: 0.2,
+    },
+    {
+      id: 'doc-2',
+      requestId: 'analysis-2',
+      fileName: 'otro-expediente.pdf',
+      content: 'Este fragmento pertenece a otro análisis y no debe recuperarse.',
+      module: 'mercantil',
+      contentHash: 'hash-2',
+      chunkIndex: 0,
+      pageNumber: 1,
+      _distance: 0.01,
+    },
+    {
+      id: 'doc-3',
+      requestId: 'analysis-fiscal',
+      fileName: 'materialidad.pdf',
+      content: 'El soporte incluye CFDI, pagos y entregables de servicios especializados.',
+      module: 'fiscal',
+      contentHash: 'hash-3',
+      chunkIndex: 0,
+      pageNumber: 4,
+      _distance: 0.02,
+    },
+  ],
+}));
+
+vi.mock('electron', () => ({
+  app: {
+    getPath: () => mockState.userDataPath,
+    getAppPath: () => process.cwd(),
+    isPackaged: false,
+  },
+}));
+
+vi.mock('@xenova/transformers', () => ({
+  pipeline: vi.fn(async () => async () => ({ data: new Float32Array([0.1, 0.2, 0.3]) })),
+  env: {
+    allowRemoteModels: true,
+    localModelPath: '',
+    cacheDir: '',
+  },
+}));
+
+function createQuery(rowsFactory: (filterValue?: string) => any[], label: string) {
+  let currentFilter: string | undefined;
+
+  return {
+    filter(value: string) {
+      currentFilter = value;
+      mockState.filters.push(`${label}:${value}`);
+      return this;
+    },
+    where(value: string) {
+      return this.filter(value);
+    },
+    limit() {
+      return this;
+    },
+    async execute() {
+      return rowsFactory(currentFilter);
+    },
+  };
+}
+
+vi.mock('vectordb', () => {
+  const legalTable = {
+    search: () => createQuery(() => mockState.legalRows, 'legal-search'),
+    filter: (value: string) => createQuery(() => mockState.legalRows, 'legal-filter').filter(value),
+  };
+
+  const userTable = {
+    search: () => createQuery((filterValue?: string) => (
+      mockState.userRows.filter(row => (
+        filterValue?.includes(`"requestId" = '${row.requestId}'`)
+        && filterValue?.includes(`module = '${row.module}'`)
+      ))
+    ), 'user-search'),
+    async delete() {},
+    async add() {
+      return 1;
+    },
+    async createScalarIndex() {},
+  };
+
+  return {
+    connect: vi.fn(async () => ({
+      tableNames: async () => ['user_documents'],
+      openTable: async (name: string) => (name === 'legal_knowledge' ? legalTable : userTable),
+      createTable: async () => userTable,
+      dropTable: async () => undefined,
+    })),
+  };
+});
+
+import { getAnalysisContext } from './rag';
+
+describe('analysis double-lane RAG context', () => {
+  beforeEach(() => {
+    mockState.filters = [];
+    mkdirSync(join(mockState.userDataPath, 'lance_data', 'user_documents.lance'), { recursive: true });
+  });
+
+  it('recovers only current-request document chunks and module-allowed laws', async () => {
+    const result = await getAnalysisContext('auditar pagaré y cláusula penal', 'mercantil', 'analysis-1');
+
+    expect(result.context).toContain('### DOCUMENTOS ANALIZADOS (Evidencia del Usuario)');
+    expect(result.context).toContain('contrato-mercantil.pdf página 2');
+    expect(result.context).toContain('cláusula penal');
+    expect(result.context).not.toContain('otro análisis');
+
+    expect(result.context).toContain('### FUNDAMENTO LEGAL VERIFICADO (Leyes del Ecosistema)');
+    expect(result.context).toContain('No se encontraron artículos específicos');
+    expect(result.context).not.toContain('LGTOC Artículo 170');
+    expect(result.context).not.toContain('CFF');
+
+    expect(mockState.filters).toContain("legal-search:module = 'mercantil'");
+    expect(mockState.filters).toContain('user-search:"requestId" = \'analysis-1\' AND module = \'mercantil\'');
+  });
+
+  it('keeps fiscal analysis on fiscal documents and fiscal laws only', async () => {
+    const result = await getAnalysisContext('auditar CFDI materialidad pagos', 'fiscal', 'analysis-fiscal');
+
+    expect(result.context).toContain('materialidad.pdf página 4');
+    expect(result.context).toContain('CFDI');
+    expect(result.context).not.toContain('contrato-mercantil.pdf');
+    expect(result.context).not.toContain('pagaré');
+
+    expect(result.context).toContain('CFF Artículo 69-B');
+    expect(result.context).not.toContain('LGTOC');
+
+    expect(mockState.filters).toContain("legal-search:module = 'fiscal'");
+    expect(mockState.filters).toContain('user-search:"requestId" = \'analysis-fiscal\' AND module = \'fiscal\'');
+  });
+});

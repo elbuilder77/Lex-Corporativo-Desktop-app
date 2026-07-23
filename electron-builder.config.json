@@ -1,0 +1,97 @@
+{
+  "appId": "mx.lexcorporativo.desktop",
+  "asar": true,
+  "productName": "Lex Corporativo",
+  "artifactName": "Lex-Corporativo-Setup-${version}.${ext}",
+  "copyright": "Copyright © 2026 Lex Corporativo",
+  "directories": {
+    "output": "release",
+    "buildResources": "resources"
+  },
+  "files": [
+    "out/**/*",
+    "package.json"
+  ],
+  "asarUnpack": [
+    "**/*.node",
+    "**/node_modules/vectordb/**/*",
+    "**/node_modules/@lancedb/**/*",
+    "**/node_modules/apache-arrow/**/*"
+  ],
+  "extraResources": [
+    {
+      "filter": [
+        "lex-engine",
+        "lex-engine.exe"
+      ],
+      "from": "src-rust/target/release",
+      "to": "lex-engine"
+    },
+    {
+      "from": "src-rust/models",
+      "to": "lex-engine/models",
+      "filter": [
+        "**/*.gguf",
+        "**/*.onnx",
+        "**/*.json"
+      ]
+    },
+    {
+      "from": "src-rust/lance_data",
+      "to": "lex-engine/lance_data"
+    },
+    {
+      "from": "src-rust/corpus/corpus-manifest.json",
+      "to": "lex-engine/corpus-manifest.json"
+    },
+    {
+      "from": "plantillas",
+      "to": "plantillas",
+      "filter": [
+        "**/*.hbs"
+      ]
+    }
+  ],
+  "win": {
+    "target": [
+      {
+        "arch": [
+          "x64"
+        ],
+        "target": "nsis"
+      }
+    ],
+    "icon": "resources/icon.png",
+    "signAndEditExecutable": true
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "perMachine": false,
+    "deleteAppDataOnUninstall": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Lex Corporativo"
+  },
+  "mac": {
+    "target": [
+      { "target": "dmg", "arch": ["x64", "arm64"] }
+    ],
+    "icon": "resources/icon.icns",
+    "category": "public.app-category.business"
+  },
+  "linux": {
+    "target": "AppImage",
+    "icon": "resources/icon.png",
+    "category": "Office"
+  },
+  "protocols": {
+    "name": "Lex Corporativo",
+    "schemes": ["lexcorp"]
+  },
+  "publish": {
+    "provider": "github",
+    "owner": "lexcorporativo",
+    "repo": "lex-corporativo-desktop"
+  }
+}

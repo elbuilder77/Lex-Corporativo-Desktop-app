@@ -1,0 +1,8 @@
+* text=auto eol=lf
+
+*.png binary
+*.onnx binary
+*.gguf binary
+*.exe binary
+*.dll binary
+*.node binary
