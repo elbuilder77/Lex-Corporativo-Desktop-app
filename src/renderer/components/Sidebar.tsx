@@ -1,12 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { SavedCase, ModuleTab } from '../types';
-import { LogOut, Landmark, FileSignature, BookOpen, X, Calculator, Settings, FolderOpen, ChevronLeft, ChevronRight, Search, ClipboardList, ShieldCheck, ReceiptText } from 'lucide-react';
-import { endLocalSession } from '../services/local-desktop';
+import { ModuleTab } from '../types';
+import { House, Landmark, FileSignature, BookOpen, X, Calculator, Settings, FolderOpen, ChevronLeft, ChevronRight, Search, ClipboardList, ShieldCheck, ReceiptText } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { BRAND_CONTENT } from '../lib/product-content';
 import logoUrl from '../assets/logo-mark.png';
 
-import { useAuthStore } from '../store/useAuthStore';
 import { useUiStore } from '../store/useUiStore';
 import { useCaseStore } from '../store/useCaseStore';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -28,24 +26,17 @@ export const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const { user, logoutUser } = useAuthStore();
-  const { activeTab, setActiveTab, setSidebarOpen, isMobile, notify, sidebarCollapsed, setSidebarCollapsed, runtimeHealth, refreshRuntimeHealth } = useUiStore();
-  const { recentCases, fetchRecentCases, clearAllState } = useCaseStore();
+  const { activeTab, setActiveTab, setSidebarOpen, isMobile, sidebarCollapsed, setSidebarCollapsed, runtimeHealth, refreshRuntimeHealth } = useUiStore();
 
   const currentPath = location.pathname;
   const searchMatter = new URLSearchParams(location.search).get('materia') === 'fiscal' ? 'fiscal' : 'mercantil';
   const visuallyCollapsed = !isMobile && sidebarCollapsed && !temporarilyExpanded;
   
   useEffect(() => {
-    if (!user) return;
-    fetchRecentCases();
-  }, [user, fetchRecentCases]);
-
-  useEffect(() => {
     void refreshRuntimeHealth();
   }, [refreshRuntimeHealth]);
 
-  const ragReady = runtimeHealth?.checks.some((check) => check.id === 'rag' && check.ok) ?? false;
+  const ragReady = runtimeHealth?.capabilities.legalSearch.ready ?? false;
   const runtimeLabel = !runtimeHealth
     ? 'Comprobando recursos'
     : runtimeHealth.status === 'blocked'
@@ -152,12 +143,8 @@ export const Sidebar: React.FC = () => {
     }
   };
 
-  const handleLogout = async () => {
-    logoutUser();
-    useCaseStore.getState().clearAllState();
-    try { await endLocalSession(); } catch { }
+  const handleReturnToCover = () => {
     navigate('/');
-    notify("Sesión cerrada", "info");
   };
 
   return (
@@ -170,7 +157,7 @@ export const Sidebar: React.FC = () => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setTemporarilyExpanded(false);
       }}
       className={cn(
-      "h-full bg-[#090d16] flex flex-col z-50 relative border-r border-slate-800 shadow-[4px_0_24px_rgba(0,0,0,0.2)] transition-all duration-300",
+      "relative z-50 flex h-full flex-col border-r border-slate-800 bg-legal-rail shadow-[4px_0_24px_rgba(0,0,0,0.2)] transition-all duration-300",
       isMobile ? "w-72 max-w-[86vw]" : visuallyCollapsed ? "w-[72px]" : "w-[260px]"
     )}
     >
@@ -211,7 +198,7 @@ export const Sidebar: React.FC = () => {
                   runtimeTone === 'red' ? 'bg-red-500' : 'bg-slate-500'
                 )}></span>
                 <span className={cn(
-                  "text-[9px] font-bold tracking-wider uppercase truncate",
+                  "truncate text-xs font-bold uppercase tracking-wider",
                   runtimeTone === 'green' ? 'text-green-500/90' :
                   runtimeTone === 'amber' ? 'text-amber-400' :
                   runtimeTone === 'red' ? 'text-red-400' : 'text-slate-500'
@@ -237,6 +224,7 @@ export const Sidebar: React.FC = () => {
 
       {!isMobile && (
         <button 
+          type="button"
           onClick={() => {
             setSidebarCollapsed(!sidebarCollapsed);
             setTemporarilyExpanded(false);
@@ -253,16 +241,25 @@ export const Sidebar: React.FC = () => {
         {!visuallyCollapsed && (
           <div className="px-3 pb-2 pt-1">
             <div className="h-px bg-gradient-to-r from-slate-800 via-slate-800/50 to-transparent" />
-            <p className="mt-3 text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500">Flujo de trabajo</p>
+            <p className="mt-3 text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Flujo de trabajo</p>
           </div>
         )}
         <nav className="space-y-1 relative">
           {!visuallyCollapsed && <div className="absolute left-[21px] top-4 bottom-4 w-px bg-slate-800/50" />}
           {ecosystemItems.map((item) => {
             const isActive = currentPath === item.path;
+            const capability = item.path === '/portafolio'
+              ? runtimeHealth?.capabilities.vault
+              : item.path === '/buscador'
+                ? runtimeHealth?.capabilities.legalSearch
+                : item.path === '/ingenieria-juridica'
+                  ? runtimeHealth?.capabilities.legalGeneration
+                  : null;
+            const availabilityBadge = capability && !capability.ready ? 'Pendiente' : item.badge;
             return (
               <div key={item.path} className="py-1">
                 <button
+                  type="button"
                   onClick={() => handleNavigate(item.path)}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-semibold transition-all duration-300 relative group overflow-hidden cursor-pointer",
@@ -271,7 +268,7 @@ export const Sidebar: React.FC = () => {
                       : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 border border-transparent',
                     visuallyCollapsed && "justify-center px-0 gap-0"
                   )}
-                  title={visuallyCollapsed ? item.label : undefined}
+                  title={capability && !capability.ready ? `${item.label}: ${capability.detail}` : visuallyCollapsed ? item.label : undefined}
                 >
                   {isActive && <div className={cn("absolute left-0 top-2 bottom-2 w-1 rounded-r-full shadow-none", item.dot)} />}
                   <span className={cn(isActive ? item.activeColor : "text-slate-400 group-hover:text-slate-600", visuallyCollapsed && "mx-auto")}>
@@ -281,14 +278,16 @@ export const Sidebar: React.FC = () => {
                   {!visuallyCollapsed && (
                     <span className="flex-1 text-left min-w-0 truncate flex items-center justify-between">
                       <span>{item.label}</span>
-                      {item.badge && (
+                      {availabilityBadge && (
                         <span className={cn(
-                          "text-[8px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 transition-all duration-300",
-                          item.badge === 'Seleccionado'
+                          "shrink-0 rounded px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider transition-all duration-300",
+                          availabilityBadge === 'Pendiente'
+                            ? "border border-amber-500/30 bg-amber-500/10 text-amber-300"
+                            : availabilityBadge === 'Seleccionado'
                             ? "bg-green-500/20 text-green-400 border border-green-500/30 shadow-[0_0_8px_rgba(34,197,94,0.15)]" 
                             : "bg-slate-900/60 text-slate-500 border border-slate-800/80"
                         )}>
-                          {item.badge}
+                          {availabilityBadge}
                         </span>
                       )}
                     </span>
@@ -299,6 +298,7 @@ export const Sidebar: React.FC = () => {
                   <div className="mx-2 mb-2 mt-1 space-y-0.5 border-l border-emerald-500/25 pl-2">
                     {item.subItems.map((sub) => (
                       <button
+                        type="button"
                         key={sub.tab}
                         onClick={() => {
                           setActiveTab(sub.tab);
@@ -331,37 +331,37 @@ export const Sidebar: React.FC = () => {
       </div>
 
       <div className="mt-auto p-3 border-t border-slate-800 space-y-3 relative z-10">
-        {user && (
-          <div className="space-y-2">
-            {!visuallyCollapsed ? (
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-800/50 transition-colors cursor-pointer group" onClick={() => handleNavigate('/settings')}>
-                <div className="w-8 h-8 rounded-full border border-slate-800 shadow-sm bg-slate-900 text-slate-300 flex items-center justify-center text-[11px] font-bold shrink-0">
+        <div className="space-y-2">
+          {!visuallyCollapsed ? (
+            <div className="flex items-center gap-2">
+              <button type="button" className="group flex min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-slate-800/50" onClick={() => handleNavigate('/settings')}>
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-800 bg-slate-900 text-xs font-bold text-slate-300 shadow-sm">
                   LC
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[12px] font-bold text-slate-300 truncate group-hover:text-white transition-colors">
-                    {user?.displayName || 'Estación Local'}
+                    Estación local
                   </p>
-                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">
-                    Perfil local
+                  <p className="mt-0.5 text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Configuración
                   </p>
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); handleLogout(); }} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-all cursor-pointer" title="Cerrar sesión">
-                  <LogOut size={16} />
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-3 py-2">
-                <div className="w-8 h-8 rounded-full border border-slate-800 shadow-sm bg-slate-900 text-slate-300 flex items-center justify-center text-[11px] font-bold cursor-pointer hover:bg-slate-800" onClick={() => handleNavigate('/settings')} title="Configuración">
-                  LC
-                </div>
-                <button onClick={handleLogout} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-all cursor-pointer" title="Cerrar sesión">
-                  <LogOut size={16} />
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+              </button>
+              <button type="button" onClick={handleReturnToCover} className="rounded-lg p-2 text-slate-500 transition-all hover:bg-slate-800 hover:text-white" aria-label="Volver a la portada" title="Volver a la portada">
+                <House size={16} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-3 py-2">
+              <button type="button" className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-800 bg-slate-900 text-xs font-bold text-slate-300 shadow-sm hover:bg-slate-800" onClick={() => handleNavigate('/settings')} title="Configuración" aria-label="Abrir configuración">
+                LC
+              </button>
+              <button type="button" onClick={handleReturnToCover} className="rounded-lg p-2 text-slate-500 transition-all hover:bg-slate-800 hover:text-white" title="Volver a la portada" aria-label="Volver a la portada">
+                <House size={16} />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </aside>
   );

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from 'fs';
 import path from 'path';
-import * as lancedb from 'vectordb';
+import * as lancedb from '@lancedb/lancedb';
 import { CORPUS_MANIFEST_PATH, LANCEDB_DIR, RETRIEVAL_PROBE_PATH } from './legal-corpus-config.mjs';
 
 const args = new Set(process.argv.slice(2));
@@ -155,9 +155,10 @@ function hasForbiddenLaw(rows, module) {
 
 async function runProbe(table, probe) {
   const rows = await table
-    .filter(`module = '${escapeSqlLiteral(probe.module)}'`)
+    .query()
+    .where(`module = '${escapeSqlLiteral(probe.module)}'`)
     .limit(20000)
-    .execute();
+    .toArray();
 
   const terms = queryTerms(probe.query);
   const matches = rows

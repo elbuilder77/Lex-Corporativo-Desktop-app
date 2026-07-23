@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { pipeline } from '@xenova/transformers';
-import * as lancedb from 'vectordb';
+import * as lancedb from '@lancedb/lancedb';
 import { CORPUS_DIR, EMBEDDING_MODEL, LANCEDB_DIR, LAWS } from './legal-corpus-config.mjs';
 
 const REPAIRS = [
@@ -56,9 +56,10 @@ function ensureCorpusEntry(law, repair) {
 
 async function hasExactArticle(table, repair) {
   const rows = await table
-    .filter(`law_code = '${escapeSqlLiteral(repair.lawCode)}'`)
+    .query()
+    .where(`law_code = '${escapeSqlLiteral(repair.lawCode)}'`)
     .limit(20000)
-    .execute();
+    .toArray();
 
   return rows.some(row => String(row.article || '').replace(/\.$/, '') === repair.article);
 }

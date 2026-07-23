@@ -70,7 +70,7 @@ export const DraftingTemplatePicker: React.FC<DraftingTemplatePickerProps> = ({
         </div>
         <div className="flex items-center gap-2">
           <span className={cn(
-            'inline-flex max-w-[220px] items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium',
+            'inline-flex max-w-[220px] items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium',
             selectedTemplate ? classes.status : 'border-slate-200 bg-slate-50 text-slate-500'
           )}>
             {selectedTemplate ? <CheckCircle2 size={13} /> : <FileText size={13} />}
@@ -80,7 +80,7 @@ export const DraftingTemplatePicker: React.FC<DraftingTemplatePickerProps> = ({
             <button
               type="button"
               onClick={() => setIsBrowsing((value) => !value)}
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
               aria-expanded={isBrowsing}
             >
               Cambiar <ChevronDown size={13} className={cn('transition-transform', isBrowsing && 'rotate-180')} />
@@ -110,7 +110,7 @@ export const DraftingTemplatePicker: React.FC<DraftingTemplatePickerProps> = ({
           }, {} as Record<string, typeof templates>)
         ).map(([groupName, groupTemplates]) => (
           <div key={groupName} className="space-y-3">
-            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-200/50 pb-1">
+            <h4 className="border-b border-slate-200/50 pb-1 text-xs font-bold uppercase tracking-widest text-slate-400">
               {groupName}
             </h4>
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -135,18 +135,18 @@ export const DraftingTemplatePicker: React.FC<DraftingTemplatePickerProps> = ({
                       />
                       <div className="min-w-0">
                         <div className="truncate text-xs font-bold">{template.title}</div>
-                        <div className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-500">{template.description}</div>
+                        <div className="mt-1 line-clamp-2 text-xs leading-4 text-slate-500">{template.description}</div>
                         <div className="mt-2 flex flex-wrap gap-1">
                           {template.requiredFields.slice(0, 2).map((field) => (
                             <span
                               key={field}
-                              className="max-w-full truncate rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[9px] text-slate-500"
+                              className="max-w-full truncate rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-xs text-slate-500"
                             >
                               {field}
                             </span>
                           ))}
                           {template.requiredFields.length > 2 && (
-                            <span className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[9px] text-slate-500">
+                            <span className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-xs text-slate-500">
                               +{template.requiredFields.length - 2}
                             </span>
                           )}
@@ -172,7 +172,7 @@ export const DraftingTemplatePicker: React.FC<DraftingTemplatePickerProps> = ({
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {selectedTemplate.requiredFields.map((field) => (
-              <span key={field} className="rounded-md bg-white/75 px-2 py-1 text-[10px] text-slate-600">
+              <span key={field} className="rounded-md bg-white/75 px-2 py-1 text-xs text-slate-600">
                 {field}
               </span>
             ))}

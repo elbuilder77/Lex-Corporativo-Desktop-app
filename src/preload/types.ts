@@ -98,6 +98,10 @@ export interface LexDesktopAPI {
         canUseDevelopmentMock: boolean;
         modelPathSource: 'default' | 'environment';
       };
+      capabilities: Record<
+        'vault' | 'legalSearch' | 'legalGeneration' | 'rulesAssessment' | 'localAssistant',
+        { ready: boolean; label: string; detail: string }
+      >;
     }>;
   };
   traceability: {

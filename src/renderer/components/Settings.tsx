@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { useAuthStore } from '../store/useAuthStore';
-import { User, Settings as SettingsIcon, Shield, Lock, FileText, AlertTriangle, LogOut, HelpCircle, ChevronRight, KeyRound, Wifi, CloudOff, CheckCircle2, RefreshCw, Download, DatabaseBackup, Trash2 } from 'lucide-react';
+import { Settings as SettingsIcon, AlertTriangle, Wifi, CloudOff, CheckCircle2, RefreshCw } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { endLocalSession } from '../services/local-desktop';
 import logoMarkUrl from '../assets/logo-mark.png';
 import { useUiStore } from '../store/useUiStore';
 import { useCaseStore } from '../store/useCaseStore';
+import { LegalSettingsPanel } from './settings/LegalSettingsPanel';
+import { LocalDataSettingsPanel } from './settings/LocalDataSettingsPanel';
+import { PreferencesSettingsPanel, type DefaultWorkspace } from './settings/PreferencesSettingsPanel';
+import { SETTINGS_TABS, SettingsNavigation, type SettingsTab } from './settings/SettingsNavigation';
+import { StationSettingsPanel } from './settings/StationSettingsPanel';
+import { TraceabilitySettingsPanel } from './settings/TraceabilitySettingsPanel';
 
 type ByokProvider = 'gemini' | 'openai' | 'anthropic';
 type ByokProviderStatus = {
@@ -37,13 +41,12 @@ const EMPTY_PROVIDER_SETTINGS: Record<ByokProvider, ByokProviderStatus> = {
 };
 
 export const Settings: React.FC = () => {
-  const { user, logoutUser } = useAuthStore();
   const navigate = useNavigate();
   const { runtimeHealth, runtimeHealthLoading, refreshRuntimeHealth } = useUiStore();
   const clearAllCaseState = useCaseStore((state) => state.clearAllState);
   const [searchParams] = useSearchParams();
   const requestedTab = searchParams.get('tab');
-  const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'ia' | 'trazabilidad' | 'data' | 'legal' | 'session'>(requestedTab === 'ia' ? 'ia' : 'profile');
+  const [activeTab, setActiveTab] = useState<SettingsTab>(requestedTab === 'ia' ? 'ia' : 'profile');
   const [byokEnabled, setByokEnabled] = useState(false);
   const [byokProvider, setByokProvider] = useState<ByokProvider>('gemini');
   const [byokProviders, setByokProviders] = useState<Record<ByokProvider, ByokProviderStatus>>(EMPTY_PROVIDER_SETTINGS);
@@ -59,7 +62,7 @@ export const Settings: React.FC = () => {
   const [byokMessage, setByokMessage] = useState('');
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'ok' | 'error'>('idle');
   const [updateMessage, setUpdateMessage] = useState('');
-  const [defaultWorkspace, setDefaultWorkspace] = useState<'instructivo' | 'engineering' | 'fiscal'>('instructivo');
+  const [defaultWorkspace, setDefaultWorkspace] = useState<DefaultWorkspace>('instructivo');
   const [preferenceSaved, setPreferenceSaved] = useState(false);
   const [ledgerStatus, setLedgerStatus] = useState<{ path: string; exists: boolean; size: number } | null>(null);
   const [ledgerExporting, setLedgerExporting] = useState(false);
@@ -73,16 +76,6 @@ export const Settings: React.FC = () => {
     hidden: { opacity: 0, y: 10 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
   };
-
-  const tabs = [
-    { id: 'profile', label: 'Perfil', icon: <User size={16} /> },
-    { id: 'preferences', label: 'Preferencias', icon: <SettingsIcon size={16} /> },
-    { id: 'ia', label: 'IA y API', icon: <KeyRound size={16} /> },
-    { id: 'trazabilidad', label: 'Trazabilidad y Logs', icon: <Shield size={16} /> },
-    { id: 'data', label: 'Datos locales', icon: <DatabaseBackup size={16} /> },
-    { id: 'legal', label: 'Legal y Privacidad', icon: <FileText size={16} /> },
-    { id: 'session', label: 'Sesión', icon: <Lock size={16} /> },
-  ] as const;
 
   const applyByokSettings = (settings: Awaited<ReturnType<typeof window.lexDesktop.byok.getSettings>>) => {
     setByokEnabled(settings.enabled);
@@ -126,16 +119,10 @@ export const Settings: React.FC = () => {
   }, [refreshRuntimeHealth]);
 
   useEffect(() => {
-    if (requestedTab && tabs.some((tab) => tab.id === requestedTab)) {
-      setActiveTab(requestedTab as typeof activeTab);
+    if (requestedTab && SETTINGS_TABS.some((tab) => tab.id === requestedTab)) {
+      setActiveTab(requestedTab as SettingsTab);
     }
   }, [requestedTab]);
-
-  const handleLogout = async () => {
-    logoutUser();
-    try { await endLocalSession(); } catch { }
-    navigate('/');
-  };
 
   const handleSaveByok = async () => {
     setByokStatus('saving');
@@ -270,7 +257,6 @@ export const Settings: React.FC = () => {
     }
   };
 
-  const runtimeCheck = (id: string) => runtimeHealth?.checks.find((check) => check.id === id);
   const localGenerationReady = Boolean(runtimeHealth?.rust.binaryExists && runtimeHealth.rust.expectedGgufModelExists);
 
   return (
@@ -296,121 +282,28 @@ export const Settings: React.FC = () => {
         <div className="grid gap-6 xl:grid-cols-[240px_minmax(0,1fr)]">
           {/* Sidebar nav */}
           <div className="min-w-0">
-            <nav className="grid grid-cols-2 gap-1 sm:grid-cols-3 xl:grid-cols-1" aria-label="Secciones de configuración">
-              {tabs.map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex min-w-0 items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold transition-all sm:text-sm ${
-                    activeTab === tab.id
-                      ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/10'
-                      : 'text-slate-500 hover:text-slate-900 hover:bg-white border border-transparent hover:border-slate-200'
-                  }`}
-                >
-                  {tab.icon}
-                  <span className="truncate">{tab.label}</span>
-                </button>
-              ))}
-            </nav>
+            <SettingsNavigation activeTab={activeTab} onSelect={setActiveTab} />
           </div>
 
           {/* Content area */}
           <div className="min-w-0 rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:p-9 min-h-[450px]">
             {activeTab === 'profile' && (
-              <div className="space-y-8">
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900 mb-6">Perfil de Usuario</h2>
-                  <div className="flex items-center gap-6 p-6 bg-slate-50 rounded-2xl border border-slate-200">
-                    <img
-                      src={user?.photoURL || logoMarkUrl}
-                      alt="Perfil"
-                      className="w-20 h-20 rounded-2xl object-cover border-2 border-white shadow-md"
-                    />
-                    <div>
-                      <p className="text-lg font-bold text-slate-900">{user?.displayName || 'Usuario Lex'}</p>
-                      <p className="text-sm text-slate-500 font-medium">{user?.email}</p>
-                      <span className="inline-flex mt-2 px-2 py-0.5 bg-legal-gold/10 text-legal-golddark text-[10px] font-bold uppercase tracking-wider rounded border border-legal-gold/20">
-                        Perfil local
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="p-4 bg-amber-50 rounded-xl border border-amber-100 flex gap-3">
-                    <AlertTriangle size={18} className="text-amber-500 shrink-0" />
-                    <p className="text-xs text-amber-800 leading-relaxed font-medium">
-                      El perfil es local a este equipo. La aplicación no requiere cuenta en línea para operar portafolios, consultas o documentos.
-                    </p>
-                </div>
-              </div>
+              <StationSettingsPanel imageUrl={logoMarkUrl} onReturnToCover={() => navigate('/')} />
             )}
-
             {activeTab === 'preferences' && (
-              <div className="space-y-8">
-                <h2 className="text-lg font-bold text-slate-900 mb-6">Preferencias del Sistema</h2>
-
-                <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5" aria-labelledby="runtime-status-title">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <h3 id="runtime-status-title" className="text-sm font-bold text-slate-900">Recursos de esta estación</h3>
-                      <p className="mt-1 text-xs text-slate-500">Disponibilidad comprobada; no representa conexión a internet ni una licencia comercial.</p>
-                    </div>
-                    <button type="button" onClick={() => void refreshRuntimeHealth()} disabled={runtimeHealthLoading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-50">
-                      <RefreshCw size={14} className={runtimeHealthLoading ? 'animate-spin' : ''} /> Comprobar
-                    </button>
-                  </div>
-                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                    {['vault', 'rag', 'rust', 'gguf'].map((id) => {
-                      const check = runtimeCheck(id);
-                      return (
-                        <div key={id} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-                          {check?.ok ? <CheckCircle2 size={15} className="text-emerald-600" /> : <AlertTriangle size={15} className="text-amber-600" />}
-                          <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-700">{check?.label || 'Comprobando recurso'}</span>
-                          <span className={`text-[9px] font-bold uppercase ${check?.ok ? 'text-emerald-700' : 'text-amber-700'}`}>{check?.ok ? 'Listo' : 'Pendiente'}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-
-                <div className="space-y-6">
-                  <div className="group">
-                    <label htmlFor="default-workspace" className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Pantalla al iniciar</label>
-                    <div className="relative">
-                      <select
-                        id="default-workspace"
-                        value={defaultWorkspace}
-                        onChange={(event) => {
-                          setDefaultWorkspace(event.target.value as typeof defaultWorkspace);
-                          setPreferenceSaved(false);
-                        }}
-                        className="w-full max-w-sm rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-4 focus:ring-legal-gold/10 focus:border-legal-gold/50 bg-slate-50 font-medium transition-all appearance-none"
-                      >
-                        <option value="instructivo">Inicio</option>
-                        <option value="engineering">Ingeniería Jurídica</option>
-                        <option value="fiscal">Fiscal</option>
-                      </select>
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                        <ChevronRight size={16} className="rotate-90" />
-                      </div>
-                    </div>
-                    <p className="mt-2 text-xs text-slate-500">Define la primera herramienta que se abre después de entrar a la estación.</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between gap-4 border-t border-slate-100 pt-5">
-                  <p className="text-[11px] text-slate-400 font-medium">La preferencia se guarda únicamente en este dispositivo.</p>
-                  <button
-                    type="button"
-                    onClick={handleSavePreferences}
-                    className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-bold text-white shadow-md transition-colors hover:bg-slate-800"
-                  >
-                    {preferenceSaved && <CheckCircle2 size={15} className="text-emerald-300" />}
-                    {preferenceSaved ? 'Guardado' : 'Guardar preferencia'}
-                  </button>
-                </div>
-              </div>
+              <PreferencesSettingsPanel
+                runtimeChecks={runtimeHealth?.checks || []}
+                runtimeHealthLoading={runtimeHealthLoading}
+                defaultWorkspace={defaultWorkspace}
+                preferenceSaved={preferenceSaved}
+                onRefreshRuntime={() => void refreshRuntimeHealth()}
+                onWorkspaceChange={(workspace) => {
+                  setDefaultWorkspace(workspace);
+                  setPreferenceSaved(false);
+                }}
+                onSave={handleSavePreferences}
+              />
             )}
-
             {activeTab === 'ia' && (
               <div className="space-y-8">
                 <div>
@@ -428,10 +321,10 @@ export const Settings: React.FC = () => {
                       </div>
                       <div>
                         <h3 className="text-sm font-bold text-slate-900">Modo local</h3>
-                        <p className="text-[11px] text-slate-500 mt-0.5">{localGenerationReady ? 'Motor y modelo instalados en este equipo.' : 'Seleccionable, pero la inferencia no está instalada.'}</p>
+                        <p className="mt-0.5 text-xs text-slate-500">{localGenerationReady ? 'Motor y modelo instalados en este equipo.' : 'Seleccionable, pero la inferencia no está instalada.'}</p>
                       </div>
                     </div>
-                    <p className={`mt-3 text-[10px] font-bold uppercase tracking-wider ${localGenerationReady ? 'text-emerald-700' : 'text-amber-800'}`}>{localGenerationReady ? 'Generación disponible' : 'Motor o GGUF pendiente'}</p>
+                    <p className={`mt-3 text-xs font-bold uppercase tracking-wider ${localGenerationReady ? 'text-emerald-700' : 'text-amber-800'}`}>{localGenerationReady ? 'Generación disponible' : 'Motor o GGUF pendiente'}</p>
                   </div>
 
                   <div className={`p-5 rounded-2xl border ${byokEnabled ? 'bg-blue-50 border-blue-100' : 'bg-slate-50 border-slate-200'}`}>
@@ -441,7 +334,7 @@ export const Settings: React.FC = () => {
                       </div>
                       <div>
                         <h3 className="text-sm font-bold text-slate-900">BYOK multiproveedor</h3>
-                        <p className="text-[11px] text-slate-500 mt-0.5">{BYOK_PROVIDER_LABELS[byokProvider]} con tu API key.</p>
+                        <p className="mt-0.5 text-xs text-slate-500">{BYOK_PROVIDER_LABELS[byokProvider]} con tu API key.</p>
                       </div>
                     </div>
                   </div>
@@ -455,7 +348,7 @@ export const Settings: React.FC = () => {
                         Controla cualquier conexión externa que no sea iniciada por el usuario.
                       </p>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${strictPrivacy ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-amber-50 text-amber-700 border border-amber-100'}`}>
+                    <span className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${strictPrivacy ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-amber-50 text-amber-700 border border-amber-100'}`}>
                       {strictPrivacy ? 'Conexiones de fondo bloqueadas' : 'Conexiones de fondo permitidas'}
                     </span>
                   </div>
@@ -515,7 +408,7 @@ export const Settings: React.FC = () => {
 
                 <div className="space-y-5 p-6 bg-slate-50 rounded-2xl border border-slate-200">
                   <div>
-                    <label htmlFor="byok-provider" className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Proveedor BYOK</label>
+                    <label htmlFor="byok-provider" className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-500">Proveedor BYOK</label>
                     <select
                       id="byok-provider"
                       value={byokProvider}
@@ -550,7 +443,7 @@ export const Settings: React.FC = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-3">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">API key de {BYOK_PROVIDER_LABELS[byokProvider]}</label>
+                      <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-500">API key de {BYOK_PROVIDER_LABELS[byokProvider]}</label>
                       <input
                         type="password"
                         value={byokApiKey}
@@ -559,7 +452,7 @@ export const Settings: React.FC = () => {
                         className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-4 focus:ring-legal-gold/10 focus:border-legal-gold/50 bg-white font-medium transition-all"
                       />
                       {hasApiKey && (
-                        <p className="text-[10px] text-slate-400 font-medium mt-2">
+                        <p className="mt-2 text-xs font-medium text-slate-500">
                           Key guardada localmente. Huella: <code className="bg-slate-200 px-1 py-0.5 rounded">{apiKeyFingerprint}</code>
                         </p>
                       )}
@@ -570,7 +463,7 @@ export const Settings: React.FC = () => {
                       )}
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Modelo</label>
+                      <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-500">Modelo</label>
                       <input
                         type="text"
                         value={byokModel}
@@ -582,7 +475,7 @@ export const Settings: React.FC = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-[1fr_150px] gap-3 items-end">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Límite de texto enviado al proveedor</label>
+                      <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-500">Límite de texto enviado al proveedor</label>
                       <input
                         type="range"
                         min={10000}
@@ -592,7 +485,7 @@ export const Settings: React.FC = () => {
                         onChange={(e) => setMaxInputChars(Number(e.target.value))}
                         className="w-full accent-slate-900"
                       />
-                      <p className="text-[10px] text-slate-400 font-medium mt-2">
+                      <p className="mt-2 text-xs font-medium text-slate-500">
                         Control de costo y exposición: se recorta primero la evidencia, conservando las instrucciones y el contrato de salida.
                       </p>
                     </div>
@@ -651,157 +544,29 @@ export const Settings: React.FC = () => {
             )}
 
             {activeTab === 'trazabilidad' && (
-              <div className="space-y-8">
-                <h2 className="text-lg font-bold text-slate-900 mb-6">Auditoría y Trazabilidad Local</h2>
-
-                <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl flex gap-4">
-                  <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center shrink-0">
-                    <Shield size={20} className="text-slate-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">Bitácora Local de Decisiones (Ledger)</h3>
-                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                      Las operaciones jurídicas locales y BYOK compatibles quedan registradas
-                      en una bitácora JSONL saneada en este equipo. Este registro almacena hashes de entradas y salidas, 
-                      identificadores exactos de fuentes, vínculos afirmación–fuente y metadatos mínimos de trazabilidad, sin guardar el texto completo del portafolio.
-                    </p>
-                    <p className="text-[10px] text-slate-400 font-medium mt-2">
-                      Ruta local: <code className="break-all bg-slate-200 px-1 py-0.5 rounded">{ledgerStatus?.path || 'Consultando ruta local...'}</code>
-                    </p>
-                    <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                      {ledgerStatus?.exists
-                        ? `${Math.max(1, Math.round(ledgerStatus.size / 1024))} KB disponibles`
-                        : 'Sin registros todavía'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-slate-100">
-                  <p className="text-xs text-slate-500" role="status">{ledgerMessage}</p>
-                  <button
-                    onClick={handleExportLedger}
-                    disabled={ledgerExporting || !ledgerStatus?.exists}
-                    className="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-md"
-                  >
-                    <Download size={16} />
-                    {ledgerExporting ? 'Exportando...' : 'Exportar bitácora'}
-                  </button>
-                </div>
-              </div>
+              <TraceabilitySettingsPanel
+                ledgerStatus={ledgerStatus}
+                ledgerExporting={ledgerExporting}
+                ledgerMessage={ledgerMessage}
+                onExport={() => void handleExportLedger()}
+              />
             )}
-
             {activeTab === 'data' && (
-              <div className="space-y-8">
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">Datos locales</h2>
-                  <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-500">
-                    Los portafolios se conservan al desinstalar. Desde aquí puedes crear un respaldo legible o eliminarlos de forma explícita.
-                  </p>
-                </div>
-
-                <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="flex max-w-2xl items-start gap-3">
-                      <span className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600"><DatabaseBackup size={20} /></span>
-                      <div>
-                        <h3 className="text-sm font-bold text-slate-900">Exportar respaldo integral</h3>
-                        <p className="mt-1 text-xs leading-5 text-slate-500">Incluye portafolios, documentos, análisis, borradores y estado de trabajo en un JSON con hash SHA-256. El respaldo queda sin cifrar en la ubicación que elijas; protégelo como información confidencial.</p>
-                      </div>
-                    </div>
-                    <button type="button" onClick={() => void handleExportVault()} disabled={vaultExporting} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white hover:bg-slate-800 disabled:opacity-50">
-                      <Download size={15} /> {vaultExporting ? 'Exportando…' : 'Exportar respaldo'}
-                    </button>
-                  </div>
-                </section>
-
-                <section className="rounded-2xl border border-red-200 bg-red-50 p-5" aria-labelledby="delete-vault-title">
-                  <div className="flex items-start gap-3">
-                    <span className="rounded-xl border border-red-200 bg-white p-2 text-red-600"><Trash2 size={20} /></span>
-                    <div className="min-w-0 flex-1">
-                      <h3 id="delete-vault-title" className="text-sm font-bold text-red-900">Eliminar toda la bóveda local</h3>
-                      <p className="mt-1 text-xs leading-5 text-red-800">La eliminación es irreversible. Exporta primero un respaldo si necesitas conservar el trabajo.</p>
-                      <label htmlFor="delete-vault-confirmation" className="mt-4 block text-[11px] font-bold uppercase tracking-wider text-red-800">Escribe ELIMINAR para habilitar la acción</label>
-                      <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                        <input id="delete-vault-confirmation" value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} autoComplete="off" className="min-h-10 flex-1 rounded-xl border border-red-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-200" />
-                        <button type="button" onClick={() => void handleDeleteVault()} disabled={deleteConfirmation !== 'ELIMINAR' || vaultDeleting} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-red-700 px-4 text-xs font-bold text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-40">
-                          <Trash2 size={15} /> {vaultDeleting ? 'Eliminando…' : 'Eliminar datos'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-
-                <p className="text-xs text-slate-600" role="status">{vaultMessage}</p>
-              </div>
+              <LocalDataSettingsPanel
+                vaultExporting={vaultExporting}
+                vaultDeleting={vaultDeleting}
+                vaultMessage={vaultMessage}
+                deleteConfirmation={deleteConfirmation}
+                onDeleteConfirmationChange={setDeleteConfirmation}
+                onExport={() => void handleExportVault()}
+                onDelete={() => void handleDeleteVault()}
+              />
             )}
-
             {activeTab === 'legal' && (
-              <div className="space-y-8">
-                <h2 className="text-lg font-bold text-slate-900 mb-6">Legal y Transparencia</h2>
-
-                <div className="grid grid-cols-1 gap-3">
-                  <button onClick={() => navigate('/terms')} className="w-full flex items-center justify-between p-5 rounded-2xl border border-slate-200 hover:border-legal-gold/30 hover:bg-slate-50 transition-all text-left group">
-                    <div className="flex items-center gap-4">
-                        <div className="p-2 bg-slate-50 rounded-lg group-hover:bg-white transition-colors">
-                            <FileText size={18} className="text-slate-400 group-hover:text-legal-gold" />
-                        </div>
-                        <span className="text-sm font-bold text-slate-700 group-hover:text-slate-900">Términos y Condiciones</span>
-                    </div>
-                    <ChevronRight size={16} className="text-slate-300 group-hover:translate-x-1 transition-all" />
-                  </button>
-                  
-                  <button onClick={() => navigate('/privacy')} className="w-full flex items-center justify-between p-5 rounded-2xl border border-slate-200 hover:border-legal-gold/30 hover:bg-slate-50 transition-all text-left group">
-                    <div className="flex items-center gap-4">
-                        <div className="p-2 bg-slate-50 rounded-lg group-hover:bg-white transition-colors">
-                            <Shield size={18} className="text-slate-400 group-hover:text-legal-gold" />
-                        </div>
-                        <span className="text-sm font-bold text-slate-700 group-hover:text-slate-900">Aviso de Privacidad</span>
-                    </div>
-                    <ChevronRight size={16} className="text-slate-300 group-hover:translate-x-1 transition-all" />
-                  </button>
-                </div>
-
-                <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                    <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-4 uppercase tracking-wider">
-                      <HelpCircle size={16} className="text-legal-gold" /> Protocolo de Inteligencia Jurídica
-                    </h3>
-                    <ul className="text-xs text-slate-600 space-y-3 font-medium leading-relaxed">
-                      <li className="flex gap-2"><span className="text-legal-gold">•</span> Lex Corporativo es un sistema de soporte documental asistido, no constituye asesoría legal vinculante.</li>
-                      <li className="flex gap-2"><span className="text-legal-gold">•</span> Toda resolución generada por el sistema debe ser validada por un profesional del derecho.</li>
-                      <li className="flex gap-2"><span className="text-legal-gold">•</span> En modo local, el procesamiento permanece en este equipo. Con BYOK, la selección mostrada en IA y API se transmite al proveedor elegido bajo sus políticas.</li>
-                    </ul>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'session' && (
-              <div className="space-y-8">
-                <h2 className="text-lg font-bold text-slate-900 mb-6">Gestión de Sesión</h2>
-
-                <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 bg-white rounded-lg border border-slate-200">
-                        <Lock size={18} className="text-slate-400" />
-                    </div>
-                    <div>
-                        <h4 className="text-sm font-bold text-slate-900 mb-1">Sesión Local</h4>
-                        <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                            La estación trabaja sin autenticación en la nube. Los portafolios y registros se conservan localmente en este dispositivo.
-                        </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-6 border-t border-slate-100">
-                  <button 
-                    onClick={handleLogout}
-                    className="flex items-center gap-3 px-6 py-3 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-2xl text-sm font-bold transition-all group shadow-sm"
-                  >
-                    <LogOut size={18} className="group-hover:-translate-x-1 transition-transform" />
-                    Cerrar Sesión Activa
-                  </button>
-                </div>
-              </div>
+              <LegalSettingsPanel
+                onOpenTerms={() => navigate('/terms')}
+                onOpenPrivacy={() => navigate('/privacy')}
+              />
             )}
           </div>
         </div>

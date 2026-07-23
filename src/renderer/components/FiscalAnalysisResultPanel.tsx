@@ -93,7 +93,7 @@ export const FiscalAnalysisResultPanel: React.FC<FiscalAnalysisResultPanelProps>
             <p className="mt-3 text-sm leading-6 text-slate-600">{result.summary}</p>
           </div>
           <div className="min-w-36 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center">
-            <span className="block text-[10px] font-bold uppercase tracking-wider text-emerald-700">Preparación</span>
+            <span className="block text-xs font-bold uppercase tracking-wider text-emerald-700">Preparación</span>
             <strong className="mt-1 block text-4xl font-black text-fiscal">{preparation}</strong>
             <span className="text-xs text-emerald-800">de 100</span>
           </div>
@@ -112,7 +112,7 @@ export const FiscalAnalysisResultPanel: React.FC<FiscalAnalysisResultPanelProps>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               {Object.entries(result.riskCategories).map(([category, items]) => items?.length ? (
                 <div key={category}>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{category.replace(/([A-Z])/g, ' $1')}</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">{category.replace(/([A-Z])/g, ' $1')}</span>
                   <p className="mt-1 text-sm leading-6 text-slate-700">{items.join(' · ')}</p>
                 </div>
               ) : null)}

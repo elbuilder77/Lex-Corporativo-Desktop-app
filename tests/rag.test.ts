@@ -87,39 +87,38 @@ function createQuery(label: string, rows: any[]) {
   let filterValue: string | undefined;
 
   return {
-    filter(value: string) {
+    where(value: string) {
       filterValue = value;
       ragMockState.filters.push(`${label}:${value}`);
       return this;
     },
-    where(value: string) {
-      return this.filter(value);
-    },
     limit() {
       return this;
     },
-    async execute() {
+    async toArray() {
       return filterRows(rows, filterValue);
     },
   };
 }
 
-vi.mock('vectordb', () => {
+vi.mock('@lancedb/lancedb', () => {
   const legalTable = {
-    search: () => createQuery('legal-search', ragMockState.legalRows),
-    filter: (value: string) => createQuery('legal-filter', ragMockState.legalRows).filter(value),
+    vectorSearch: () => createQuery('legal-search', ragMockState.legalRows),
+    query: () => createQuery('legal-filter', ragMockState.legalRows),
   };
 
   const userTable = {
-    search: () => createQuery('user-search', ragMockState.userRows),
+    vectorSearch: () => createQuery('user-search', ragMockState.userRows),
+    query: () => createQuery('user-filter', ragMockState.userRows),
     async delete() {},
     async add() {
       return 1;
     },
-    async createScalarIndex() {},
+    async createIndex() {},
   };
 
   return {
+    Index: { btree: () => ({ type: 'btree' }) },
     connect: vi.fn(async () => ({
       tableNames: async () => ['user_documents'],
       openTable: async (name: string) => (name === 'legal_knowledge' ? legalTable : userTable),

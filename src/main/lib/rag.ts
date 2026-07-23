@@ -1,7 +1,7 @@
 import { app } from 'electron';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
-import * as lancedb from 'vectordb';
+import * as lancedb from '@lancedb/lancedb';
 import * as path from 'path';
 import type { DocumentChunk } from './chunking';
 import { getModuleLabel, isLawAllowedForModule, normalizeLawCode, type LegalModule } from './prompts';
@@ -170,9 +170,10 @@ async function getLexicalMatches(
 
   try {
     const rows = await table
-      .filter(`module = '${module}'`)
+      .query()
+      .where(`module = '${module}'`)
       .limit(5000)
-      .execute();
+      .toArray();
 
     return rows
       .map((row: any) => ({ row, score: scoreLexicalMatch(row, terms) }))
@@ -307,7 +308,7 @@ function synchronizePackagedLegalKnowledge(userDataPath: string, bundledPath: st
 }
 
 async function listUserDocumentRows(table: lancedb.Table): Promise<any[]> {
-  return table.filter('id IS NOT NULL').limit(1_000_000).execute();
+  return table.query().where('id IS NOT NULL').limit(1_000_000).toArray();
 }
 
 async function deleteUserDocumentRowsById(table: lancedb.Table, ids: string[]): Promise<void> {
@@ -355,27 +356,28 @@ async function searchLegalKnowledge(
     const storedLawCode = explicitTarget.lawCode === 'CCOM' ? 'CCom' : explicitTarget.lawCode;
     const label = `${explicitTarget.kind === 'rule' || explicitTarget.lawCode === 'RMF' ? 'Regla' : 'Artículo'} ${explicitTarget.id}`;
     explicitResults = await table
-      .filter(`law_code = '${escapeSqlLiteral(storedLawCode)}' AND article = '${escapeSqlLiteral(label)}' AND module = '${module}'`)
+      .query()
+      .where(`law_code = '${escapeSqlLiteral(storedLawCode)}' AND article = '${escapeSqlLiteral(label)}' AND module = '${module}'`)
       .limit(1)
-      .execute();
+      .toArray();
   }
 
   let searchResults: any[] = [];
   try {
     searchResults = await table
-      .search(vector)
-      .filter(`module = '${module}'`)
+      .vectorSearch(vector)
+      .where(`module = '${module}'`)
       .limit(rawLimit)
-      .execute();
+      .toArray();
   } catch (err: any) {
     console.warn(`[RAG Local] Module filter failed for ${module}; using post-filter fallback:`, err.message || err);
   }
 
   if (searchResults.length === 0) {
     searchResults = await table
-      .search(vector)
+      .vectorSearch(vector)
       .limit(rawLimit)
-      .execute();
+      .toArray();
   }
 
   const lexicalResults = (await getLexicalMatches(table, query, module, limit))
@@ -497,10 +499,10 @@ async function searchUserDocuments(
   const rawLimit = Math.max(limit * 3, 12);
   const requestFilter = `"requestId" = '${escapeSqlLiteral(requestId)}' AND module = '${module}'`;
   const rows: any[] = await table
-    .search(vector)
-    .filter(requestFilter)
+    .vectorSearch(vector)
+    .where(requestFilter)
     .limit(rawLimit)
-    .execute();
+    .toArray();
 
   return rows
     .filter((row: any) => row.requestId === requestId && row.module === module)
@@ -664,15 +666,15 @@ export async function indexUserDocument(input: IndexUserDocumentInput): Promise<
       console.warn('[RAG Local] Recreating user_documents due to incompatible schema:', err.message || err);
       await db.dropTable('user_documents');
       const recreated = await db.createTable('user_documents', records);
-      await recreated.createScalarIndex('requestId').catch(() => undefined);
-      await recreated.createScalarIndex('module').catch(() => undefined);
-      await recreated.createScalarIndex('contentHash').catch(() => undefined);
+      await recreated.createIndex('requestId', { config: lancedb.Index.btree() }).catch(() => undefined);
+      await recreated.createIndex('module', { config: lancedb.Index.btree() }).catch(() => undefined);
+      await recreated.createIndex('contentHash', { config: lancedb.Index.btree() }).catch(() => undefined);
     }
   } else {
     const table = await db.createTable('user_documents', records);
-    await table.createScalarIndex('requestId').catch(() => undefined);
-    await table.createScalarIndex('module').catch(() => undefined);
-    await table.createScalarIndex('contentHash').catch(() => undefined);
+    await table.createIndex('requestId', { config: lancedb.Index.btree() }).catch(() => undefined);
+    await table.createIndex('module', { config: lancedb.Index.btree() }).catch(() => undefined);
+    await table.createIndex('contentHash', { config: lancedb.Index.btree() }).catch(() => undefined);
   }
 
   console.info(`[RAG Local] User document '${input.fileName}' indexed for ${input.module}. ${chunks.length} chunks in ${Date.now() - startMs}ms from ${dbPath}`);

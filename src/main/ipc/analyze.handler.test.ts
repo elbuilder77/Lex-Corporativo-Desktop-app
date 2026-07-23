@@ -16,7 +16,7 @@ vi.mock('@xenova/transformers', () => ({
   env: {},
 }));
 
-vi.mock('vectordb', () => ({
+vi.mock('@lancedb/lancedb', () => ({
   connect: vi.fn(),
 }));
 

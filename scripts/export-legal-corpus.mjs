@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from 'fs';
 import path from 'path';
-import * as lancedb from 'vectordb';
+import * as lancedb from '@lancedb/lancedb';
 import { CORPUS_DIR, LANCEDB_DIR, LAWS } from './legal-corpus-config.mjs';
 
 const args = new Set(process.argv.slice(2));
@@ -95,9 +95,10 @@ async function main() {
     }
 
     const rows = await table
-      .filter(`law_code = '${escapeSqlLiteral(law.code)}'`)
+      .query()
+      .where(`law_code = '${escapeSqlLiteral(law.code)}'`)
       .limit(20000)
-      .execute();
+      .toArray();
 
     if (rows.length === 0) {
       console.warn(`${law.code}: sin filas en LanceDB; no se generó corpus.`);

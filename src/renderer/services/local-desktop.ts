@@ -15,10 +15,6 @@ export async function startLocalSession(): Promise<LexUser> {
   return LOCAL_DESKTOP_USER;
 }
 
-export async function endLocalSession(): Promise<void> {
-  return;
-}
-
 export async function purgeExpiredCases(): Promise<number> {
   try {
     const result = await window.lexDesktop.cases.purgeExpired();

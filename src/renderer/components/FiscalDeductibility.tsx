@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, ReceiptText } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ensureModuleActivity } from '../lib/case-access';
-import { generateAnalysisPDF } from '../lib/pdf-generator';
+import { generateAnalysisPDF } from '../lib/pdf-export';
 import { useCaseStore } from '../store/useCaseStore';
 import { useUiStore } from '../store/useUiStore';
 import type { DocumentAnalysisResult } from '../types';
@@ -202,7 +202,7 @@ export const FiscalDeductibility: React.FC = () => {
           <>
             <header className="flex items-start gap-4">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-fiscal/10 text-fiscal"><ReceiptText size={24} strokeWidth={1.8} /></div>
-              <div><div className="flex flex-wrap items-center gap-2"><h2 className="text-2xl font-bold text-slate-950">Deducibilidad e IVA acreditable</h2><span className="rounded-full bg-slate-200 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-600">Evaluación por reglas</span></div><p className="mt-1 max-w-3xl text-sm text-slate-600">Ordena requisitos cumplidos, pendientes y acciones sin depender de un modelo generativo.</p></div>
+              <div><div className="flex flex-wrap items-center gap-2"><h2 className="text-2xl font-bold text-slate-950">Deducibilidad e IVA acreditable</h2><span className="rounded-full bg-slate-200 px-2 py-1 text-xs font-bold uppercase tracking-wider text-slate-600">Evaluación por reglas</span></div><p className="mt-1 max-w-3xl text-sm text-slate-600">Ordena requisitos cumplidos, pendientes y acciones sin depender de un modelo generativo.</p></div>
             </header>
 
             <section className="mx-auto w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">

@@ -7,7 +7,7 @@ import {
   type DraftingTemplate,
 } from '../lib/constants';
 import { ensureModuleActivity } from '../lib/case-access';
-import { generateDocumentPDF } from '../lib/pdf-generator';
+import { generateDocumentPDF } from '../lib/pdf-export';
 import { draftLegalDocument } from '../services/ai';
 import { useCaseStore } from '../store/useCaseStore';
 import { useUiStore } from '../store/useUiStore';
@@ -164,7 +164,7 @@ export const FiscalDocumentation: React.FC = () => {
                       <div className="min-w-0"><p className="text-xs font-bold text-emerald-900">Contexto disponible del expediente</p><p className="mt-1 line-clamp-2 text-xs leading-5 text-emerald-800">{fiscalOperationState.description}</p></div>
                       <button type="button" onClick={incorporateOperationContext} className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 text-xs font-bold text-emerald-800 hover:bg-emerald-100"><Link2 size={14} /> Incorporar</button>
                     </div>
-                    <p className="mt-2 text-[10px] leading-4 text-emerald-700">El contexto se añadirá a la solicitud y seguirá el modo de procesamiento configurado.</p>
+                    <p className="mt-2 text-xs leading-4 text-emerald-700">El contexto se añadirá a la solicitud y seguirá el modo de procesamiento configurado.</p>
                   </div>
                 )}
                 <textarea

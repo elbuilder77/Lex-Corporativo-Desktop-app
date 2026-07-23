@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, FileText, Settings2, Play, AlertTriangle, Scale, CheckCircle, ArrowDownToLine, ChevronDown, ChevronRight, Check, History, X } from 'lucide-react';
+import { Upload, FileText, Settings2, Play, Scale, CheckCircle, Check, History, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useUiStore } from '../store/useUiStore';
 import { DocumentAnalysisResult, AnalyzedDocumentHistory } from '../types';
@@ -8,12 +8,14 @@ import { cn } from '../lib/utils';
 import { ensureModuleActivity } from '../lib/case-access';
 import { MODULE_CONTENT } from '../lib/product-content';
 import { getAnalysisPromptProfile } from '../../shared/legal-contracts';
-import { generateAnalysisPDF } from '../lib/pdf-generator';
+import { generateAnalysisPDF } from '../lib/pdf-export';
 import {
   FISCAL_ANALYSIS_WORKFLOWS,
   type FiscalAnalysisTab,
 } from '../lib/fiscal-workflows';
 import logoUrl from '../assets/logo-lockup-transparent.png';
+import { DocumentAnalysisHistoryPanel } from './document-analysis/DocumentAnalysisHistoryPanel';
+import { DocumentAnalysisResultPanel } from './document-analysis/DocumentAnalysisResultPanel';
 
 interface DocumentAnalysisViewProps {
   fiscalWorkflow?: FiscalAnalysisTab;
@@ -421,202 +423,28 @@ export const DocumentAnalysisView: React.FC<DocumentAnalysisViewProps> = ({
 
           {/* Result Panel */}
           {result && !isAnalyzing && (
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-700">
-              <div className="bg-slate-900 p-8 flex justify-between items-start text-white relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-legal-gold opacity-10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-                
-                <div className="relative z-10 w-full flex justify-between items-start">
-                  <div>
-                    <h3 className="mb-2 font-serif text-2xl font-bold text-white">{fiscalContent.reportTitle}</h3>
-                    <div className="flex gap-4 text-xs uppercase tracking-widest font-bold text-legal-gold/70">
-                      <span className="bg-white/10 px-2 py-1 rounded-md">Tipo: {result.documentType || 'Jurídico'}</span>
-                      <span className="bg-white/10 px-2 py-1 rounded-md">Confianza: {result.confidence}</span>
-                      <span className="bg-white/10 px-2 py-1 rounded-md">Motor: {result.engine}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-1 bg-black/20 rounded-lg p-1 backdrop-blur-sm border border-white/10">
-                    <button type="button" onClick={() => setZoomLevel(z => Math.max(0.8, z - 0.1))} className="w-8 h-8 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 rounded-md transition-colors font-serif italic text-base" title="Reducir texto">A-</button>
-                    <div className="w-px h-4 bg-white/10 mx-1" />
-                    <button type="button" onClick={() => setZoomLevel(z => Math.min(1.5, z + 0.1))} className="w-8 h-8 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 rounded-md transition-colors font-serif italic text-xl" title="Aumentar texto">A+</button>
-                  </div>
-                </div>
-                
-                <div className="relative z-10 flex flex-col items-end">
-                  <span className="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-300">Índice de revisión</span>
-                  <div className={cn("text-4xl font-black tracking-tighter", 
-                    result.riskScore > 70 ? 'text-red-300' : result.riskScore > 40 ? 'text-amber-300' : 'text-emerald-300'
-                  )}>
-                    {result.riskScore}<span className="text-xl opacity-50">/100</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-5 md:p-8 space-y-8 md:space-y-10 origin-top" style={{ zoom: zoomLevel }}>
-                <section>
-                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2"><FileText size={14} /> Resumen Ejecutivo</h4>
-                  <p className="text-base text-slate-700 leading-relaxed font-medium bg-slate-50 p-4 rounded-xl border border-slate-200">{result.summary || 'Sin resumen disponible.'}</p>
-                </section>
-
-                <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Partes Identificadas</h4>
-                    <ul className="space-y-2">
-                      {result.detectedParties?.length ? result.detectedParties.map((p, i) => <li key={i} className="text-sm text-slate-700 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 font-medium">{p}</li>) : <li className="text-sm text-slate-500 italic">No detectadas</li>}
-                    </ul>
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Obligaciones Clave</h4>
-                    <ul className="space-y-2">
-                      {result.detectedObligations?.length ? result.detectedObligations.map((o, i) => <li key={i} className="text-sm text-slate-700 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 font-medium">{o}</li>) : <li className="text-sm text-slate-500 italic">No detectadas</li>}
-                    </ul>
-                  </div>
-                </section>
-
-                {((result.missingData?.length || 0) > 0 || (result.checklist?.length || 0) > 0) && (
-                  <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {(result.missingData?.length || 0) > 0 && (
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Datos Faltantes</h4>
-                        <ul className="space-y-2">
-                          {result.missingData?.map((item, i) => <li key={i} className="text-sm text-amber-800 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200 font-medium">{item}</li>)}
-                        </ul>
-                      </div>
-                    )}
-                    {(result.checklist?.length || 0) > 0 && (
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Checklist</h4>
-                        <ul className="space-y-2">
-                          {result.checklist?.map((item, i) => <li key={i} className="text-sm text-slate-700 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 font-medium">{item}</li>)}
-                        </ul>
-                      </div>
-                    )}
-                  </section>
-                )}
-
-                <section>
-                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2"><AlertTriangle size={14} /> Hallazgos y Contingencias ({result.risks?.length || 0})</h4>
-                  {result.risks?.length > 0 ? (
-                    <div className="space-y-4">
-                      {result.risks.map((risk, index) => (
-                        <div key={index} className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                          <button onClick={() => setExpandedRisks(prev => ({ ...prev, [index]: !prev[index] }))} className="w-full bg-slate-50 p-5 flex items-center justify-between hover:bg-slate-100 transition-colors">
-                            <div className="flex items-center gap-4">
-                              <div className={cn("w-2 h-2 rounded-full", risk.severity === 'high' ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]' : risk.severity === 'medium' ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]')} />
-                              <span className="text-base font-bold text-slate-900">{risk.title}</span>
-                            </div>
-                            {expandedRisks[index] ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
-                          </button>
-                          
-                          {expandedRisks[index] && (
-                            <div className="p-6 bg-white space-y-6 border-t border-slate-200">
-                              <p className="text-base text-slate-700 leading-relaxed">{risk.explanation}</p>
-                              
-                              {risk.relatedClauses?.length > 0 && (
-                                <div>
-                                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Cláusulas del Documento:</span>
-                                  <div className="flex flex-wrap gap-2">
-                                    {risk.relatedClauses.map((c, i) => <span key={i} className="bg-slate-100 text-slate-700 text-xs px-2.5 py-1 rounded-md border border-slate-200 font-bold shadow-sm">{c}</span>)}
-                                  </div>
-                                </div>
-                              )}
-
-                              {risk.legalFoundations?.length > 0 && (
-                                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 shadow-sm">
-                                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5 mb-3"><Scale size={12} className="text-legal-gold" /> Fundamentos Recuperados (Corpus Local)</span>
-                                  <ul className="space-y-4">
-                                    {risk.legalFoundations.map((lf, i) => (
-                                      <li key={i} className="text-sm text-slate-700 leading-relaxed">
-                                        <strong className="text-slate-900">{lf.title || lf.law} {lf.article ? `Art. ${lf.article}` : ''}:</strong> <span className="opacity-80">{lf.excerpt}</span>
-                                        {lf.relevanceScore && <span className="block text-[10px] text-slate-500 mt-1 uppercase tracking-widest font-bold">Confianza Semántica: {(lf.relevanceScore * 100).toFixed(0)}%</span>}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-8 border border-dashed border-slate-200 rounded-xl text-center bg-slate-50"><p className="text-base text-slate-500 font-medium">No se identificaron contingencias críticas.</p></div>
-                  )}
-                </section>
-
-                <section>
-                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2"><CheckCircle size={14} /> Acciones Recomendadas</h4>
-                  {result.recommendedActions?.length > 0 ? (
-                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {result.recommendedActions.map((action, i) => (
-                        <li key={i} className="flex gap-3 text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-xl p-4 shadow-sm items-center">
-                          <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0"><Check size={12} className="text-emerald-600" /></div>
-                          <span className="font-medium leading-relaxed">{action}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-slate-500 italic">No hay acciones correctivas requeridas.</p>
-                  )}
-                </section>
-              </div>
-              
-              <div className="bg-white border-t border-slate-200 p-5 flex justify-end">
-                <button
-                  type="button"
-                  onClick={exportReport}
-                  disabled={isExportingPdf}
-                  className="px-6 py-2.5 bg-slate-900 border border-slate-800 text-white text-sm font-bold uppercase tracking-widest rounded-xl hover:bg-slate-800 flex items-center gap-2 transition-colors shadow-sm active:scale-95 disabled:cursor-wait disabled:opacity-60"
-                >
-                  <ArrowDownToLine size={14} /> {isExportingPdf ? 'Preparando PDF...' : 'Exportar PDF'}
-                </button>
-              </div>
-            </div>
+            <DocumentAnalysisResultPanel
+              result={result}
+              reportTitle={fiscalContent.reportTitle}
+              expandedRisks={expandedRisks}
+              zoomLevel={zoomLevel}
+              isExportingPdf={isExportingPdf}
+              onToggleRisk={(index) => setExpandedRisks((current) => ({ ...current, [index]: !current[index] }))}
+              onZoomChange={setZoomLevel}
+              onExport={() => void exportReport()}
+            />
           )}
         </div>
 
-        {/* History Sidebar */}
-        {showHistory && (
-          <button
-            type="button"
-            className="fixed inset-0 z-20 bg-slate-900/20 backdrop-blur-[2px]"
-            onClick={() => setShowHistory(false)}
-            aria-label="Cerrar historial"
-          />
-        )}
-        <aside
-          aria-label="Historial de dictámenes"
-          aria-hidden={!showHistory}
-          className={cn("fixed top-0 right-0 h-full w-[min(22rem,92vw)] bg-white/95 backdrop-blur-xl border-l border-slate-200 shadow-[0_0_40px_rgba(0,0,0,0.1)] transform transition-transform duration-300 z-30 pt-[72px]", showHistory ? "translate-x-0" : "translate-x-full")}
-        >
-          <div className="p-6 h-full flex flex-col">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest">Dictámenes Previos</h3>
-              <button onClick={() => setShowHistory(false)} className="text-slate-500 hover:text-slate-900 transition-colors p-1"><X size={16} /></button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto space-y-3 scrollbar-hide">
-              {history.length === 0 ? (
-                <div className="text-center text-sm text-slate-500 mt-10">No hay historial en este portafolio.</div>
-              ) : (
-                history.map((item) => (
-                  <button 
-                    key={item.id} 
-                    onClick={() => { setResult(item.result); setShowHistory(false); }}
-                    className="w-full p-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-left transition-all duration-300 group hover:shadow-md"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-slate-500">{new Date(item.timestamp).toLocaleDateString()}</span>
-                      <span className={cn("text-[10px] font-black px-1.5 py-0.5 rounded uppercase", item.result.riskScore > 70 ? "bg-red-50 text-red-600 border border-red-200" : "bg-emerald-50 text-emerald-600 border border-emerald-200")}>{item.result.riskScore} RSK</span>
-                    </div>
-                    <p className="text-sm font-bold text-slate-900 truncate mb-1">{item.files.map(f => f.name).join(', ')}</p>
-                    <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed group-hover:text-slate-700">{item.result.summary}</p>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        </aside>
+        <DocumentAnalysisHistoryPanel
+          open={showHistory}
+          history={history}
+          onClose={() => setShowHistory(false)}
+          onSelect={(item) => {
+            setResult(item.result);
+            setShowHistory(false);
+          }}
+        />
       </div>
     </div>
   );

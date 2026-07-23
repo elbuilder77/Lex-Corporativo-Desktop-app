@@ -1,9 +1,25 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+@font-face {
+  font-family: 'Manrope Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url('@fontsource-variable/manrope/files/manrope-latin-wght-normal.woff2') format('woff2-variations');
+}
+
+@font-face {
+  font-family: 'Playfair Display Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 900;
+  src: url('@fontsource-variable/playfair-display/files/playfair-display-latin-wght-normal.woff2') format('woff2-variations');
+}
+
 @theme {
-  --font-serif: 'Playfair Display', serif;
-  --font-sans: 'Manrope', sans-serif;
+  --font-serif: 'Playfair Display Variable', 'Playfair Display', Georgia, serif;
+  --font-sans: 'Manrope Variable', Manrope, system-ui, sans-serif;
   
   /* UX Audit: Improved contrast for accessibility */
   --color-legal-950: #0f172a;
@@ -17,6 +33,8 @@
   --color-legal-goldhover: #b38d47;
   --color-legal-golddark: #8e6d2b;
   --color-legal-accent: #3b82f6;
+  --color-legal-shell: #070b13;
+  --color-legal-rail: #090d16;
   
   /* Standardized Radius (UX Audit) */
   --radius-sm: 6px;
@@ -63,14 +81,6 @@
   }
 }
 
-:root {
-  --bg-ink: #0f172a;
-  --bg-panel: #f8fafc;
-  --bg-paper: #ffffff;
-  --accent-gold: #c5a059;
-  --accent-gold-soft: rgba(197, 160, 89, 0.12);
-}
-
 *, *::before, *::after {
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -100,6 +110,7 @@ body {
   overscroll-behavior-y: contain;
   -webkit-tap-highlight-color: transparent;
   background-color: #f8fafc;
+  font-family: 'Manrope Variable', Manrope, system-ui, sans-serif;
 }
 
 ::selection {
@@ -158,21 +169,6 @@ body {
 input:focus::placeholder,
 textarea:focus::placeholder {
   opacity: 0.4;
-}
-
-.legal-gradient {
-  background: #0f172a;
-}
-
-.glass-panel {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(226, 232, 240, 0.8);
-}
-
-.main-content-area {
-  height: calc(100vh);
 }
 
 .backdrop-mesh {

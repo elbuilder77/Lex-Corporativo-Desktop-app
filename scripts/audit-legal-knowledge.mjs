@@ -2,7 +2,7 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import * as lancedb from 'vectordb';
+import * as lancedb from '@lancedb/lancedb';
 import {
   CORPUS_DIR,
   CORPUS_MANIFEST_PATH,
@@ -69,9 +69,10 @@ async function sampleCitation(table, lawCode) {
   if (!table) return null;
   try {
     const rows = await table
-      .filter(`law_code = '${escapeSqlLiteral(lawCode)}'`)
+      .query()
+      .where(`law_code = '${escapeSqlLiteral(lawCode)}'`)
       .limit(1)
-      .execute();
+      .toArray();
     const row = rows[0];
     return row ? `${row.law_code} ${row.article}` : null;
   } catch {
@@ -86,9 +87,10 @@ async function verifyAnchor(table, anchor) {
 
   try {
     const rows = await table
-      .filter(`law_code = '${escapeSqlLiteral(anchor.lawCode)}'`)
+      .query()
+      .where(`law_code = '${escapeSqlLiteral(anchor.lawCode)}'`)
       .limit(20000)
-      .execute();
+      .toArray();
     const expectedArticle = normalizeForAudit(anchor.article);
     const row = rows.find(candidate => normalizeForAudit(candidate.article) === expectedArticle);
     const content = normalizeForAudit(row?.content || '');

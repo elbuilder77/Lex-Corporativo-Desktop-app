@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import fs from 'fs';
 import path from 'path';
-import * as lancedb from 'vectordb';
+import * as lancedb from '@lancedb/lancedb';
 
 const ragRoot = path.join(process.cwd(), '.tmp-rag-retention-test');
 
@@ -47,7 +47,7 @@ describe('temporary LanceDB document retention', () => {
     const deleted = await purgeExpiredUserDocuments(USER_DOCUMENT_TTL_MS, Date.parse('2026-07-14T12:00:00.000Z'));
     const verificationDb = await lancedb.connect(dbPath);
     const table = await verificationDb.openTable('user_documents');
-    const remaining = await table.filter('id IS NOT NULL').limit(10).execute();
+    const remaining = await table.query().where('id IS NOT NULL').limit(10).toArray();
 
     expect(remaining.map(row => row.id)).toEqual(['fresh']);
     expect(deleted).toBe(1);

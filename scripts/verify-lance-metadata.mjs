@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from 'fs';
 import path from 'path';
-import * as lancedb from 'vectordb';
+import * as lancedb from '@lancedb/lancedb';
 import { CORPUS_DIR, CORPUS_VERSION, LANCEDB_DIR, LAWS } from './legal-corpus-config.mjs';
 
 const shouldWrite = process.argv.includes('--write');
@@ -19,7 +19,7 @@ function countCorpusEntries(corpusPath) {
 async function main() {
   const db = await lancedb.connect(LANCEDB_DIR);
   const table = await db.openTable('legal_knowledge');
-  const rows = await table.filter('id IS NOT NULL').limit(20000).execute();
+  const rows = await table.query().where('id IS NOT NULL').limit(20000).toArray();
   const failures = [];
   const laws = [];
   const provisionKeys = new Set();

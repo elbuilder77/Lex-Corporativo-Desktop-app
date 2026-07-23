@@ -19,7 +19,7 @@ import {
 } from '../lib/constants';
 import { DraftingTemplatePicker } from './DraftingTemplatePicker';
 import { ensureModuleActivity } from '../lib/case-access';
-import { generateDocumentPDF } from '../lib/pdf-generator';
+import { generateDocumentPDF } from '../lib/pdf-export';
 import { BRAND_CONTENT } from '../lib/product-content';
 import { useCaseStore } from '../store/useCaseStore';
 import { useUiStore } from '../store/useUiStore';

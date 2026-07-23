@@ -3,7 +3,7 @@ import { FileText, FileUp, Loader2, ShieldCheck, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ensureModuleActivity } from '../lib/case-access';
 import { runFiscalAnalysis } from '../lib/fiscal-analysis';
-import { generateAnalysisPDF } from '../lib/pdf-generator';
+import { generateAnalysisPDF } from '../lib/pdf-export';
 import { useCaseStore } from '../store/useCaseStore';
 import { useUiStore } from '../store/useUiStore';
 import type { DocumentAnalysisResult } from '../types';

@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import { useNavigate } from 'react-router-dom';
 import { useCaseStore } from '../store/useCaseStore';
 import { useUiStore } from '../store/useUiStore';
-import { generateDocumentPDF } from '../lib/pdf-generator';
+import { generateDocumentPDF } from '../lib/pdf-export';
 import { BRAND_CONTENT } from '../lib/product-content';
 import { cn } from '../lib/utils';
 
@@ -213,7 +213,7 @@ export const Portafolio: React.FC = () => {
                 return (
                   <button key={savedCase.id} type="button" onClick={() => void resumeCase(savedCase)} className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-slate-300 hover:shadow-md">
                     <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', fiscal ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700')}>{fiscal ? <BriefcaseBusiness size={19} /> : <FileSignature size={19} />}</span>
-                    <span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-slate-900">{savedCase.name}</span><span className="mt-1 block text-[11px] text-slate-500">{fiscal ? 'Fiscal' : 'Ingeniería Jurídica'} · {itemCount} {itemCount === 1 ? 'entregable' : 'entregables'}</span></span>
+                    <span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-slate-900">{savedCase.name}</span><span className="mt-1 block text-xs text-slate-500">{fiscal ? 'Fiscal' : 'Ingeniería Jurídica'} · {itemCount} {itemCount === 1 ? 'entregable' : 'entregables'}</span></span>
                     <ArrowRight size={16} className="text-slate-400 transition group-hover:translate-x-1" />
                   </button>
                 );

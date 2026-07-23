@@ -2,7 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 import { env, pipeline } from '@xenova/transformers';
-import * as lancedb from 'vectordb';
+import * as lancedb from '@lancedb/lancedb';
 import { LANCEDB_DIR } from './legal-corpus-config.mjs';
 import { assessLegalEvidence, getExplicitProvisionTarget, getPreferredLawCodes } from '../src/main/lib/legal-relevance.ts';
 import { normalizeLawCode } from '../src/main/lib/prompts.ts';
@@ -46,8 +46,8 @@ async function main() {
 
   for (const evaluation of cases) {
     const output = await extractor(evaluation.query, { pooling: 'mean', normalize: true });
-    const vectorRows = await table.search(Array.from(output.data)).filter(`module = '${evaluation.module}'`).limit(20).execute();
-    const moduleRows = await table.filter(`module = '${evaluation.module}'`).limit(20000).execute();
+    const vectorRows = await table.vectorSearch(Array.from(output.data)).where(`module = '${evaluation.module}'`).limit(20).toArray();
+    const moduleRows = await table.query().where(`module = '${evaluation.module}'`).limit(20000).toArray();
     const lexicalRows = moduleRows
       .map(row => {
         const initial = assessLegalEvidence(evaluation.query, {
@@ -64,7 +64,7 @@ async function main() {
     if (target.lawCode && target.id) {
       const storedLawCode = target.lawCode === 'CCOM' ? 'CCom' : target.lawCode;
       const label = `${target.kind === 'rule' || target.lawCode === 'RMF' ? 'Regla' : 'Artículo'} ${target.id}`;
-      directRows = await table.filter(`law_code = '${escapeSqlLiteral(storedLawCode)}' AND article = '${escapeSqlLiteral(label)}' AND module = '${evaluation.module}'`).limit(1).execute();
+      directRows = await table.query().where(`law_code = '${escapeSqlLiteral(storedLawCode)}' AND article = '${escapeSqlLiteral(label)}' AND module = '${evaluation.module}'`).limit(1).toArray();
     }
     const seen = new Set();
     const rows = [...directRows.map(row => ({ ...row, _explicitMatch: true })), ...lexicalRows, ...vectorRows]
@@ -97,7 +97,7 @@ async function main() {
     results.push({ ...evaluation, status: pass ? 'pass' : 'fail', qualified, topCandidates: assessed.slice(0, 5) });
   }
 
-  const cff = (await table.filter("law_code = 'CFF' AND article = 'Artículo 69-B'").limit(1).execute())[0];
+  const cff = (await table.query().where("law_code = 'CFF' AND article = 'Artículo 69-B'").limit(1).toArray())[0];
   const groundingSources = [{ law_code: cff.law_code, article_number: cff.article, content: cff.content }];
   const groundingCases = [
     { id: 'supported_claim', output: 'El CFF, Artículo 69-B establece un procedimiento cuando la autoridad detecta comprobantes de operaciones inexistentes.', expectedValid: true },

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useCallback, lazy, Suspense } from 'react';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Navigate, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
+import { CapabilityGate } from './components/CapabilityGate';
 import { Menu } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -19,8 +20,7 @@ const BuscadorLegal = lazy(() => import('./components/BuscadorLegal').then(m => 
 import { useAuthStore } from './store/useAuthStore';
 import { useUiStore } from './store/useUiStore';
 import { useCaseStore } from './store/useCaseStore';
-import { getLocalUser, getSubscriptionStatus, purgeExpiredCases, upsertCase, startLocalSession, endLocalSession } from './services/local-desktop';
-import { AppView } from './types';
+import { getLocalUser, getSubscriptionStatus, purgeExpiredCases, upsertCase, startLocalSession } from './services/local-desktop';
 
 const DEFAULT_CASE_RETENTION_DAYS = 5;
 const DEFAULT_WORKSPACE_KEY = 'lex_default_workspace';
@@ -36,37 +36,6 @@ function getRetentionUntil(): string {
   expiresAt.setDate(expiresAt.getDate() + getCaseRetentionDays());
   return expiresAt.toISOString();
 }
-
-function pathToView(path: string): AppView {
-  switch(path) {
-    case '/': return AppView.INTRODUCTION;
-    case '/ingenieria-juridica': return AppView.LEGAL_ENGINEERING;
-    case '/fiscal': return AppView.FISCAL;
-    case '/privacy': return AppView.PRIVACY;
-    case '/terms': return AppView.TERMS;
-    case '/settings': return AppView.SETTINGS;
-    case '/portafolio': return AppView.PORTAFOLIO;
-    case '/buscador': return AppView.SETTINGS;
-    case '/instructivo': return AppView.SETTINGS; // Reusing Settings view type or just treating as setting
-    default: return AppView.INTRODUCTION;
-  }
-}
-
-function viewToPath(view: AppView): string {
-  switch(view) {
-    case AppView.INTRODUCTION: return '/';
-    case AppView.LEGAL_ENGINEERING: return '/ingenieria-juridica';
-    case AppView.FISCAL: return '/fiscal';
-    case AppView.PRIVACY: return '/privacy';
-    case AppView.TERMS: return '/terms';
-    case AppView.SETTINGS: return '/settings';
-    case AppView.PORTAFOLIO: return '/portafolio';
-    // instructivo isn't mapped backwards strictly, it's fine
-    default: return '/';
-  }
-}
-
-
 
 function Layout({ children }: { children: React.ReactNode }) {
   const { isMobile, sidebarOpen, setSidebarOpen, sidebarCollapsed, notifications, dismissNotification } = useUiStore();
@@ -144,6 +113,7 @@ function GlobalEffects() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    void useUiStore.getState().refreshRuntimeHealth();
     const unsubscribe = window.lexDesktop?.navigation?.onSettings(() => {
       navigate('/settings');
     });
@@ -267,9 +237,7 @@ function GlobalEffects() {
 
 function IntroductionWrapper() {
   const navigate = useNavigate();
-  const { user, isAuthReady, logoutUser } = useAuthStore();
   const { notify } = useUiStore();
-  const { loadCase, resetCase, currentCaseId } = useCaseStore();
 
   return (
     <motion.div
@@ -286,12 +254,7 @@ function IntroductionWrapper() {
         </div>
       }>
         <Introduction
-        user={user}
-        onStart={(view) => {
-          if (!currentCaseId) resetCase();
-          navigate(viewToPath(view));
-        }}
-        onLogin={async () => {
+        onOpenStation={async () => {
           try {
             const localUser = await startLocalSession();
             useAuthStore.getState().setUser(localUser);
@@ -308,12 +271,6 @@ function IntroductionWrapper() {
             notify("No se pudo abrir la estación local.", "error", "Fallo de inicio");
           }
         }}
-        onLogout={async () => {
-          logoutUser(); useCaseStore.getState().clearAllState();
-          try { await endLocalSession(); } catch { /* local session already cleared */ }
-          navigate('/'); notify("Sesión local cerrada.", "info");
-        }}
-        onLoadCase={(c) => { loadCase(c); navigate(c.module === 'fiscal' ? '/fiscal' : '/ingenieria-juridica'); }}
       />
       </Suspense>
     </motion.div>
@@ -323,27 +280,18 @@ function IntroductionWrapper() {
 
 
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, isAuthReady } = useAuthStore();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (isAuthReady && !user) {
-      navigate('/', { replace: true });
-    }
-  }, [isAuthReady, user, navigate]);
+function LocalStationRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthReady } = useAuthStore();
 
   if (!isAuthReady) {
     return (
-      <div className="h-full w-full flex items-center justify-center bg-[#121212]">
+      <div className="flex h-full w-full items-center justify-center bg-legal-shell">
         <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="w-8 h-8 border-2 border-legal-gold border-t-transparent rounded-full" />
       </div>
     );
   }
 
-  if (user) return <>{children}</>;
-
-  return null;
+  return <>{children}</>;
 }
 
 function App() {
@@ -359,34 +307,40 @@ function App() {
           <Routes>
             <Route path="/" element={<IntroductionWrapper />} />
             <Route path="/portafolio" element={
-              <ProtectedRoute>
+              <LocalStationRoute>
+                <CapabilityGate capability="vault">
                 <motion.div key="portafolio" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }} className="h-full w-full block">
                   <Portafolio />
                 </motion.div>
-              </ProtectedRoute>
+                </CapabilityGate>
+              </LocalStationRoute>
             } />
             <Route path="/buscador" element={
-              <ProtectedRoute>
+              <LocalStationRoute>
+                <CapabilityGate capability="legalSearch">
                 <motion.div key="buscador" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }} className="h-full w-full block">
                   <BuscadorLegal />
                 </motion.div>
-              </ProtectedRoute>
+                </CapabilityGate>
+              </LocalStationRoute>
             } />
             <Route path="/ingenieria-juridica" element={
-              <ProtectedRoute>
+              <LocalStationRoute>
+                <CapabilityGate capability="legalGeneration">
                 <motion.div key="legal-engineering" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }} className="h-full w-full block">
                   <LegalEngineering />
                 </motion.div>
-              </ProtectedRoute>
+                </CapabilityGate>
+              </LocalStationRoute>
             } />
             <Route path="/fiscal" element={
-              <ProtectedRoute>
+              <LocalStationRoute>
                 <motion.div key="fiscal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }} className="h-full w-full block">
                   <EcosystemFrame kind="fiscal">
                     <FiscalModule />
                   </EcosystemFrame>
                 </motion.div>
-              </ProtectedRoute>
+              </LocalStationRoute>
             } />
             <Route path="/privacy" element={
               <motion.div key="privacy" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2, ease: "easeOut" }} className="absolute inset-0 z-50 bg-slate-50 text-slate-900">
@@ -399,19 +353,20 @@ function App() {
               </motion.div>
             } />
             <Route path="/settings" element={
-              <ProtectedRoute>
+              <LocalStationRoute>
                 <motion.div key="settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }} className="h-full w-full block bg-slate-50 relative z-40">
                   <Settings />
                 </motion.div>
-              </ProtectedRoute>
+              </LocalStationRoute>
             } />
             <Route path="/instructivo" element={
-              <ProtectedRoute>
+              <LocalStationRoute>
                 <motion.div key="instructivo" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }} className="h-full w-full block bg-slate-50 relative z-40">
                   <Instructivo />
                 </motion.div>
-              </ProtectedRoute>
+              </LocalStationRoute>
             } />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
       </Layout>

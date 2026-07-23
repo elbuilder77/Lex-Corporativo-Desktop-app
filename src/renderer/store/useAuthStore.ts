@@ -8,7 +8,6 @@ interface AuthState {
   setUser: (user: LexUser | null) => void;
   setIsAuthReady: (ready: boolean) => void;
   setSubscription: (sub: UserSubscription) => void;
-  logoutUser: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -18,9 +17,4 @@ export const useAuthStore = create<AuthState>((set) => ({
   setUser: (user) => set({ user }),
   setIsAuthReady: (ready) => set({ isAuthReady: ready }),
   setSubscription: (sub) => set({ subscription: sub }),
-  logoutUser: () => {
-    localStorage.removeItem('lex_cleared_demo_mercantil');
-    localStorage.removeItem('lex_cleared_demo_fiscal');
-    set({ user: null, subscription: DEFAULT_SUBSCRIPTION });
-  },
 }));

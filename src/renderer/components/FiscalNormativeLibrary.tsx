@@ -84,7 +84,7 @@ export const FiscalNormativeLibrary: React.FC = () => {
             >
               <div className="flex items-start justify-between gap-3">
                 <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 transition group-hover:bg-fiscal/10 group-hover:text-fiscal"><BookOpen size={22} /></span>
-                <span className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-black tracking-wider text-slate-500 group-hover:border-fiscal/20 group-hover:text-fiscal">{regulation.code}</span>
+                <span className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-black tracking-wider text-slate-500 group-hover:border-fiscal/20 group-hover:text-fiscal">{regulation.code}</span>
               </div>
               <h3 className="mt-6 text-lg font-bold text-slate-950 transition group-hover:text-fiscal">{regulation.title}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-500">{regulation.description}</p>
@@ -113,7 +113,7 @@ export const FiscalNormativeLibrary: React.FC = () => {
             <div className="grid gap-4 lg:grid-cols-2">
               {results.map((result, index) => (
                 <article key={`${result.id}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="flex items-start justify-between gap-3"><div><span className="inline-flex rounded-lg border border-fiscal/15 bg-fiscal/5 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-fiscal">{result.law_code || result.title || 'Norma fiscal'}</span><h4 className="mt-3 font-serif text-lg font-bold text-slate-950">{result.article_number || result.subtitle || result.citation_label || 'Fundamento recuperado'}</h4></div>{typeof result.similarity === 'number' && <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400">{Math.round(result.similarity * 100)}% afinidad</span>}</div>
+                  <div className="flex items-start justify-between gap-3"><div><span className="inline-flex rounded-lg border border-fiscal/15 bg-fiscal/5 px-2.5 py-1 text-xs font-black uppercase tracking-wider text-fiscal">{result.law_code || result.title || 'Norma fiscal'}</span><h4 className="mt-3 font-serif text-lg font-bold text-slate-950">{result.article_number || result.subtitle || result.citation_label || 'Fundamento recuperado'}</h4></div>{typeof result.similarity === 'number' && <span className="shrink-0 text-xs font-bold uppercase tracking-wider text-slate-400">{Math.round(result.similarity * 100)}% afinidad</span>}</div>
                   <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-600">{result.content}</p>
                 </article>
               ))}

@@ -75,10 +75,9 @@ export const Instructivo: React.FC = () => {
     }
   }, [helpOpen, isGenerating, messages]);
 
-  const checkReady = (id: string) => runtimeHealth?.checks.some((check) => check.id === id && check.ok) ?? false;
-  const vaultReady = checkReady('vault');
-  const ragReady = checkReady('rag') && checkReady('embeddings');
-  const localGenerationReady = Boolean(runtimeHealth?.rust.binaryExists && runtimeHealth.rust.expectedGgufModelExists);
+  const vaultReady = runtimeHealth?.capabilities.vault.ready ?? false;
+  const ragReady = runtimeHealth?.capabilities.legalSearch.ready ?? false;
+  const localGenerationReady = runtimeHealth?.capabilities.localAssistant.ready ?? false;
   const byokActive = Boolean(byokSettings?.enabled && byokSettings.hasApiKey);
   const providerLabel = byokSettings?.provider === 'openai'
     ? 'OpenAI'
@@ -142,7 +141,7 @@ export const Instructivo: React.FC = () => {
               <img src={logoMarkUrl} alt="Lex Corporativo" className="h-7 w-7 rounded-md object-contain" />
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-legal-golddark">Estación jurídica local</p>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-legal-golddark">Estación jurídica local</p>
               <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">Centro de trabajo</h1>
               <p className="mt-1 text-sm text-slate-500">Continúa un asunto o inicia una tarea con el contexto correcto.</p>
             </div>
@@ -182,21 +181,21 @@ export const Instructivo: React.FC = () => {
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-700"><Search size={17} /></span>
               <div className="min-w-0">
                 <h3 className="truncate text-xs font-bold text-slate-900">Corpus y búsqueda</h3>
-                <p className={cn('mt-0.5 text-[11px] font-semibold', ragReady ? 'text-emerald-700' : 'text-amber-700')}>{ragReady ? 'Disponible en local' : 'Requiere revisión'}</p>
+                <p className={cn('mt-0.5 text-xs font-semibold', ragReady ? 'text-emerald-700' : 'text-amber-700')}>{ragReady ? 'Disponible en local' : 'Requiere revisión'}</p>
               </div>
             </article>
             <article className="flex items-center gap-3 border-t border-slate-100 p-3.5 md:border-t-0">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700"><CloudOff size={17} /></span>
               <div className="min-w-0">
                 <h3 className="truncate text-xs font-bold text-slate-900">Generación local</h3>
-                <p className={cn('mt-0.5 text-[11px] font-semibold', localGenerationReady ? 'text-emerald-700' : 'text-amber-700')}>{localGenerationReady ? 'Motor y modelo listos' : 'Motor o modelo no instalado'}</p>
+                <p className={cn('mt-0.5 text-xs font-semibold', localGenerationReady ? 'text-emerald-700' : 'text-amber-700')}>{localGenerationReady ? 'Motor y modelo listos' : 'Motor o modelo no instalado'}</p>
               </div>
             </article>
             <article className="flex items-center gap-3 border-t border-slate-100 p-3.5 md:border-t-0">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700"><Wifi size={17} /></span>
               <div className="min-w-0">
                 <h3 className="truncate text-xs font-bold text-slate-900">API propia (BYOK)</h3>
-                <p className={cn('mt-0.5 truncate text-[11px] font-semibold', byokActive ? 'text-blue-700' : 'text-slate-500')}>{byokActive ? providerLabel : 'Desactivada'}</p>
+                <p className={cn('mt-0.5 truncate text-xs font-semibold', byokActive ? 'text-blue-700' : 'text-slate-500')}>{byokActive ? providerLabel : 'Desactivada'}</p>
               </div>
             </article>
           </div>
@@ -246,7 +245,7 @@ export const Instructivo: React.FC = () => {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-bold text-slate-800">{savedCase.name}</span>
-                      <span className="mt-0.5 block text-[11px] text-slate-500">{savedCase.module === 'fiscal' ? 'Fiscal' : 'Documentos y contratos'} · {formatCaseDate(savedCase.date)}</span>
+                      <span className="mt-0.5 block text-xs text-slate-500">{savedCase.module === 'fiscal' ? 'Fiscal' : 'Documentos y contratos'} · {formatCaseDate(savedCase.date)}</span>
                     </span>
                     <ArrowRight size={15} className="text-slate-400" />
                   </button>

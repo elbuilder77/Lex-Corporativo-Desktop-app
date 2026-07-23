@@ -53,6 +53,11 @@ export function registerIpcHandlers(): void {
     }
 
     const byokSettings = getByokSettings();
+    const embeddingsReady = rust.embeddingModelExists;
+    const localGenerationReady = rust.binaryExists && rust.expectedGgufModelExists;
+    const byokGenerationReady = byokSettings.enabled && byokSettings.hasApiKey;
+    const legalSearchReady = ragReady && embeddingsReady;
+    const legalGenerationReady = vaultReady && legalSearchReady && (localGenerationReady || byokGenerationReady);
     const checks = [
       { id: 'vault', label: 'Bóveda SQLite cifrada', ok: vaultReady, detail: vaultDetail },
       { id: 'rag', label: 'Base legal LanceDB', ok: ragReady, detail: getLegalKnowledgeRuntimePath() },
@@ -70,7 +75,46 @@ export function registerIpcHandlers(): void {
         ? 'blocked'
         : 'degraded';
 
-    return { status, checks, rust };
+    return {
+      status,
+      checks,
+      rust,
+      capabilities: {
+        vault: {
+          ready: vaultReady,
+          label: 'Portafolio local',
+          detail: vaultReady ? 'La bóveda cifrada está disponible.' : vaultDetail,
+        },
+        legalSearch: {
+          ready: legalSearchReady,
+          label: 'Consulta de corpus',
+          detail: legalSearchReady
+            ? 'LanceDB y el modelo local de embeddings están disponibles.'
+            : 'Requiere la base LanceDB verificada y el modelo local de embeddings.',
+        },
+        legalGeneration: {
+          ready: legalGenerationReady,
+          label: 'Análisis y generación jurídica',
+          detail: legalGenerationReady
+            ? `Disponible mediante ${byokGenerationReady ? `${byokSettings.provider} BYOK` : 'Gemma local'}.`
+            : 'Requiere bóveda cifrada, corpus local y un motor de generación local o BYOK activo.',
+        },
+        rulesAssessment: {
+          ready: vaultReady,
+          label: 'Evaluaciones por reglas',
+          detail: vaultReady
+            ? 'Las evaluaciones deterministas pueden guardarse en el portafolio.'
+            : 'Requiere la bóveda cifrada para conservar el resultado.',
+        },
+        localAssistant: {
+          ready: localGenerationReady,
+          label: 'Instructivo interactivo local',
+          detail: localGenerationReady
+            ? 'Motor Rust y modelo Gemma disponibles.'
+            : 'Requiere el motor Rust y el modelo Gemma local.',
+        },
+      },
+    };
   });
 
   ipcMain.handle('trace:get-status', async () => getTraceLedgerStatus());

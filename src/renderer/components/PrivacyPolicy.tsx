@@ -49,7 +49,7 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
             <h2 className="text-lg font-serif font-bold text-legal-950 mb-3">II. Datos Personales Recabados</h2>
             <p className="text-sm text-slate-600 leading-relaxed mb-3">En la aplicación de escritorio, el tratamiento se limita a información local necesaria para operar la estación jurídica:</p>
             <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1">
-              <li><strong>Datos de perfil local:</strong> identificador técnico del usuario local de la estación.</li>
+              <li><strong>Datos de la estación:</strong> identificador técnico local utilizado para organizar la información en este equipo.</li>
               <li><strong>Datos de trabajo:</strong> portafolios, consultas, resultados de análisis, documentos generados, bitácoras y archivos que el usuario decida guardar localmente.</li>
               <li><strong>Datos técnicos locales:</strong> trazas, hashes, logs de operación y configuración necesaria para el funcionamiento del software instalado.</li>
             </ul>

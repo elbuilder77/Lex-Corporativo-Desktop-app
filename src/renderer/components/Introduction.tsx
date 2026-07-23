@@ -1,19 +1,14 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AppView } from '../types';
-import { ArrowRight, Landmark, LogIn } from 'lucide-react';
+import { ArrowRight, Landmark, MonitorUp } from 'lucide-react';
 import logoUrl from '../assets/logo-lockup-transparent.png';
 
 interface IntroductionProps {
-  onStart: (view: AppView) => void;
-  user: any;
-  onLogin: () => void | Promise<void>;
-  onLogout: () => void;
-  onLoadCase: (c: any) => void;
+  onOpenStation: () => void | Promise<void>;
 }
 
 export const Introduction: React.FC<IntroductionProps> = ({
-  onLogin,
+  onOpenStation,
 }) => {
   const [logoError, setLogoError] = useState(false);
   const [isEntering, setIsEntering] = useState(false);
@@ -64,12 +59,12 @@ export const Introduction: React.FC<IntroductionProps> = ({
   };
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-[#070b13] text-white font-sans relative flex items-center justify-center scrollbar-hide select-none">
+    <div className="relative flex h-screen w-screen select-none items-center justify-center overflow-hidden bg-legal-shell font-sans text-white scrollbar-hide">
       
       {/* ── Ambient Background Glows ─────────────────────────── */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {/* Soft center mesh */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(15,23,42,0.8)_0%,#05080f_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(15,23,42,0.8)_0%,var(--color-legal-shell)_100%)]" />
         
         {/* Drifting glowing orbs */}
         <motion.div
@@ -136,20 +131,20 @@ export const Introduction: React.FC<IntroductionProps> = ({
 
               {/* Elegant Subtitle / Slogan */}
               <motion.div variants={itemVariants} className="flex flex-col items-center gap-2">
-                <span className="text-[10px] md:text-xs font-bold tracking-[0.4em] text-legal-gold/80 uppercase">
+                <span className="text-xs font-bold uppercase tracking-[0.4em] text-legal-gold/80">
                   Estación de Trabajo Jurídica Local
                 </span>
                 <div className="w-12 h-[1px] bg-gradient-to-r from-transparent via-legal-gold/40 to-transparent mt-1" />
               </motion.div>
 
-              {/* Login Button with Springy Interaction */}
+              {/* Local station entry */}
               <motion.div variants={itemVariants} className="w-full max-w-md mt-6">
                 <motion.button
                   onClick={async () => {
                     if (isEntering) return;
                     setIsEntering(true);
                     try {
-                      await onLogin();
+                      await onOpenStation();
                     } catch {
                       setIsEntering(false);
                     }
@@ -162,8 +157,8 @@ export const Introduction: React.FC<IntroductionProps> = ({
                   whileTap={{ scale: 0.98, y: 0 }}
                   className="w-full max-w-xs mx-auto group relative flex items-center justify-center gap-3 overflow-hidden rounded-lg bg-legal-gold text-slate-950 px-8 py-4 text-sm font-bold uppercase tracking-[0.2em] transition-colors duration-300 hover:bg-white hover:text-slate-950 shadow-[0_15px_30px_-10px_rgba(197,160,89,0.3)]"
                 >
-                  <LogIn size={18} className="transition-transform group-hover:translate-x-1" />
-                  <span>ENTRAR</span>
+                  <MonitorUp size={18} className="transition-transform group-hover:translate-x-1" />
+                  <span>ABRIR ESTACIÓN</span>
                   <ArrowRight size={18} className="transition-transform group-hover:translate-x-1.5" />
                 </motion.button>
               </motion.div>
@@ -178,7 +173,7 @@ export const Introduction: React.FC<IntroductionProps> = ({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#070b13] z-50 pointer-events-none"
+              className="pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-legal-shell"
             >
               <motion.div
                 animate={{ rotate: 360 }}
@@ -189,7 +184,7 @@ export const Introduction: React.FC<IntroductionProps> = ({
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 0.7, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="text-[10px] uppercase font-bold tracking-[0.3em] text-legal-gold/90"
+                className="text-xs font-bold uppercase tracking-[0.3em] text-legal-gold/90"
               >
                 Iniciando Estación...
               </motion.span>

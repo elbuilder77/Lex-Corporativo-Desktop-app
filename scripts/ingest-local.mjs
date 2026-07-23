@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { pipeline } from '@xenova/transformers';
 import { PDFParse } from 'pdf-parse';
-import * as lancedb from 'vectordb';
+import * as lancedb from '@lancedb/lancedb';
 import { CORPUS_DIR, CORPUS_VERSION, EMBEDDING_MODEL, LANCEDB_DIR, LAWS } from './legal-corpus-config.mjs';
 
 const args = new Set(process.argv.slice(2));
@@ -280,7 +280,7 @@ async function main() {
     const filter = selectedLaws
       .map(law => `law_code = '${escapeSqlLiteral(law.code)}'`)
       .join(' OR ');
-    const originalRows = await table.filter(filter).limit(20000).execute();
+    const originalRows = await table.query().where(filter).limit(20000).toArray();
     let deleted = false;
 
     try {
