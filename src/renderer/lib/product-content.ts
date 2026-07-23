@@ -1,13 +1,7 @@
 export const BRAND_CONTENT = {
   name: 'Lex Corporativo',
-  tagline: 'Estación local',
   logo: {
-    lockup: 'logo.png',
-    mark: 'logo.png',
     alt: 'Lex Corporativo',
-  },
-  footer: {
-    privacyLine: 'Sin carga automática de documentos a la nube',
   },
 } as const;
 

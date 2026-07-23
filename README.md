@@ -1,38 +1,39 @@
 # Lex Corporativo Desktop
 
-Estacion de trabajo juridica local para derecho mercantil, corporativo y fiscal mexicano.
+Aplicación Electron de trabajo jurídico local para materias mercantil, corporativa, laboral y fiscal mexicana.
 
-Este repositorio contiene exclusivamente la aplicacion instalada Electron: interfaz React, procesos main/preload, backend local, motor Rust, corpus juridico y empaquetado multiplataforma. El sitio comercial y cualquier aplicacion web se mantienen fuera de este codigo.
+Este repositorio contiene exclusivamente el producto instalado: renderer React, procesos main/preload, backend local, motor Rust, corpus jurídico, plantillas y configuración de empaquetado. El sitio comercial debe mantenerse en un repositorio separado.
 
-## Principio de producto
+## Estado real
 
-La aplicacion instalada opera sin internet para portafolios, analisis y redaccion. Si el usuario activa BYOK desde Configuracion, la app puede conectarse a Gemini, OpenAI o Anthropic usando una API key propia. La privacidad estricta viene activa por defecto: no hay busqueda automatica de actualizaciones y cualquier revision de updates debe iniciarla el usuario.
+La fuente corresponde a `1.0.0-rc.12`. El shell Electron, la bóveda SQLite, el frontend y el corpus fuente pueden compilarse y probarse desde este repositorio. La disponibilidad de consultas, análisis y redacción local depende además de tres artefactos no incluidos en Git:
 
-## Guia operativa
+- `src-rust/target/release/lex-engine.exe`
+- `src-rust/models/gemma-2-2b-it-Q4_K_M.gguf`
+- `src-rust/lance_data/legal_knowledge.lance`
 
-La documentacion oficial, propuesta de implementacion, uso, privacidad y modos de IA esta en:
+`runtime:get-health` es la fuente de verdad para distinguir una estación lista de una instalación degradada.
 
-- `docs/documentacion-oficial-lex-corporativo.md`
-- `docs/guia-operativa-lex-corporativo.md`
-- `docs/privacidad-y-operacion-local.md`
+## Arquitectura
 
-## Runtime local
+- Electron Main: IPC, archivos, actualizaciones, BYOK y coordinación del runtime.
+- Preload: puente único `window.lexDesktop`, con renderer aislado de Node.
+- React: navegación, portafolios y flujos jurídicos.
+- SQLite: bóveda local de portafolios, análisis, borradores y estado.
+- LanceDB + MiniLM: recuperación normativa y documentos temporales.
+- Rust + GGUF: generación local mediante proceso hijo.
+- BYOK opcional: Gemini, OpenAI o Anthropic con API key del usuario.
+- JSONL local: trazabilidad mediante hashes, fuentes y metadatos mínimos.
 
-- Electron + React para la interfaz instalada.
-- IPC `window.lexDesktop` como puente unico entre renderer y main process.
-- Boveda local para portafolios y documentos.
-- LanceDB local para recuperacion de contexto juridico.
-- Motor Rust/SLM local para consulta, redaccion y analisis.
-- BYOK multiproveedor opcional para analisis y redaccion con API key propia.
-- Limite configurable de texto enviado al proveedor y fallback local cuando corresponde.
+## Producto
 
-## Modulos
+- Consultas jurídicas Mercantil y Fiscal.
+- Ingeniería Jurídica Mercantil y Laboral.
+- Flujo Fiscal: preparación, materialidad, deducibilidad, documentación y normativa.
+- Portafolio local con autosave y exportación.
+- Privacidad estricta por defecto y BYOK opcional.
 
-- Mercantil: consultas, contratos, plantillas predefinidas de proyeccion juridica, validacion de representacion, cobranza y paquetes documentales.
-- Fiscal: materialidad, deducibilidad, IVA, razon de negocios, riesgo 69-B, plantillas predefinidas y dictamen local.
-- Portafolio: administracion local de actividad reciente y documentos.
-
-## Comandos de desarrollo
+## Desarrollo
 
 ```bash
 npm ci
@@ -42,10 +43,20 @@ npm test
 npm run build
 ```
 
+La gobernanza del corpus se valida con:
+
+```bash
+npm run audit:corpus-governance:strict
+```
+
 ## Empaquetado
 
 ```bash
 npm run build:electron
 ```
 
-El paquete de escritorio debe incluir `lex-engine.exe`, modelos GGUF y datos LanceDB locales mediante `electron-builder.config.json`.
+El empaquetado requiere previamente el motor Rust, el GGUF, embeddings y LanceDB. No debe publicarse un instalador hasta comprobar `runtime:get-health` en una instalación limpia.
+
+## Diseño y comercialización
+
+La identidad de la aplicación y la arquitectura recomendada para el sitio de comercialización están documentadas en [docs/identidad-branding-y-sitio-comercial.md](docs/identidad-branding-y-sitio-comercial.md).
