@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { ModuleTab } from '../types';
 import { House, Landmark, FileSignature, BookOpen, X, Calculator, Settings, FolderOpen, ChevronLeft, ChevronRight, Search, ClipboardList, ShieldCheck, ReceiptText } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -26,41 +26,21 @@ export const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const { activeTab, setActiveTab, setSidebarOpen, isMobile, sidebarCollapsed, setSidebarCollapsed, runtimeHealth, refreshRuntimeHealth } = useUiStore();
+  const { activeTab, setActiveTab, setSidebarOpen, isMobile, sidebarCollapsed, setSidebarCollapsed, runtimeHealth } = useUiStore();
 
   const currentPath = location.pathname;
   const searchMatter = new URLSearchParams(location.search).get('materia') === 'fiscal' ? 'fiscal' : 'mercantil';
   const visuallyCollapsed = !isMobile && sidebarCollapsed && !temporarilyExpanded;
   
-  useEffect(() => {
-    void refreshRuntimeHealth();
-  }, [refreshRuntimeHealth]);
-
-  const ragReady = runtimeHealth?.capabilities.legalSearch.ready ?? false;
-  const runtimeLabel = !runtimeHealth
-    ? 'Comprobando recursos'
-    : runtimeHealth.status === 'blocked'
-      ? 'Revisión local necesaria'
-      : ragReady
-        ? 'Base legal local lista'
-        : 'Base local incompleta';
-  const runtimeTone = !runtimeHealth
-    ? 'slate'
-    : runtimeHealth.status === 'blocked'
-      ? 'red'
-      : ragReady
-        ? 'green'
-        : 'amber';
-
   const ecosystemItems = [
     {
       path: '/instructivo',
-      label: 'Inicio',
+      label: 'Estación',
       description: 'Instructivo interactivo',
       icon: <BookOpen size={18} />,
       badge: null,
       subItems: null,
-      activeColor: 'text-slate-900',
+      activeColor: 'text-legal-gold',
       activeBg: 'bg-slate-100',
       activeBorder: 'border-slate-300',
       dot: 'bg-slate-400',
@@ -70,9 +50,9 @@ export const Sidebar: React.FC = () => {
       label: 'Portafolio',
       description: 'Actividad legal reciente',
       icon: <FolderOpen size={18} />,
-      badge: 'Local',
+      badge: null,
       subItems: null,
-      activeColor: 'text-slate-900',
+      activeColor: 'text-legal-gold',
       activeBg: 'bg-slate-100',
       activeBorder: 'border-slate-300',
       dot: 'bg-slate-400',
@@ -82,7 +62,7 @@ export const Sidebar: React.FC = () => {
       label: 'Consultas',
       description: 'Consulta y fundamentos locales',
       icon: <Search size={18} />,
-      badge: 'Local',
+      badge: null,
       subItems: null,
       activeColor: searchMatter === 'fiscal' ? 'text-fiscal-light' : 'text-blue-400',
       activeBg: searchMatter === 'fiscal' ? 'bg-fiscal-light/10' : 'bg-blue-400/10',
@@ -120,7 +100,7 @@ export const Sidebar: React.FC = () => {
       icon: <Settings size={18} />,
       badge: null,
       subItems: null,
-      activeColor: 'text-slate-900',
+      activeColor: 'text-legal-gold',
       activeBg: 'bg-slate-100',
       activeBorder: 'border-slate-300',
       dot: 'bg-slate-400',
@@ -137,13 +117,11 @@ export const Sidebar: React.FC = () => {
     }
     if (isMobile) {
       setSidebarOpen(false);
-    } else {
-      setSidebarCollapsed(true);
-      setTemporarilyExpanded(false);
     }
   };
 
   const handleReturnToCover = () => {
+    localStorage.removeItem('lex_station_opened');
     navigate('/');
   };
 
@@ -190,22 +168,7 @@ export const Sidebar: React.FC = () => {
           {!visuallyCollapsed && (
             <div className="min-w-0">
               <h1 className="text-xs font-bold text-white tracking-[0.02em] truncate">{BRAND_CONTENT.name}</h1>
-              <div className="flex items-center gap-1 mt-1">
-                <span className={cn(
-                  "w-1.5 h-1.5 rounded-full shrink-0",
-                  runtimeTone === 'green' ? 'bg-green-500' :
-                  runtimeTone === 'amber' ? 'bg-amber-400' :
-                  runtimeTone === 'red' ? 'bg-red-500' : 'bg-slate-500'
-                )}></span>
-                <span className={cn(
-                  "truncate text-xs font-bold uppercase tracking-wider",
-                  runtimeTone === 'green' ? 'text-green-500/90' :
-                  runtimeTone === 'amber' ? 'text-amber-400' :
-                  runtimeTone === 'red' ? 'text-red-400' : 'text-slate-500'
-                )}>
-                  {runtimeLabel}
-                </span>
-              </div>
+              <p className="mt-1 truncate text-xs font-bold uppercase tracking-wider text-slate-500">Estación privada</p>
             </div>
           )}
         </button>
@@ -255,7 +218,7 @@ export const Sidebar: React.FC = () => {
                 : item.path === '/ingenieria-juridica'
                   ? runtimeHealth?.capabilities.legalGeneration
                   : null;
-            const availabilityBadge = capability && !capability.ready ? 'Pendiente' : item.badge;
+            const availabilityBadge = capability && !capability.ready ? null : item.badge;
             return (
               <div key={item.path} className="py-1">
                 <button
@@ -281,13 +244,11 @@ export const Sidebar: React.FC = () => {
                       {availabilityBadge && (
                         <span className={cn(
                           "shrink-0 rounded px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider transition-all duration-300",
-                          availabilityBadge === 'Pendiente'
-                            ? "border border-amber-500/30 bg-amber-500/10 text-amber-300"
-                            : availabilityBadge === 'Seleccionado'
+                          availabilityBadge === 'Seleccionado'
                             ? "bg-green-500/20 text-green-400 border border-green-500/30 shadow-[0_0_8px_rgba(34,197,94,0.15)]" 
                             : "bg-slate-900/60 text-slate-500 border border-slate-800/80"
                         )}>
-                          {availabilityBadge}
+                          {availabilityBadge === 'Pendiente' ? null : availabilityBadge}
                         </span>
                       )}
                     </span>
@@ -303,10 +264,7 @@ export const Sidebar: React.FC = () => {
                         onClick={() => {
                           setActiveTab(sub.tab);
                           if (isMobile) setSidebarOpen(false);
-                          else {
-                            setSidebarCollapsed(true);
-                            setTemporarilyExpanded(false);
-                          }
+                          else setTemporarilyExpanded(false);
                         }}
                         className={cn(
                           "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-200 min-w-0 group/sub cursor-pointer",

@@ -24,6 +24,7 @@ import { BRAND_CONTENT } from '../lib/product-content';
 import { useCaseStore } from '../store/useCaseStore';
 import { useUiStore } from '../store/useUiStore';
 import { cn } from '../lib/utils';
+import { useProcessingGuard } from '../hooks/useProcessingGuard';
 
 type SourceMode = 'template' | 'reference';
 
@@ -70,6 +71,7 @@ function readFileAsBase64(file: File): Promise<string> {
 
 export const LegalEngineering: React.FC = () => {
   const { notify } = useUiStore();
+  const canGenerate = useProcessingGuard('legalGeneration', 'generar este documento');
   const {
     currentCaseId,
     setCurrentCaseId,
@@ -161,6 +163,7 @@ export const LegalEngineering: React.FC = () => {
       notify(sourceMode === 'reference' ? 'Describe las correcciones o cambios que necesitas.' : 'Completa los datos e instrucciones del documento.', 'warning', 'Faltan instrucciones');
       return;
     }
+    if (!canGenerate()) return;
     setIsGenerating(true);
     try {
       const targetCaseId = await ensureModuleActivity('engineering', currentCaseId);

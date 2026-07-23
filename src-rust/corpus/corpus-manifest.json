@@ -22,10 +22,10 @@
   "vectorStore": {
     "engine": "LanceDB",
     "table": "legal_knowledge",
-    "exists": false,
-    "fileCount": 0,
-    "totalBytes": 0,
-    "sha256": null
+    "exists": true,
+    "fileCount": 7,
+    "totalBytes": 10151045,
+    "sha256": "7f26e1167152417a0ae6475f1fd3354a98dc9127a2aa58b1a2c0b7dc1abe110d"
   },
   "laws": [
     {
@@ -349,5 +349,5 @@
     "status": "pass",
     "failures": []
   },
-  "artifactSha256": "0885cfce9195a15b988581cbca3e04d39d5aeaa710d049e471bc49055e8919d6"
+  "artifactSha256": "825356d7d3e985be4534dabdfd2f067be37501558fd38631b3dcd6f423dab5e0"
 }

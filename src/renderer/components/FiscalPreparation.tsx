@@ -8,6 +8,7 @@ import { useCaseStore } from '../store/useCaseStore';
 import { useUiStore } from '../store/useUiStore';
 import type { DocumentAnalysisResult } from '../types';
 import { FiscalAnalysisResultPanel } from './FiscalAnalysisResultPanel';
+import { useProcessingGuard } from '../hooks/useProcessingGuard';
 
 const PREPARATION_INSTRUCTION = `Evalúa integralmente la preparación fiscal de la operación. Revisa materialidad, CFDI, contraprestación, pagos, entregables, razón de negocios, deducibilidad, IVA acreditable y posible exposición al artículo 69-B del CFF. Separa evidencia disponible, evidencia pendiente y siguientes acciones. No inventes hechos ni fundamentos.`;
 
@@ -15,6 +16,7 @@ const ACCEPTED_TYPES = ['application/pdf', 'text/plain', 'text/markdown'];
 
 export const FiscalPreparation: React.FC = () => {
   const { notify, setActiveTab } = useUiStore();
+  const canAnalyze = useProcessingGuard('legalGeneration', 'revisar la preparación de esta operación');
   const { currentCaseId, setCurrentCaseId, addFiscalAnalysis, fiscalOperationState, updateFiscalOperationState, completeFiscalOperationStep } = useCaseStore();
   const inputRef = useRef<HTMLInputElement>(null);
   const [description, setDescription] = useState(fiscalOperationState.description || '');
@@ -40,6 +42,7 @@ export const FiscalPreparation: React.FC = () => {
       notify('Describe la operación que quieres preparar.', 'warning', 'Falta contexto');
       return;
     }
+    if (!canAnalyze()) return;
     setIsAnalyzing(true);
     setResult(null);
     setProgress('Preparando expediente local…');

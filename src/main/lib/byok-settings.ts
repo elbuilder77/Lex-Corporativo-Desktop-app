@@ -2,17 +2,15 @@ import { app, safeStorage } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { DEFAULT_BYOK_MODELS, type ByokProvider } from '../../shared/byok-models';
+
+export { DEFAULT_BYOK_MODELS } from '../../shared/byok-models';
+export type { ByokProvider } from '../../shared/byok-models';
 
 export type AiExecutionMode = 'local' | 'byok';
-export type ByokProvider = 'gemini' | 'openai' | 'anthropic';
 export type ByokKeyStatus = 'missing' | 'ready' | 'unreadable';
 
 export const BYOK_PROVIDERS: ByokProvider[] = ['gemini', 'openai', 'anthropic'];
-export const DEFAULT_BYOK_MODELS: Record<ByokProvider, string> = {
-  gemini: 'gemini-3.5-flash',
-  openai: 'gpt-5.6-terra',
-  anthropic: 'claude-sonnet-4-20250514',
-};
 export const DEFAULT_GEMINI_MODEL = DEFAULT_BYOK_MODELS.gemini;
 export const DEFAULT_BYOK_MAX_INPUT_CHARS = 60_000;
 export const MIN_BYOK_MAX_INPUT_CHARS = 10_000;

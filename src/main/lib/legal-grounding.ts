@@ -60,6 +60,7 @@ export const STRUCTURED_GROUNDED_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
 export type GroundingFailureReason =
   | 'missing_citation'
   | 'unsupported_citation'
+  | 'unsupported_claim'
   | 'missing_claim'
   | 'duplicate_claim'
   | 'unknown_source_id'
@@ -140,10 +141,90 @@ function normalizeClaimText(value: string): string {
     .trim();
 }
 
+const CLAIM_STOPWORDS = new Set([
+  'a', 'al', 'ante', 'bajo', 'como', 'con', 'contra', 'cuando', 'de', 'del', 'desde', 'durante',
+  'e', 'el', 'ella', 'en', 'entre', 'es', 'esta', 'este', 'estos', 'hacia', 'hasta', 'la', 'las',
+  'lo', 'los', 'mediante', 'o', 'para', 'por', 'que', 'se', 'segun', 'sin', 'sobre', 'su', 'sus', 'un',
+  'una', 'uno', 'y', 'ya', 'articulo', 'regla', 'cff', 'lisr', 'rlisr', 'liva', 'rliva', 'rmf', 'ccom',
+  'lgsm', 'lgtoc', 'establece', 'dispone', 'indica', 'senala', 'fundamento', 'norma', 'texto', 'legal',
+]);
+
+function normalizeForSupport(value: string): string {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function getSupportTokens(value: string): string[] {
+  return normalizeForSupport(value)
+    .replace(new RegExp(String.raw`\b(?:${LAW_CODES})\b`, 'giu'), ' ')
+    .replace(new RegExp(String.raw`\b(?:articulo|regla)\s+(?:${ARTICLE_ID}|${RULE_ID})`, 'giu'), ' ')
+    .match(/[a-z][a-z0-9-]{2,}/g)
+    ?.filter(token => !CLAIM_STOPWORDS.has(token)) || [];
+}
+
+function supportStem(token: string): string {
+  return token.length > 6 ? token.slice(0, 6) : token;
+}
+
+function isTokenSupported(token: string, sourceTokens: Set<string>, sourceStems: Set<string>): boolean {
+  return sourceTokens.has(token) || sourceStems.has(supportStem(token));
+}
+
+function getUnsupportedCitedClaims(output: string, sources: GroundingSource[]): string[] {
+  const sourceByKey = new Map(sources
+    .map(source => [getProvisionSourceKey(source), normalizeForSupport(source.content || '')] as const)
+    .filter((entry): entry is readonly [string, string] => Boolean(entry[0] && entry[1])));
+  if (sourceByKey.size === 0) return [];
+
+  const segments = output
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map(segment => segment.trim())
+    .filter(Boolean);
+  const failures: string[] = [];
+
+  for (const segment of segments) {
+    const citedKeys = [...sourceByKey.keys()].filter(key => {
+      const [lawCode, kind, provisionId] = key.split(':');
+      const label = kind === 'rule' ? 'regla' : 'articulo';
+      const normalizedSegment = normalizeForSupport(segment).replace(/\s+/g, ' ');
+      const normalizedId = provisionId.replace(/-/g, String.raw`[\s-]*`);
+      return new RegExp(String.raw`\b${lawCode.toLowerCase()}\b[^\n.]{0,55}\b${label}\s+${normalizedId}\b`, 'i').test(normalizedSegment)
+        || new RegExp(String.raw`\b${label}\s+${normalizedId}\b[^\n.]{0,55}\b(?:del|de la)\s+${lawCode.toLowerCase()}\b`, 'i').test(normalizedSegment);
+    });
+    if (citedKeys.length === 0) continue;
+
+    const claimTokens = [...new Set(getSupportTokens(segment))];
+    if (claimTokens.length === 0) continue;
+    const combinedSource = citedKeys.map(key => sourceByKey.get(key) || '').join(' ');
+    const sourceTokens = new Set(getSupportTokens(combinedSource));
+    const sourceStems = new Set([...sourceTokens].map(supportStem));
+    const supportedCount = claimTokens.filter(token => isTokenSupported(token, sourceTokens, sourceStems)).length;
+
+    const segmentWithoutCitations = normalizeForSupport(segment)
+      .replace(new RegExp(String.raw`\b(?:${LAW_CODES})\b`, 'giu'), ' ')
+      .replace(new RegExp(String.raw`\b(?:articulo|regla)\s+(?:${ARTICLE_ID}|${RULE_ID})`, 'giu'), ' ');
+    const claimNumbers = segmentWithoutCitations.match(/\b\d+(?:[.,]\d+)?\b/g) || [];
+    const unsupportedNumber = claimNumbers.some(number => !new RegExp(String.raw`\b${number.replace('.', String.raw`\.`)}\b`).test(combinedSource));
+    const supportRatio = supportedCount / claimTokens.length;
+
+    // Local free-form output is fail-closed: an exact citation is necessary,
+    // but it is not enough if the accompanying factual language is absent
+    // from the recovered provision.
+    if (unsupportedNumber || supportedCount === 0 || (claimTokens.length >= 3 && supportRatio < 0.5)) {
+      failures.push(segment.slice(0, 280));
+    }
+  }
+
+  return failures;
+}
+
 /**
- * Compatibility gate for the local GGUF output. It validates only exact
- * provision identifiers. Semantic support is handled by the structured BYOK
- * contract below; no lexical-overlap heuristic is used.
+ * Compatibility gate for the local GGUF output. It validates exact provision
+ * identifiers and then applies a conservative lexical/numeric support check
+ * to each cited factual sentence. Structured BYOK output uses exact source IDs
+ * through the contract below.
  */
 export function validateGroundedLegalOutput(
   output: string,
@@ -197,6 +278,17 @@ export function validateGroundedLegalOutput(
   }
   if (requireCitation && cited.size === 0) {
     return { valid: false, cited: [], unsupported: [], reason: 'missing_citation' };
+  }
+
+  const unsupportedClaims = getUnsupportedCitedClaims(output, sources);
+  if (unsupportedClaims.length > 0) {
+    return {
+      valid: false,
+      cited: [...cited],
+      unsupported: [],
+      unsupportedClaims,
+      reason: 'unsupported_claim',
+    };
   }
 
   return { valid: true, cited: [...cited], unsupported: [] };

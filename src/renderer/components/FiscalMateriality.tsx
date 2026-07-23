@@ -8,6 +8,7 @@ import { useCaseStore } from '../store/useCaseStore';
 import { useUiStore } from '../store/useUiStore';
 import type { DocumentAnalysisResult } from '../types';
 import { FiscalAnalysisResultPanel } from './FiscalAnalysisResultPanel';
+import { useProcessingGuard } from '../hooks/useProcessingGuard';
 
 type Question = { id: string; label: string; placeholder?: string; options?: string[] };
 
@@ -24,6 +25,7 @@ const MATERIALITY_INSTRUCTION = `Analiza exclusivamente la materialidad y sustan
 
 export const FiscalMateriality: React.FC = () => {
   const { notify, setActiveTab } = useUiStore();
+  const canAnalyze = useProcessingGuard('legalGeneration', 'generar la evaluación de materialidad');
   const { currentCaseId, setCurrentCaseId, addFiscalAnalysis, fiscalOperationState, updateFiscalOperationState, completeFiscalOperationStep } = useCaseStore();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>(fiscalOperationState.materialityAnswers || {});
@@ -41,6 +43,7 @@ export const FiscalMateriality: React.FC = () => {
   };
 
   const submit = async () => {
+    if (!canAnalyze()) return;
     setIsProcessing(true);
     setProgress('Consolidando respuestas…');
     const context = QUESTIONS.map((item) => `${item.label}\n${answers[item.id] || '[DATO FALTANTE]'}`).join('\n\n');

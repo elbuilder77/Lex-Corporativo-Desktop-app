@@ -6,6 +6,7 @@ import { useCaseStore } from '../store/useCaseStore';
 import { useUiStore } from '../store/useUiStore';
 import { cn } from '../lib/utils';
 import { ensureModuleActivity } from '../lib/case-access';
+import { useProcessingGuard } from '../hooks/useProcessingGuard';
 
 const FISCAL_TOPICS = [
   'Deducción',
@@ -24,6 +25,7 @@ const FISCAL_TOPICS = [
 export const FiscalConsultation: React.FC = () => {
   const { currentCaseId, setCurrentCaseId, fiscalChatHistory: messages, setFiscalChatHistory } = useCaseStore();
   const { notify } = useUiStore();
+  const canConsult = useProcessingGuard('legalGeneration', 'responder esta consulta fiscal');
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -36,6 +38,7 @@ export const FiscalConsultation: React.FC = () => {
   const send = async (value: string) => {
     const query = value.trim();
     if (!query || isProcessing) return;
+    if (!canConsult()) return;
 
     const history = messages.filter((message) => !message.isThinking);
     setInput('');

@@ -60,6 +60,21 @@ describe('BYOK provider client', () => {
     expect(body.tool_choice).toEqual({ type: 'tool', name: 'result' });
   });
 
+  it('omits sampling parameters rejected by Claude Sonnet 5', async () => {
+    const fetchMock = mockJsonResponse({ content: [{ type: 'text', text: 'OK' }] });
+    await generateByokText({
+      provider: 'anthropic',
+      apiKey: 'anthropic-secret',
+      model: 'claude-sonnet-5',
+      prompt: 'consulta',
+      temperature: 0,
+    });
+
+    const [, init] = fetchMock.mock.calls[0];
+    const body = JSON.parse(init.body);
+    expect(body.temperature).toBeUndefined();
+  });
+
   it('truncates document evidence before losing the legal context or output contract', () => {
     const prompt = composeLimitedByokPrompt({
       instruction: 'INSTRUCCION-CONSERVADA',

@@ -11,12 +11,14 @@ import { generateDocumentPDF } from '../lib/pdf-export';
 import { draftLegalDocument } from '../services/ai';
 import { useCaseStore } from '../store/useCaseStore';
 import { useUiStore } from '../store/useUiStore';
+import { useProcessingGuard } from '../hooks/useProcessingGuard';
 import { DraftingTemplatePicker } from './DraftingTemplatePicker';
 import { useNavigate } from 'react-router-dom';
 
 export const FiscalDocumentation: React.FC = () => {
   const navigate = useNavigate();
   const { notify } = useUiStore();
+  const canGenerate = useProcessingGuard('legalGeneration', 'generar esta documentación fiscal');
   const {
     currentCaseId,
     setCurrentCaseId,
@@ -84,6 +86,7 @@ export const FiscalDocumentation: React.FC = () => {
       notify('Completa los datos e instrucciones del documento.', 'warning', 'Documentación fiscal');
       return;
     }
+    if (!canGenerate()) return;
     setIsGenerating(true);
     try {
       const caseId = await ensureModuleActivity('fiscal', currentCaseId);

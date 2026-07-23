@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useCallback, lazy, Suspense } from 'react';
+import React, { useEffect, useRef, useCallback, lazy, Suspense, useState } from 'react';
 import { Navigate, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { CapabilityGate } from './components/CapabilityGate';
+import { ProcessingSetupDialog } from './components/ProcessingSetupDialog';
 import { Menu } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -24,6 +25,7 @@ import { getLocalUser, getSubscriptionStatus, purgeExpiredCases, upsertCase, sta
 
 const DEFAULT_CASE_RETENTION_DAYS = 5;
 const DEFAULT_WORKSPACE_KEY = 'lex_default_workspace';
+const STATION_OPENED_KEY = 'lex_station_opened';
 
 function getCaseRetentionDays(): number {
   const raw = Number(import.meta.env.VITE_CASE_RETENTION_DAYS || DEFAULT_CASE_RETENTION_DAYS);
@@ -66,6 +68,7 @@ function Layout({ children }: { children: React.ReactNode }) {
       <Suspense fallback={null}>
         <NotificationHub notifications={notifications} onDismiss={dismissNotification} />
       </Suspense>
+      <ProcessingSetupDialog />
 
       {hasSidebar && sidebarOpen && isMobile && (
         <button
@@ -238,6 +241,35 @@ function GlobalEffects() {
 function IntroductionWrapper() {
   const navigate = useNavigate();
   const { notify } = useUiStore();
+  const [isResuming, setIsResuming] = useState(false);
+
+  const openStation = useCallback(async (remember: boolean) => {
+    setIsResuming(true);
+    try {
+      const localUser = await startLocalSession();
+      useAuthStore.getState().setUser(localUser);
+      useAuthStore.getState().setIsAuthReady(true);
+      useCaseStore.getState().setCurrentCaseId(null);
+      await useCaseStore.getState().fetchRecentCases();
+      if (remember) localStorage.setItem(STATION_OPENED_KEY, '1');
+
+      const defaultWorkspace = localStorage.getItem(DEFAULT_WORKSPACE_KEY);
+      navigate(defaultWorkspace === 'engineering' || defaultWorkspace === 'fiscal'
+        ? (defaultWorkspace === 'engineering' ? '/ingenieria-juridica' : '/fiscal')
+        : '/instructivo', { replace: true });
+    } catch {
+      setIsResuming(false);
+      notify('No se pudo abrir la estación local.', 'error', 'Fallo de inicio');
+    }
+  }, [navigate, notify]);
+
+  useEffect(() => {
+    if (localStorage.getItem(STATION_OPENED_KEY) === '1') void openStation(false);
+  }, [openStation]);
+
+  if (isResuming && localStorage.getItem(STATION_OPENED_KEY) === '1') {
+    return <div className="absolute inset-0 z-50 flex items-center justify-center bg-legal-shell"><motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="h-8 w-8 rounded-full border-2 border-legal-gold border-t-transparent" /></div>;
+  }
 
   return (
     <motion.div
@@ -254,23 +286,7 @@ function IntroductionWrapper() {
         </div>
       }>
         <Introduction
-        onOpenStation={async () => {
-          try {
-            const localUser = await startLocalSession();
-            useAuthStore.getState().setUser(localUser);
-            useAuthStore.getState().setIsAuthReady(true);
-
-            useCaseStore.getState().setCurrentCaseId(null);
-            await useCaseStore.getState().fetchRecentCases();
-
-            const defaultWorkspace = localStorage.getItem(DEFAULT_WORKSPACE_KEY);
-            navigate(defaultWorkspace === 'engineering' || defaultWorkspace === 'fiscal'
-              ? (defaultWorkspace === 'engineering' ? '/ingenieria-juridica' : '/fiscal')
-              : '/instructivo');
-          } catch {
-            notify("No se pudo abrir la estación local.", "error", "Fallo de inicio");
-          }
-        }}
+        onOpenStation={() => openStation(true)}
       />
       </Suspense>
     </motion.div>

@@ -16,6 +16,7 @@ import {
 import logoUrl from '../assets/logo-lockup-transparent.png';
 import { DocumentAnalysisHistoryPanel } from './document-analysis/DocumentAnalysisHistoryPanel';
 import { DocumentAnalysisResultPanel } from './document-analysis/DocumentAnalysisResultPanel';
+import { useProcessingGuard } from '../hooks/useProcessingGuard';
 
 interface DocumentAnalysisViewProps {
   fiscalWorkflow?: FiscalAnalysisTab;
@@ -33,6 +34,7 @@ export const DocumentAnalysisView: React.FC<DocumentAnalysisViewProps> = ({
   fiscalWorkflow = 'analysis',
 }) => {
   const { notify } = useUiStore();
+  const canAnalyze = useProcessingGuard('legalGeneration', 'analizar estos documentos');
   const { currentCaseId, setCurrentCaseId, addFiscalAnalysis, fiscalAnalysisHistory } = useCaseStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fiscalContent = FISCAL_ANALYSIS_WORKFLOWS[fiscalWorkflow];
@@ -107,6 +109,7 @@ export const DocumentAnalysisView: React.FC<DocumentAnalysisViewProps> = ({
       notify('Por favor seleccione al menos un documento.', 'error');
       return;
     }
+    if (!canAnalyze()) return;
     setIsAnalyzing(true);
     setCurrentStep(1);
     setResult(null);

@@ -12,6 +12,7 @@ interface UiState {
   isOnline: boolean;
   runtimeHealth: RuntimeHealth | null;
   runtimeHealthLoading: boolean;
+  processingSetupIntent: string | null;
   notify: (message: string, type?: NotificationType, title?: string) => void;
   dismissNotification: (id: string) => void;
   setIsMobile: (mobile: boolean) => void;
@@ -20,17 +21,20 @@ interface UiState {
   setActiveTab: (tab: ModuleTab) => void;
   setIsOnline: (online: boolean) => void;
   refreshRuntimeHealth: () => Promise<RuntimeHealth | null>;
+  requestProcessingSetup: (intent: string) => void;
+  dismissProcessingSetup: () => void;
 }
 
 export const useUiStore = create<UiState>((set) => ({
   notifications: [],
   isMobile: typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches,
   sidebarOpen: typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches,
-  sidebarCollapsed: true,
+  sidebarCollapsed: false,
   activeTab: 'fiscal-consultation',
   isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
   runtimeHealth: null,
   runtimeHealthLoading: false,
+  processingSetupIntent: null,
   notify: (message, type = 'info', title) => {
     const id = crypto.randomUUID();
     set((state) => ({ notifications: [...state.notifications, { id, type, message, title }] }));
@@ -57,4 +61,6 @@ export const useUiStore = create<UiState>((set) => ({
       return null;
     }
   },
+  requestProcessingSetup: (intent) => set({ processingSetupIntent: intent }),
+  dismissProcessingSetup: () => set({ processingSetupIntent: null }),
 }));

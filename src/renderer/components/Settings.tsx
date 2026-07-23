@@ -11,8 +11,8 @@ import { PreferencesSettingsPanel, type DefaultWorkspace } from './settings/Pref
 import { SETTINGS_TABS, SettingsNavigation, type SettingsTab } from './settings/SettingsNavigation';
 import { StationSettingsPanel } from './settings/StationSettingsPanel';
 import { TraceabilitySettingsPanel } from './settings/TraceabilitySettingsPanel';
+import { DEFAULT_BYOK_MODELS, type ByokProvider } from '../../shared/byok-models';
 
-type ByokProvider = 'gemini' | 'openai' | 'anthropic';
 type ByokProviderStatus = {
   model: string;
   hasApiKey: boolean;
@@ -26,12 +26,6 @@ const BYOK_PROVIDER_LABELS: Record<ByokProvider, string> = {
   gemini: 'Google Gemini',
   openai: 'OpenAI',
   anthropic: 'Anthropic Claude',
-};
-
-const DEFAULT_BYOK_MODELS: Record<ByokProvider, string> = {
-  gemini: 'gemini-3.5-flash',
-  openai: 'gpt-5.6-terra',
-  anthropic: 'claude-sonnet-4-20250514',
 };
 
 const EMPTY_PROVIDER_SETTINGS: Record<ByokProvider, ByokProviderStatus> = {
@@ -268,7 +262,7 @@ export const Settings: React.FC = () => {
           </div>
           <div>
             <h2 className="text-base font-serif font-bold text-slate-900 tracking-tight">Configuración</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Gestiona tu identidad y preferencias en Lex Corporativo.</p>
+            <p className="text-xs text-slate-500 mt-0.5">Procesamiento, datos y preferencias de esta estación.</p>
           </div>
         </div>
       </header>
@@ -288,7 +282,13 @@ export const Settings: React.FC = () => {
           {/* Content area */}
           <div className="min-w-0 rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:p-9 min-h-[450px]">
             {activeTab === 'profile' && (
-              <StationSettingsPanel imageUrl={logoMarkUrl} onReturnToCover={() => navigate('/')} />
+              <StationSettingsPanel
+                imageUrl={logoMarkUrl}
+                onReturnToCover={() => {
+                  localStorage.removeItem('lex_station_opened');
+                  navigate('/');
+                }}
+              />
             )}
             {activeTab === 'preferences' && (
               <PreferencesSettingsPanel
@@ -307,7 +307,7 @@ export const Settings: React.FC = () => {
             {activeTab === 'ia' && (
               <div className="space-y-8">
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900 mb-2">IA y API propia</h2>
+                  <h2 className="text-lg font-bold text-slate-900 mb-2">Modo de procesamiento</h2>
                   <p className="text-xs text-slate-500 leading-relaxed max-w-2xl">
                     Lex Corporativo puede operar localmente o usar Gemini, OpenAI y Anthropic Claude con una API key de tu propia cuenta.
                   </p>
@@ -320,7 +320,7 @@ export const Settings: React.FC = () => {
                         <CloudOff size={17} className="text-emerald-600" />
                       </div>
                       <div>
-                        <h3 className="text-sm font-bold text-slate-900">Modo local</h3>
+                        <h3 className="text-sm font-bold text-slate-900">En este equipo</h3>
                         <p className="mt-0.5 text-xs text-slate-500">{localGenerationReady ? 'Motor y modelo instalados en este equipo.' : 'Seleccionable, pero la inferencia no está instalada.'}</p>
                       </div>
                     </div>
@@ -333,7 +333,7 @@ export const Settings: React.FC = () => {
                         <Wifi size={17} className="text-blue-600" />
                       </div>
                       <div>
-                        <h3 className="text-sm font-bold text-slate-900">BYOK multiproveedor</h3>
+                        <h3 className="text-sm font-bold text-slate-900">API propia</h3>
                         <p className="mt-0.5 text-xs text-slate-500">{BYOK_PROVIDER_LABELS[byokProvider]} con tu API key.</p>
                       </div>
                     </div>
@@ -408,7 +408,7 @@ export const Settings: React.FC = () => {
 
                 <div className="space-y-5 p-6 bg-slate-50 rounded-2xl border border-slate-200">
                   <div>
-                    <label htmlFor="byok-provider" className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-500">Proveedor BYOK</label>
+                    <label htmlFor="byok-provider" className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-500">Proveedor</label>
                     <select
                       id="byok-provider"
                       value={byokProvider}

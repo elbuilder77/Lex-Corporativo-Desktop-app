@@ -5,11 +5,11 @@ export type SettingsTab = 'profile' | 'preferences' | 'ia' | 'trazabilidad' | 'd
 
 export const SETTINGS_TABS: ReadonlyArray<{ id: SettingsTab; label: string; icon: React.ReactNode }> = [
   { id: 'profile', label: 'Estación', icon: <User size={16} /> },
-  { id: 'preferences', label: 'Preferencias', icon: <Settings size={16} /> },
-  { id: 'ia', label: 'IA y API', icon: <KeyRound size={16} /> },
-  { id: 'trazabilidad', label: 'Trazabilidad y Logs', icon: <Shield size={16} /> },
+  { id: 'ia', label: 'Procesamiento', icon: <KeyRound size={16} /> },
+  { id: 'preferences', label: 'Aplicación y recursos', icon: <Settings size={16} /> },
+  { id: 'trazabilidad', label: 'Trazabilidad', icon: <Shield size={16} /> },
   { id: 'data', label: 'Datos locales', icon: <DatabaseBackup size={16} /> },
-  { id: 'legal', label: 'Legal y Privacidad', icon: <FileText size={16} /> },
+  { id: 'legal', label: 'Legal y privacidad', icon: <FileText size={16} /> },
 ];
 
 interface SettingsNavigationProps {

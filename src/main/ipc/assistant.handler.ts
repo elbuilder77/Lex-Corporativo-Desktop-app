@@ -124,6 +124,29 @@ export function registerAssistantHandlers(): void {
     const mappedHistory = mapHistory(parsed.history);
 
     try {
+      const byok = getActiveByokConfig();
+      if (byok.enabled && byok.apiKey) {
+        const result = await generateByokText({
+          provider: byok.provider,
+          apiKey: byok.apiKey,
+          model: byok.model,
+          systemInstruction: [
+            'Eres el instructivo de producto de Lex Corporativo Desktop.',
+            'Responde solo sobre el uso, privacidad, configuración y flujos descritos en la guía.',
+            'No des asesoría jurídica ni respondas preguntas de derecho.',
+          ].join('\n'),
+          prompt: composeLimitedByokPrompt({
+            instruction: `PREGUNTA:\n${parsed.query}\n\nHISTORIAL RECIENTE:\n${mappedHistory.map(message => `${message.role}: ${message.content}`).join('\n') || 'Sin historial.'}`,
+            evidence: APP_GUIDE,
+            outputContract: 'Responde en español claro y breve. Si la pregunta es jurídica, declina y dirige al módulo apropiado.',
+            maxChars: Math.min(byok.maxInputChars, 30_000),
+          }),
+          temperature: 0.1,
+          maxOutputTokens: 1_200,
+        });
+        return { result: result.trim() };
+      }
+
       const responseText = await runAssistantQuery(requestId, parsed.query, mappedHistory);
       
       // Clean up system messages / prefix if Gemma repeats it
@@ -266,6 +289,8 @@ export function registerAssistantHandlers(): void {
       if (!grounding.valid) {
         const rejectedResult = grounding.reason === 'unsupported_citation'
           ? 'La respuesta del modelo fue bloqueada porque incluyó una referencia normativa no contenida en el fundamento recuperado. No se entrega una conclusión potencialmente alucinada.'
+          : grounding.reason === 'unsupported_claim'
+            ? 'La respuesta del modelo fue bloqueada porque una afirmación o cifra no aparece respaldada por el fundamento citado. No se entrega una conclusión potencialmente alucinada.'
           : grounding.reason === 'unknown_source_id'
             ? 'La respuesta del modelo fue bloqueada porque vinculó una afirmación con un identificador de fuente que no fue recuperado. No se entrega una conclusión sin trazabilidad exacta.'
             : 'La respuesta del modelo fue bloqueada porque sus afirmaciones no quedaron vinculadas de forma completa a los fundamentos recuperados.';

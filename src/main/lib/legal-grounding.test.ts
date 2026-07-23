@@ -16,10 +16,28 @@ const sources = [
 describe('legal response grounding gate', () => {
   it('keeps exact provision allow-list validation for local GGUF output', () => {
     const result = validateGroundedLegalOutput(
-      'El CFF, Artículo 69-B establece el procedimiento descrito en el fundamento recuperado.',
+      'El CFF, Artículo 69-B establece un procedimiento aplicable a comprobantes de operaciones inexistentes.',
       sources,
     );
     expect(result.valid).toBe(true);
+  });
+
+  it('rejects a fabricated claim even when it cites a retrieved provision', () => {
+    const result = validateGroundedLegalOutput(
+      'El CFF, Artículo 69-B permite deducir cualquier gasto sin requisitos.',
+      sources,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.reason).toBe('unsupported_claim');
+  });
+
+  it('rejects a fabricated number absent from the cited provision', () => {
+    const result = validateGroundedLegalOutput(
+      'El CFF, Artículo 69-B establece un plazo de 90 días para el contribuyente.',
+      sources,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.reason).toBe('unsupported_claim');
   });
 
   it('rejects a local citation not present in retrieved sources', () => {

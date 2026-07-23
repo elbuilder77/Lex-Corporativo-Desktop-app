@@ -214,10 +214,14 @@ async function generateAnthropic(input: ByokGenerateInput): Promise<string> {
   const body: Record<string, unknown> = {
     model: input.model,
     max_tokens: input.maxOutputTokens ?? 12_000,
-    temperature: input.temperature ?? 0.15,
     system: input.systemInstruction,
     messages: [{ role: 'user', content: input.prompt }],
   };
+  // Sonnet 5 rejects non-default sampling parameters. Older Claude models
+  // still accept temperature, so keep their existing behavior.
+  if (!/^claude-sonnet-5(?:$|-)/i.test(input.model)) {
+    body.temperature = input.temperature ?? 0.15;
+  }
 
   if (input.jsonSchema) {
     body.tools = [{
