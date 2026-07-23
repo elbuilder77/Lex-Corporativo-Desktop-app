@@ -48,6 +48,29 @@ describe('BYOK provider settings', () => {
     expect(getActiveByokConfig().apiKey).toBe('secret-key');
   });
 
+  it('migrates legacy Base64 credentials to OS-backed encryption on read', async () => {
+    const { getActiveByokConfig } = await import('./byok-settings');
+    const filePath = path.join(settingsRoot, 'byok-settings.json');
+    fs.mkdirSync(settingsRoot, { recursive: true });
+    fs.writeFileSync(filePath, JSON.stringify({
+      schemaVersion: 2,
+      enabled: true,
+      provider: 'gemini',
+      providers: {
+        gemini: {
+          model: 'gemini-test',
+          encryptedApiKey: `base64:${Buffer.from('legacy-secret').toString('base64')}`,
+        },
+      },
+    }), 'utf8');
+
+    expect(getActiveByokConfig()).toMatchObject({ enabled: true, apiKey: 'legacy-secret' });
+    const migrated = fs.readFileSync(filePath, 'utf8');
+    expect(migrated).toContain('safe:');
+    expect(migrated).not.toContain('base64:');
+    expect(migrated).not.toContain('legacy-secret');
+  });
+
   it('disables an unreadable saved key until the user replaces it', async () => {
     const { getByokSettings, saveByokSettings } = await import('./byok-settings');
     const filePath = path.join(settingsRoot, 'byok-settings.json');

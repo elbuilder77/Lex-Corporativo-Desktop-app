@@ -3,12 +3,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { app } from 'electron';
 import { sanitizeForLogs } from './sanitizer';
+import type { GroundedClaim } from './legal-grounding';
 
 export interface QueryTrace {
   requestId: string;
   operation: 'search' | 'consultation' | 'analysis' | 'drafting';
-  moduleUsed: 'mercantil' | 'fiscal' | 'laboral';
-  ecosystemLegal: 'mercantil' | 'fiscal' | 'laboral';
+  moduleUsed: 'mercantil' | 'fiscal';
+  ecosystemLegal: 'mercantil' | 'fiscal';
   primaryModel: string;
   finalModelUsed: string;
   hasFallback: boolean;
@@ -19,6 +20,7 @@ export interface QueryTrace {
   timestamp: string;
   sourcesCount: number;
   sourcesCitations: Array<{ id: string | number; type: string; title: string; subtitle?: string; similarity: number }>;
+  groundingClaims: Array<{ claimId: string; claimHash: string; sourceIds: string[] }>;
 }
 
 interface LegalExecutionTraceInput {
@@ -41,6 +43,7 @@ interface LegalExecutionTraceInput {
     law_code?: string;
     article_number?: string;
   }>;
+  claims?: GroundedClaim[];
 }
 
 export function getTraceLedgerPath(): string {
@@ -118,6 +121,11 @@ export function logLegalExecution(input: LegalExecutionTraceInput): void {
       title: source.title || source.law_code || 'Fuente local',
       subtitle: source.subtitle || source.article_number,
       similarity: Number.isFinite(source.similarity) ? Number(source.similarity) : 0,
+    })),
+    groundingClaims: (input.claims || []).map(claim => ({
+      claimId: claim.claimId,
+      claimHash: generateHash(claim.text),
+      sourceIds: [...new Set(claim.sourceIds)],
     })),
   });
 }

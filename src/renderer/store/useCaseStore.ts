@@ -12,9 +12,9 @@ interface CaseState {
   recentCases: SavedCase[];
   isLoadingCases: boolean;
   
-  engineeringDraftState: { prompt: string; mode: 'template' | 'reference'; generatedDoc: string; template: any | null; area: 'mercantil' | 'laboral' | 'fiscal'; referenceFileName?: string; executionMode: 'local' | 'byok' };
+  engineeringDraftState: { prompt: string; mode: 'template' | 'reference'; generatedDoc: string; template: any | null; area: 'mercantil' | 'fiscal'; referenceFileName?: string; executionMode: 'local' | 'byok' };
   fiscalDraftState: { prompt: string; mode: 'scratch' | 'template' | 'analysis'; generatedDoc: string; template: any | null; linkedAnalysisId?: string };
-  setEngineeringDraftState: (state: Partial<{ prompt: string; mode: 'template' | 'reference'; generatedDoc: string; template: any | null; area: 'mercantil' | 'laboral' | 'fiscal'; referenceFileName?: string; executionMode: 'local' | 'byok' }>) => void;
+  setEngineeringDraftState: (state: Partial<{ prompt: string; mode: 'template' | 'reference'; generatedDoc: string; template: any | null; area: 'mercantil' | 'fiscal'; referenceFileName?: string; executionMode: 'local' | 'byok' }>) => void;
   setFiscalDraftState: (state: Partial<{ prompt: string; mode: 'scratch' | 'template' | 'analysis'; generatedDoc: string; template: any | null; linkedAnalysisId?: string }>) => void;
   setFiscalChatHistory: (updater: ChatMessage[] | ((current: ChatMessage[]) => ChatMessage[])) => void;
   updateFiscalOperationState: (state: Partial<FiscalOperationState>) => void;
@@ -28,7 +28,6 @@ interface CaseState {
   removeGeneratedArtifact: (artifactId: string, activityType: 'analysis' | 'drafting', module: 'engineering' | 'fiscal', generatedDoc?: string) => void;
   fetchRecentCases: () => Promise<void>;
   removeRecentCase: (caseId: string) => void;
-  clearRecentCases: () => void;
   
   resetCase: () => void;
   loadCase: (c: SavedCase) => Promise<void>;
@@ -185,21 +184,6 @@ export const useCaseStore = create<CaseState>((set) => ({
     };
   }),
 
-  clearRecentCases: () => {
-    window.lexDesktop?.cases?.deleteAll().catch(console.error);
-    set({
-      recentCases: [],
-      currentCaseId: null,
-      fiscalAnalysisHistory: [],
-      engineeringDraftingHistory: [],
-      fiscalDraftingHistory: [],
-      fiscalChatHistory: [],
-      fiscalOperationState: createDefaultFiscalOperationState(),
-      engineeringDraftState: createDefaultEngineeringDraftState(),
-      fiscalDraftState: createDefaultFiscalDraftState(),
-    });
-  },
-  
   resetCase: () => set({
     currentCaseId: null,
     fiscalAnalysisHistory: [],

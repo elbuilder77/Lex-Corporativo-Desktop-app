@@ -24,8 +24,17 @@ export interface VaultCase {
 
 type CaseModule = CaseMetadata['module'];
 
+export interface VaultProtectionStatus {
+  encryptionAvailable: boolean;
+  backend: string;
+  legacyPayloads: number;
+  ready: boolean;
+}
+
 const CASE_NOT_FOUND_MESSAGE = 'Selecciona un portafolio compatible o crea una nueva actividad.';
 const CASE_MODULE_MISMATCH_MESSAGE = 'Este portafolio pertenece a otro ecosistema. Selecciona una actividad compatible o crea una nueva.';
+const VAULT_ENCRYPTION_UNAVAILABLE_MESSAGE = 'La bóveda está bloqueada porque el cifrado seguro del sistema operativo no está disponible. Exporta o elimina los datos existentes desde un perfil compatible; no se guardará información nueva sin cifrado.';
+const PAYLOAD_TABLES = ['documents', 'analyses', 'drafts', 'case_state'] as const;
 
 function getSafeCaseLabel(caseId: string): string {
   return `${caseId.slice(0, 8)}...`;
@@ -41,6 +50,55 @@ function getVaultRoot(): string {
 }
 
 let db: Database.Database | null = null;
+
+function getStorageBackend(): string {
+  if (process.platform === 'win32') return 'dpapi';
+  if (process.platform === 'darwin') return 'keychain';
+
+  try {
+    return typeof safeStorage?.getSelectedStorageBackend === 'function'
+      ? safeStorage.getSelectedStorageBackend()
+      : 'system-keyring';
+  } catch {
+    return 'unavailable';
+  }
+}
+
+function isSecureStorageAvailable(): boolean {
+  if (!safeStorage?.isEncryptionAvailable()) return false;
+  return getStorageBackend() !== 'basic_text';
+}
+
+function requireSecureStorage(): void {
+  if (!isSecureStorageAvailable()) {
+    throw new Error(VAULT_ENCRYPTION_UNAVAILABLE_MESSAGE);
+  }
+}
+
+function decodeLegacyObfuscatedPayload(value: string): string {
+  return Buffer.from(value.slice('obfuscated:'.length), 'base64').toString('utf-8');
+}
+
+function migrateLegacyObfuscatedPayloads(database: Database.Database): number {
+  if (!isSecureStorageAvailable()) return 0;
+  let migrated = 0;
+  const migrate = database.transaction(() => {
+    for (const table of PAYLOAD_TABLES) {
+      const rows = database
+        .prepare(`SELECT rowid, payload FROM ${table} WHERE payload LIKE 'obfuscated:%'`)
+        .all() as Array<{ rowid: number; payload: string }>;
+      const update = database.prepare(`UPDATE ${table} SET payload = ? WHERE rowid = ?`);
+      for (const row of rows) {
+        const encrypted = `encrypted:v1:${safeStorage.encryptString(decodeLegacyObfuscatedPayload(row.payload)).toString('base64')}`;
+        update.run(encrypted, row.rowid);
+        migrated += 1;
+      }
+    }
+  });
+  migrate();
+  if (migrated > 0) console.info(`[Vault] Migrated ${migrated} legacy payloads to OS encryption.`);
+  return migrated;
+}
 
 function getDb(): Database.Database {
   if (db) return db;
@@ -111,27 +169,26 @@ function getDb(): Database.Database {
     CREATE UNIQUE INDEX IF NOT EXISTS idx_analyses_case_analysis ON analyses(caseId, analysisId);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_drafts_case_draft ON drafts(caseId, draftId);
   `);
+  migrateLegacyObfuscatedPayloads(db);
   
   return db;
 }
 
-// Encrypt payload safely
 function encryptPayload(plainText: string): string {
-  if (safeStorage && safeStorage.isEncryptionAvailable()) {
-    return safeStorage.encryptString(plainText).toString('base64');
-  }
-  return 'obfuscated:' + Buffer.from(plainText, 'utf-8').toString('base64');
+  requireSecureStorage();
+  return `encrypted:v1:${safeStorage.encryptString(plainText).toString('base64')}`;
 }
 
-// Decrypt payload safely
 function decryptPayload(encryptedText: string): string {
   if (encryptedText.startsWith('obfuscated:')) {
-    const base64Part = encryptedText.slice('obfuscated:'.length);
-    return Buffer.from(base64Part, 'base64').toString('utf-8');
+    return decodeLegacyObfuscatedPayload(encryptedText);
   }
-  if (safeStorage && safeStorage.isEncryptionAvailable()) {
+  if (isSecureStorageAvailable()) {
     try {
-      return safeStorage.decryptString(Buffer.from(encryptedText, 'base64'));
+      const payload = encryptedText.startsWith('encrypted:v1:')
+        ? encryptedText.slice('encrypted:v1:'.length)
+        : encryptedText;
+      return safeStorage.decryptString(Buffer.from(payload, 'base64'));
     } catch (e) {
       if (process.env.NODE_ENV !== 'production') {
         console.warn('[Vault] Local protection read failed.');
@@ -139,7 +196,25 @@ function decryptPayload(encryptedText: string): string {
       throw new Error('No se pudo descifrar el registro del portafolio.');
     }
   }
-  throw new Error('Cifrado local del Sistema Operativo no disponible y el registro no está ofuscado.');
+  throw new Error(VAULT_ENCRYPTION_UNAVAILABLE_MESSAGE);
+}
+
+export function getVaultProtectionStatus(): VaultProtectionStatus {
+  const database = getDb();
+  migrateLegacyObfuscatedPayloads(database);
+  const legacyPayloads = PAYLOAD_TABLES.reduce((total, table) => {
+    const row = database
+      .prepare(`SELECT COUNT(*) AS count FROM ${table} WHERE payload LIKE 'obfuscated:%'`)
+      .get() as { count: number };
+    return total + Number(row.count || 0);
+  }, 0);
+  const encryptionAvailable = isSecureStorageAvailable();
+  return {
+    encryptionAvailable,
+    backend: getStorageBackend(),
+    legacyPayloads,
+    ready: encryptionAvailable && legacyPayloads === 0,
+  };
 }
 
 function readCaseMetadata(caseId: string): CaseMetadata {
@@ -169,6 +244,7 @@ export async function createCase(
   module: CaseModule,
   retentionUntil?: string,
 ): Promise<CaseMetadata> {
+  requireSecureStorage();
   const timestamp = new Date().toISOString();
   const existed = Boolean(getDb().prepare('SELECT 1 FROM cases WHERE caseId = ?').get(caseId));
   getDb().prepare(`
@@ -344,34 +420,24 @@ export async function exportCase(caseId: string, expectedModule?: CaseModule): P
   
   const docs = getDb().prepare('SELECT payload FROM documents WHERE caseId = ?').all(caseId) as any[];
   for (const doc of docs) {
-    try {
-      const dec = decryptPayload(doc.payload);
-      const parsed = JSON.parse(dec);
-      result.documents.push(parsed); // contains fileName, mimeType, base64
-    } catch {}
+    const dec = decryptPayload(doc.payload);
+    const parsed = JSON.parse(dec);
+    result.documents.push(parsed); // contains fileName, mimeType, base64
   }
   
   const analyses = getDb().prepare('SELECT payload FROM analyses WHERE caseId = ?').all(caseId) as any[];
   for (const a of analyses) {
-    try {
-      result.analyses.push(JSON.parse(decryptPayload(a.payload)));
-    } catch {}
+    result.analyses.push(JSON.parse(decryptPayload(a.payload)));
   }
 
   const drafts = getDb().prepare('SELECT payload FROM drafts WHERE caseId = ?').all(caseId) as any[];
   for (const d of drafts) {
-    try {
-      result.drafts.push(JSON.parse(decryptPayload(d.payload)));
-    } catch {}
+    result.drafts.push(JSON.parse(decryptPayload(d.payload)));
   }
 
   const stateRow = getDb().prepare('SELECT payload FROM case_state WHERE caseId = ?').get(caseId) as { payload: string } | undefined;
   if (stateRow) {
-    try {
-      result.state = JSON.parse(decryptPayload(stateRow.payload));
-    } catch {
-      result.state = null;
-    }
+    result.state = JSON.parse(decryptPayload(stateRow.payload));
   }
   
   (result as any).exportMetadata = {

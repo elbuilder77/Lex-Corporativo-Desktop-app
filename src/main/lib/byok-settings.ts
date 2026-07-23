@@ -85,8 +85,18 @@ function getSettingsPath(): string {
   return path.join(app.getPath('userData'), 'byok-settings.json');
 }
 
+function isSecureStorageAvailable(): boolean {
+  if (!safeStorage?.isEncryptionAvailable()) return false;
+  if (process.platform !== 'linux' || typeof safeStorage.getSelectedStorageBackend !== 'function') return true;
+  try {
+    return safeStorage.getSelectedStorageBackend() !== 'basic_text';
+  } catch {
+    return false;
+  }
+}
+
 function encryptText(plainText: string): string {
-  if (safeStorage?.isEncryptionAvailable()) {
+  if (isSecureStorageAvailable()) {
     return `safe:${safeStorage.encryptString(plainText).toString('base64')}`;
   }
   throw new Error('No se puede guardar la API key porque el cifrado seguro del sistema operativo no está disponible.');
@@ -95,7 +105,7 @@ function encryptText(plainText: string): string {
 function decryptText(encryptedText?: string): string | null {
   if (!encryptedText) return null;
 
-  if (encryptedText.startsWith('safe:') && safeStorage?.isEncryptionAvailable()) {
+  if (encryptedText.startsWith('safe:') && isSecureStorageAvailable()) {
     try {
       return safeStorage.decryptString(Buffer.from(encryptedText.slice(5), 'base64'));
     } catch {
@@ -103,17 +113,16 @@ function decryptText(encryptedText?: string): string | null {
     }
   }
 
-  // Compatibility with early local builds. A successful save rewrites the
-  // selected provider using OS-backed encryption.
-  if (encryptedText.startsWith('base64:')) {
-    try {
-      return Buffer.from(encryptedText.slice(7), 'base64').toString('utf-8');
-    } catch {
-      return null;
-    }
-  }
-
   return null;
+}
+
+function decodeLegacyBase64Key(value: string): string | null {
+  if (!value.startsWith('base64:')) return null;
+  try {
+    return Buffer.from(value.slice(7), 'base64').toString('utf-8') || null;
+  } catch {
+    return null;
+  }
 }
 
 function fingerprintApiKey(apiKey: string): string {
@@ -172,7 +181,21 @@ function readStoredSettings(): StoredByokSettings {
   if (!fs.existsSync(filePath)) return emptyStoredSettings();
 
   try {
-    return migrateSettings(JSON.parse(fs.readFileSync(filePath, 'utf-8')));
+    const settings = migrateSettings(JSON.parse(fs.readFileSync(filePath, 'utf-8')));
+    let migrated = false;
+    if (isSecureStorageAvailable()) {
+      for (const provider of BYOK_PROVIDERS) {
+        const stored = settings.providers[provider];
+        const legacyKey = decodeLegacyBase64Key(stored?.encryptedApiKey || '');
+        if (!stored || !legacyKey) continue;
+        stored.encryptedApiKey = encryptText(legacyKey);
+        stored.apiKeyFingerprint = fingerprintApiKey(legacyKey);
+        stored.updatedAt = new Date().toISOString();
+        migrated = true;
+      }
+    }
+    if (migrated) writeStoredSettings(settings);
+    return settings;
   } catch {
     return emptyStoredSettings();
   }

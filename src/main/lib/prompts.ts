@@ -1,8 +1,7 @@
-export type LegalModule = 'mercantil' | 'laboral' | 'fiscal';
+export type LegalModule = 'mercantil' | 'fiscal';
 
 export const MODULE_ALLOWED_LAW_CODES: Record<LegalModule, string[]> = {
   mercantil: ['CCOM', 'LGSM', 'LGTOC'],
-  laboral: ['LFT'],
   fiscal: ['CFF', 'LISR', 'RLISR', 'LIVA', 'RLIVA', 'RMF'],
 };
 
@@ -12,7 +11,6 @@ const LAW_TITLE_TO_CODE: Record<string, string> = {
   'LEY GENERAL DE SOCIEDADES MERCANTILES': 'LGSM',
   'LEY GENERAL DE TITULOS Y OPERACIONES DE CREDITO': 'LGTOC',
   'LEY GENERAL DE TÍTULOS Y OPERACIONES DE CRÉDITO': 'LGTOC',
-  'LEY FEDERAL DEL TRABAJO': 'LFT',
   'CODIGO FISCAL DE LA FEDERACION': 'CFF',
   'CÓDIGO FISCAL DE LA FEDERACIÓN': 'CFF',
   'LEY DEL IMPUESTO SOBRE LA RENTA': 'LISR',
@@ -25,7 +23,6 @@ const LAW_TITLE_TO_CODE: Record<string, string> = {
 
 const MODULE_LABELS: Record<LegalModule, string> = {
   mercantil: 'Derecho Mercantil y Corporativo',
-  laboral: 'Derecho Laboral',
   fiscal: 'Derecho Fiscal',
 };
 
@@ -40,7 +37,6 @@ export function normalizeLawCode(value?: string | null): string | null {
   if (normalized === 'CCOM' || normalized === 'CODIGO DE COMERCIO') return 'CCOM';
   if (normalized === 'LGSM') return 'LGSM';
   if (normalized === 'LGTOC') return 'LGTOC';
-  if (normalized === 'LFT') return 'LFT';
   if (normalized === 'CFF') return 'CFF';
   if (normalized === 'LISR') return 'LISR';
   if (normalized === 'RLISR') return 'RLISR';
@@ -63,10 +59,6 @@ export function getModuleLabel(module: LegalModule): string {
 export function getNoRagWarning(module: LegalModule): string {
   if (module === 'mercantil') {
     return 'ADVERTENCIA CRÍTICA: No tienes acceso a la base mercantil local en este momento. Redacta únicamente con la información de la plantilla o machote y marca [DATO FALTANTE] cuando sea necesario; no inventes artículos.';
-  }
-
-  if (module === 'laboral') {
-    return 'ADVERTENCIA CRÍTICA: No tienes acceso a una base laboral local verificada en este momento. Redacta únicamente con la información de la plantilla o machote y marca [DATO FALTANTE] cuando sea necesario; no inventes artículos.';
   }
 
   return 'ADVERTENCIA CRÍTICA: No tienes acceso a la base fiscal local en este momento. Usa únicamente la información disponible y aclara que no cuentas con fundamento normativo verificado.';
@@ -96,25 +88,6 @@ REGLAS DE OPERACIÓN:
 - Usa [DATO FALTANTE] cuando el documento no proporcione información necesaria.
 - Si no hay contexto suficiente, dilo y no inventes artículos.
 - Entrega únicamente el documento y las advertencias indispensables para su revisión profesional.
-`.trim();
-  }
-
-  if (module === 'laboral') {
-    return `
-Eres "Lex Corporativo Laboral", un motor local de ingeniería jurídica especializado en contratos laborales mexicanos.
-
-ALCANCE:
-1. Contratos individuales de trabajo por tiempo determinado, indeterminado, temporada o periodo de prueba.
-2. Convenios de confidencialidad, propiedad intelectual, teletrabajo y políticas anexas a la relación laboral.
-3. Convenios modificatorios y documentos de terminación que requieran revisión profesional.
-
-REGLAS:
-- Redacta únicamente contratos y documentos laborales solicitados por el usuario.
-- Usa la Ley Federal del Trabajo como marco general, pero no inventes artículos ni criterios no presentes en el contexto verificado.
-- Respeta la estructura del machote proporcionado cuando exista.
-- No inventes nombres, montos, fechas, puestos, jornadas, prestaciones o domicilios.
-- Usa [DATO FALTANTE] para cualquier información ausente.
-- Entrega un documento claro, formal y listo para revisión profesional.
 `.trim();
   }
 
@@ -148,10 +121,6 @@ REGLAS DE OPERACIÓN:
 export function getDraftInstruction(module: LegalModule): string {
   if (module === 'mercantil') {
     return 'TAREA: Proyecte un instrumento mercantil o corporativo formal conforme a técnica contractual mexicana. Use únicamente las instrucciones actuales, la plantilla precargada o el machote proporcionado y el corpus mercantil local. Use [DATO FALTANTE] si falta información.';
-  }
-
-  if (module === 'laboral') {
-    return 'TAREA: Proyecte un contrato o documento laboral mexicano formal usando la plantilla precargada o el machote otorgado. Respete su estructura y use [DATO FALTANTE] cuando falte información. No invente hechos, prestaciones ni datos de las partes.';
   }
 
   return 'TAREA: Proyecte un soporte, defensa o instrumento fiscal formal conforme a legislación fiscal mexicana. Use únicamente las instrucciones actuales, la plantilla precargada o el machote proporcionado y el corpus fiscal local. Use [DATO FALTANTE] si falta información.';

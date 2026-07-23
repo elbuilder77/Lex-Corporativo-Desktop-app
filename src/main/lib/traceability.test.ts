@@ -31,6 +31,7 @@ describe('local traceability ledger', () => {
       ragContext: 'CFF Artículo 69-B contenido reservado',
       output: 'respuesta sensible',
       sources: [{ id: 'CFF:69-B', type: 'statute', title: 'CFF', subtitle: 'Artículo 69-B', similarity: 0.95 }],
+      claims: [{ claimId: 'answer-1', heading: 'Respuesta', text: 'afirmación sensible', sourceIds: ['CFF:69-B'] }],
     });
 
     const line = fs.readFileSync(getTraceLedgerPath(), 'utf8').trim();
@@ -40,8 +41,14 @@ describe('local traceability ledger', () => {
     expect(entry.promptHash).toMatch(/^[a-f0-9]{64}$/);
     expect(entry.ragContextHash).toMatch(/^[a-f0-9]{64}$/);
     expect(entry.outputHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(entry.groundingClaims).toEqual([{
+      claimId: 'answer-1',
+      claimHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      sourceIds: ['CFF:69-B'],
+    }]);
     expect(line).not.toContain('pregunta sensible');
     expect(line).not.toContain('contenido reservado');
     expect(line).not.toContain('respuesta sensible');
+    expect(line).not.toContain('afirmación sensible');
   });
 });

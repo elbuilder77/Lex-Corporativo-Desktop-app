@@ -265,7 +265,7 @@ Tres entradas recomendadas:
 - Corporativo/Mercantil: sociedades, títulos de crédito y documentos empresariales.
 - Fiscal/Cumplimiento: materialidad, deducibilidad, IVA y soporte documental.
 
-Laboral debe mostrarse como capacidad de redacción asistida mientras no exista corpus laboral verificado; no debe equipararse todavía con Consulta Mercantil/Fiscal.
+Laboral no debe mostrarse como capacidad disponible mientras no exista corpus laboral oficial verificado, trazabilidad afirmación-fuente y pruebas jurídicas equivalentes a Mercantil/Fiscal.
 
 ### 7. Seguridad y privacidad
 

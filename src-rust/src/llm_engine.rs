@@ -1,11 +1,11 @@
-use serde::{Deserialize, Serialize};
-use std::path::Path;
+use llama_cpp_2::context::params::LlamaContextParams;
 use llama_cpp_2::llama_backend::LlamaBackend;
+use llama_cpp_2::llama_batch::LlamaBatch;
 use llama_cpp_2::model::params::LlamaModelParams;
 use llama_cpp_2::model::LlamaModel;
-use llama_cpp_2::context::params::LlamaContextParams;
-use llama_cpp_2::llama_batch::LlamaBatch;
 use llama_cpp_2::sampling::LlamaSampler;
+use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 /// Enumeración restrictiva para los niveles de riesgo
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -48,13 +48,13 @@ pub struct LlmEngine {
     backend: Option<LlamaBackend>,
     model: Option<LlamaModel>,
     pub _model_name: String,
-    pub is_mock: bool, 
+    pub is_mock: bool,
 }
 
 impl LlmEngine {
     pub fn new<P: AsRef<Path>>(model_path: P) -> Result<Self, String> {
         let path_str = model_path.as_ref().to_string_lossy().into_owned();
-        
+
         if !model_path.as_ref().exists() {
             eprintln!("[Rust Engine] Modelo GGUF no encontrado ({}). La generacion local quedara deshabilitada.", path_str);
             return Ok(Self {
@@ -89,7 +89,13 @@ impl LlmEngine {
         history: Option<Vec<(String, String)>>,
         prompt_profile: Option<&str>,
     ) -> String {
-        crate::legal_prompts::build_gemma_chat_prompt(module, rag_laws, query, history, prompt_profile)
+        crate::legal_prompts::build_gemma_chat_prompt(
+            module,
+            rag_laws,
+            query,
+            history,
+            prompt_profile,
+        )
     }
 
     fn build_rag_prompt(&self, module: &str, rag_laws: &str, document_chunk: &str) -> String {
@@ -107,9 +113,17 @@ impl LlmEngine {
         let _ = std::io::stdout().flush();
     }
 
-    pub async fn evaluate_chunks_batch(&self, module: &str, rag_laws: &str, chunks: Vec<crate::DocumentChunk>, request_id: &str) {
+    pub async fn evaluate_chunks_batch(
+        &self,
+        module: &str,
+        rag_laws: &str,
+        chunks: Vec<crate::DocumentChunk>,
+        request_id: &str,
+    ) {
         if self.is_mock || self.model.is_none() {
-            let error_msg = "No se pudo procesar el lote porque el modelo local GGUF no esta instalado.".to_string();
+            let error_msg =
+                "No se pudo procesar el lote porque el modelo local GGUF no esta instalado."
+                    .to_string();
             let response = serde_json::json!({
                 "type": "ANALYSIS_BATCH_DONE",
                 "requestId": request_id,
@@ -175,15 +189,16 @@ impl LlmEngine {
         for chunk in chunks {
             let chunk_prompt = crate::legal_prompts::build_gemma_rag_chunk_suffix(&chunk.text);
 
-            let chunk_tokens = match model.str_to_token(&chunk_prompt, llama_cpp_2::model::AddBos::Never) {
-                Ok(t) => t,
-                Err(e) => {
-                    let err_msg = format!("Tokenize error: {}", e);
-                    Self::emit_chunk_error(request_id, chunk.chunk_index, &err_msg);
-                    failed_chunks += 1;
-                    continue;
-                }
-            };
+            let chunk_tokens =
+                match model.str_to_token(&chunk_prompt, llama_cpp_2::model::AddBos::Never) {
+                    Ok(t) => t,
+                    Err(e) => {
+                        let err_msg = format!("Tokenize error: {}", e);
+                        Self::emit_chunk_error(request_id, chunk.chunk_index, &err_msg);
+                        failed_chunks += 1;
+                        continue;
+                    }
+                };
 
             let chunk_len = chunk_tokens.len();
             let mut chunk_batch = LlamaBatch::new(chunk_len.max(1), 1);
@@ -215,10 +230,8 @@ impl LlmEngine {
                 }
             };
 
-            let mut sampler = LlamaSampler::chain_simple([
-                grammar_sampler,
-                LlamaSampler::temp(0.10),
-            ]);
+            let mut sampler =
+                LlamaSampler::chain_simple([grammar_sampler, LlamaSampler::temp(0.10)]);
             sampler.accept_many(rag_tokens.iter().chain(chunk_tokens.iter()));
 
             let mut decoder = encoding_rs::UTF_8.new_decoder();
@@ -310,7 +323,12 @@ impl LlmEngine {
         let _ = std::io::stdout().flush();
     }
 
-    pub async fn evaluate_clause(&self, module: &str, rag_laws: &str, document_chunk: &str) -> Result<AuditResult, String> {
+    pub async fn evaluate_clause(
+        &self,
+        module: &str,
+        rag_laws: &str,
+        document_chunk: &str,
+    ) -> Result<AuditResult, String> {
         let full_prompt = self.build_rag_prompt(module, rag_laws, document_chunk);
 
         if self.is_mock || self.model.is_none() {
@@ -323,10 +341,12 @@ impl LlmEngine {
         let ctx_params = LlamaContextParams::default()
             .with_n_ctx(Some(std::num::NonZeroU32::new(4096).unwrap()));
 
-        let mut ctx = model.new_context(backend, ctx_params)
+        let mut ctx = model
+            .new_context(backend, ctx_params)
             .map_err(|e| format!("Error en contexto: {}", e))?;
 
-        let tokens = model.str_to_token(&full_prompt, llama_cpp_2::model::AddBos::Never)
+        let tokens = model
+            .str_to_token(&full_prompt, llama_cpp_2::model::AddBos::Never)
             .map_err(|e| format!("Error al tokenizar: {}", e))?;
 
         let prompt_len = tokens.len();
@@ -335,19 +355,18 @@ impl LlmEngine {
 
         for (i, token) in (0_i32..).zip(tokens.iter()) {
             let is_last = i as usize == last_index;
-            batch.add(*token, i, &[0], is_last)
+            batch
+                .add(*token, i, &[0], is_last)
                 .map_err(|e| format!("Error preparando batch: {}", e))?;
         }
 
-        ctx.decode(&mut batch).map_err(|e| format!("Error decodificando batch: {}", e))?;
+        ctx.decode(&mut batch)
+            .map_err(|e| format!("Error decodificando batch: {}", e))?;
 
         let grammar_sampler = LlamaSampler::grammar(model, AUDIT_JSON_GBNF, "root")
             .map_err(|e| format!("Error compilando gramática JSON GBNF: {}", e))?;
 
-        let mut sampler = LlamaSampler::chain_simple([
-            grammar_sampler,
-            LlamaSampler::temp(0.10),
-        ]);
+        let mut sampler = LlamaSampler::chain_simple([grammar_sampler, LlamaSampler::temp(0.10)]);
 
         sampler.accept_many(tokens.iter());
 
@@ -369,48 +388,58 @@ impl LlmEngine {
             }
 
             let mut next_batch = LlamaBatch::new(1, 1);
-            next_batch.add(next_token, next_position, &[0], true)
+            next_batch
+                .add(next_token, next_position, &[0], true)
                 .map_err(|e| format!("Error en siguiente token: {}", e))?;
             ctx.decode(&mut next_batch)
                 .map_err(|e| format!("Error decodificando: {}", e))?;
             next_position += 1;
         }
 
-        let parsed: AuditResult = serde_json::from_str(&response_text)
-            .map_err(|e| format!("Error parseando JSON devuelto por modelo: {} | Texto: {}", e, response_text))?;
+        let parsed: AuditResult = serde_json::from_str(&response_text).map_err(|e| {
+            format!(
+                "Error parseando JSON devuelto por modelo: {} | Texto: {}",
+                e, response_text
+            )
+        })?;
 
         Ok(parsed)
     }
 
     pub async fn stream_query(
-        &self, 
-        query: &str, 
-        module: &str, 
-        rag_context: &str, 
-        request_id: &str, 
+        &self,
+        query: &str,
+        module: &str,
+        rag_context: &str,
+        request_id: &str,
         abort_signal: std::sync::Arc<std::sync::atomic::AtomicBool>,
         grammar_str: Option<String>,
         temp: Option<f32>,
         history: Option<Vec<(String, String)>>,
-        prompt_profile: Option<&str>
+        prompt_profile: Option<&str>,
     ) {
-        let full_prompt = self.build_chat_prompt(module, rag_context, query, history, prompt_profile);
-        
+        let full_prompt =
+            self.build_chat_prompt(module, rag_context, query, history, prompt_profile);
+
         if self.is_mock || self.model.is_none() {
-            let unavailable = "No se genero respuesta porque el modelo local GGUF no esta instalado en esta compilacion. Para evitar dictamenes simulados, Lex Corporativo detuvo la salida del asistente hasta que exista un modelo local valido en models/gemma-2-2b-it-Q4_K_M.gguf.";
-            Self::emit_stream_chunk(request_id, unavailable, false);
+            let unavailable = format!("No se genero respuesta porque el modelo local GGUF no esta instalado en esta compilacion. Para evitar dictamenes simulados, Lex Corporativo detuvo la salida del asistente hasta que exista un modelo local valido en {}.", self._model_name);
+            Self::emit_stream_chunk(request_id, &unavailable, false);
         } else {
             // INFERENCIA REAL CON GGUF (STREAMING)
             let model = self.model.as_ref().unwrap();
             let backend = self.backend.as_ref().unwrap();
-            
+
             let ctx_params = LlamaContextParams::default()
                 .with_n_ctx(Some(std::num::NonZeroU32::new(4096).unwrap()));
-                
+
             let mut ctx = match model.new_context(backend, ctx_params) {
                 Ok(ctx) => ctx,
                 Err(error) => {
-                    Self::emit_stream_chunk(request_id, &format!("No se pudo inicializar el contexto local del modelo: {error}"), false);
+                    Self::emit_stream_chunk(
+                        request_id,
+                        &format!("No se pudo inicializar el contexto local del modelo: {error}"),
+                        false,
+                    );
                     Self::emit_stream_chunk(request_id, "", true);
                     return;
                 }
@@ -419,12 +448,20 @@ impl LlmEngine {
             let tokens = match model.str_to_token(&full_prompt, llama_cpp_2::model::AddBos::Never) {
                 Ok(tokens) if !tokens.is_empty() => tokens,
                 Ok(_) => {
-                    Self::emit_stream_chunk(request_id, "No se genero respuesta porque el prompt local quedo vacio al tokenizarse.", false);
+                    Self::emit_stream_chunk(
+                        request_id,
+                        "No se genero respuesta porque el prompt local quedo vacio al tokenizarse.",
+                        false,
+                    );
                     Self::emit_stream_chunk(request_id, "", true);
                     return;
                 }
                 Err(error) => {
-                    Self::emit_stream_chunk(request_id, &format!("No se pudo tokenizar la consulta para el modelo local: {error}"), false);
+                    Self::emit_stream_chunk(
+                        request_id,
+                        &format!("No se pudo tokenizar la consulta para el modelo local: {error}"),
+                        false,
+                    );
                     Self::emit_stream_chunk(request_id, "", true);
                     return;
                 }
@@ -437,14 +474,22 @@ impl LlmEngine {
             for (i, token) in (0_i32..).zip(tokens.iter()) {
                 let is_last = i as usize == last_index;
                 if let Err(error) = batch.add(*token, i, &[0], is_last) {
-                    Self::emit_stream_chunk(request_id, &format!("No se pudo preparar el prompt local: {error}"), false);
+                    Self::emit_stream_chunk(
+                        request_id,
+                        &format!("No se pudo preparar el prompt local: {error}"),
+                        false,
+                    );
                     Self::emit_stream_chunk(request_id, "", true);
                     return;
                 }
             }
 
             if let Err(error) = ctx.decode(&mut batch) {
-                Self::emit_stream_chunk(request_id, &format!("El modelo local no pudo procesar el contexto: {error}"), false);
+                Self::emit_stream_chunk(
+                    request_id,
+                    &format!("El modelo local no pudo procesar el contexto: {error}"),
+                    false,
+                );
                 Self::emit_stream_chunk(request_id, "", true);
                 return;
             }
@@ -463,7 +508,11 @@ impl LlmEngine {
                 match LlamaSampler::grammar(model, &custom_grammar, "root") {
                     Ok(grammar) => LlamaSampler::chain_simple([grammar, base_sampler]),
                     Err(e) => {
-                        Self::emit_stream_chunk(request_id, &format!("Error compilando gramática dinámica: {}", e), false);
+                        Self::emit_stream_chunk(
+                            request_id,
+                            &format!("Error compilando gramática dinámica: {}", e),
+                            false,
+                        );
                         base_sampler
                     }
                 }
@@ -486,7 +535,11 @@ impl LlmEngine {
 
             for _ in 0..max_new_tokens {
                 if abort_signal.load(std::sync::atomic::Ordering::Relaxed) {
-                    Self::emit_stream_chunk(request_id, "\n[Análisis abortado por el usuario]", false);
+                    Self::emit_stream_chunk(
+                        request_id,
+                        "\n[Análisis abortado por el usuario]",
+                        false,
+                    );
                     break;
                 }
 
@@ -510,7 +563,13 @@ impl LlmEngine {
                     break;
                 }
                 if let Err(error) = ctx.decode(&mut next_batch) {
-                    Self::emit_stream_chunk(request_id, &format!("\nLa generacion local se detuvo durante el decodificado: {error}"), false);
+                    Self::emit_stream_chunk(
+                        request_id,
+                        &format!(
+                            "\nLa generacion local se detuvo durante el decodificado: {error}"
+                        ),
+                        false,
+                    );
                     break;
                 }
                 next_position += 1;
@@ -544,7 +603,8 @@ mod tests {
             )
             .await;
 
-        let error = result.expect_err("evaluate_clause must not emit a simulated audit without GGUF");
+        let error =
+            result.expect_err("evaluate_clause must not emit a simulated audit without GGUF");
         assert!(error.contains("modelo local GGUF no esta instalado"));
         assert!(error.contains("evitar dictamenes simulados"));
         assert!(!error.contains("Cláusula validada"));

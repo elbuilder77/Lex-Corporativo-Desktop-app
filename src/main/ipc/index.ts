@@ -7,8 +7,8 @@ import { registerVaultHandlers } from './vault.handler';
 import { registerAssistantHandlers } from './assistant.handler';
 import { registerByokHandlers } from './byok.handler';
 import { getRustRuntimeHealth } from '../lib/rust-engine';
-import { isLocalRagAvailable } from '../lib/rag';
-import { listCases } from '../lib/case-vault';
+import { getLegalKnowledgeRuntimePath, isLocalRagAvailable } from '../lib/rag';
+import { getVaultProtectionStatus, listCases } from '../lib/case-vault';
 import { getByokSettings } from '../lib/byok-settings';
 import { getTraceLedgerStatus } from '../lib/traceability';
 
@@ -30,11 +30,18 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('runtime:get-health', async () => {
     const rust = getRustRuntimeHealth();
     let vaultReady = false;
+    let vaultDetail = 'No se pudo abrir la bóveda local.';
     let ragReady = false;
 
     try {
       await listCases();
-      vaultReady = true;
+      const protection = getVaultProtectionStatus();
+      vaultReady = protection.ready;
+      vaultDetail = protection.ready
+        ? `Cifrado del sistema: ${protection.backend}`
+        : protection.legacyPayloads > 0
+          ? `${protection.legacyPayloads} registros heredados requieren migración cifrada.`
+          : `Cifrado seguro no disponible (${protection.backend}).`;
     } catch {
       vaultReady = false;
     }
@@ -47,8 +54,8 @@ export function registerIpcHandlers(): void {
 
     const byokSettings = getByokSettings();
     const checks = [
-      { id: 'vault', label: 'SQLite local', ok: vaultReady },
-      { id: 'rag', label: 'Base legal LanceDB', ok: ragReady },
+      { id: 'vault', label: 'Bóveda SQLite cifrada', ok: vaultReady, detail: vaultDetail },
+      { id: 'rag', label: 'Base legal LanceDB', ok: ragReady, detail: getLegalKnowledgeRuntimePath() },
       { id: 'rust', label: 'Motor Rust', ok: rust.binaryExists, detail: rust.binaryPath },
       { id: 'gguf', label: 'Gemma 2B local', ok: rust.expectedGgufModelExists, detail: rust.expectedGgufModelPath },
       { id: 'embeddings', label: 'Modelo de embeddings', ok: rust.embeddingModelExists },

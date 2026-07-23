@@ -1,11 +1,11 @@
-mod llm_engine;
 mod legal_prompts;
+mod llm_engine;
 
 use serde::Deserialize;
-use std::io::{self, BufRead};
-use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::collections::HashMap;
+use std::io::{self, BufRead};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -79,8 +79,9 @@ struct DocumentChunk {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Inicialización GLOBAL del motor LLM para evitar recargar el GGUF por cada consulta
-    let global_model_path = "models/gemma-2-2b-it-Q4_K_M.gguf";
-    let llm_engine_global = match crate::llm_engine::LlmEngine::new(global_model_path) {
+    let global_model_path = std::env::var("LEX_ENGINE_MODEL_PATH")
+        .unwrap_or_else(|_| "models/gemma-2-2b-it-Q4_K_M.gguf".to_string());
+    let llm_engine_global = match crate::llm_engine::LlmEngine::new(&global_model_path) {
         Ok(engine) => Arc::new(engine),
         Err(e) => {
             eprintln!("[Rust Error] Error inicializando motor LLM global: {}", e);
@@ -90,7 +91,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // 🛡️ Registro de interruptores para cada consulta
-    let active_tasks: Arc<Mutex<HashMap<String, Arc<AtomicBool>>>> = Arc::new(Mutex::new(HashMap::new()));
+    let active_tasks: Arc<Mutex<HashMap<String, Arc<AtomicBool>>>> =
+        Arc::new(Mutex::new(HashMap::new()));
 
     // Escucha infinita de comandos en stdin (síncrono por línea, pero despachamos asíncrono)
     let stdin = io::stdin();
@@ -123,14 +125,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let mut tasks = active_tasks.lock().unwrap();
                             tasks.insert(request_id.clone(), Arc::clone(&abort_signal));
                         }
-                        
+
                         let engine_clone = Arc::clone(&llm_engine_global);
                         let tasks_clone = Arc::clone(&active_tasks);
                         let req_id_clone = request_id.clone();
 
                         tokio::spawn(async move {
                             process_llm_query(request, engine_clone, abort_signal).await;
-                            
+
                             // Limpieza al terminar: Evitar Memory Leak en el mapa global
                             if let Ok(mut tasks) = tasks_clone.lock() {
                                 tasks.remove(&req_id_clone);
@@ -155,7 +157,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let req_id_clone = request_id.clone();
                         tokio::spawn(async move {
                             let module = request.payload.module.as_deref().unwrap_or("mercantil");
-                            match engine_clone.evaluate_clause(module, &request.payload.rag_laws, &request.payload.document_chunk).await {
+                            match engine_clone
+                                .evaluate_clause(
+                                    module,
+                                    &request.payload.rag_laws,
+                                    &request.payload.document_chunk,
+                                )
+                                .await
+                            {
                                 Ok(audit_result) => {
                                     let response = serde_json::json!({
                                         "type": "EVALUATE_CHUNK_RESULT",
@@ -163,7 +172,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         "payload": audit_result
                                     });
                                     println!("{}", serde_json::to_string(&response).unwrap());
-                                },
+                                }
                                 Err(e) => {
                                     let err_msg = format!("LLM Error: {}", e);
                                     let response = serde_json::json!({
@@ -193,12 +202,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let req_id_clone = request_id.clone();
 
                         tokio::spawn(async move {
-                            engine_clone.evaluate_chunks_batch(
-                                request.payload.module.as_deref().unwrap_or("mercantil"),
-                                &request.payload.rag_laws,
-                                request.payload.chunks,
-                                &req_id_clone
-                            ).await;
+                            engine_clone
+                                .evaluate_chunks_batch(
+                                    request.payload.module.as_deref().unwrap_or("mercantil"),
+                                    &request.payload.rag_laws,
+                                    request.payload.chunks,
+                                    &req_id_clone,
+                                )
+                                .await;
                         });
                     }
                     Err(e) => {
@@ -221,8 +232,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Procesa una consulta individual de LLM usando streaming hacia Electron
-async fn process_llm_query(request: LlmQueryRequest, llm_engine: Arc<crate::llm_engine::LlmEngine>, abort_signal: Arc<AtomicBool>) {
-    let rag_laws = request.payload.rag_context.unwrap_or_else(|| "Sin contexto legal proporcionado. Advierte al usuario que no tienes acceso a la ley.".to_string());
+async fn process_llm_query(
+    request: LlmQueryRequest,
+    llm_engine: Arc<crate::llm_engine::LlmEngine>,
+    abort_signal: Arc<AtomicBool>,
+) {
+    let rag_laws = request.payload.rag_context.unwrap_or_else(|| {
+        "Sin contexto legal proporcionado. Advierte al usuario que no tienes acceso a la ley."
+            .to_string()
+    });
     let _workflow_module = request.payload.workflow_module.as_deref().unwrap_or("chat");
     let _current_document_only = request.payload.current_document_only.unwrap_or(false);
 
@@ -241,20 +259,23 @@ async fn process_llm_query(request: LlmQueryRequest, llm_engine: Arc<crate::llm_
 
     // Convertir a tuplas de (String, String) para el engine
     let engine_history = safe_history.map(|h| {
-        h.into_iter().map(|msg| (msg.role, msg.content)).collect::<Vec<(String, String)>>()
+        h.into_iter()
+            .map(|msg| (msg.role, msg.content))
+            .collect::<Vec<(String, String)>>()
     });
 
     // Ejecutar la inferencia con streaming usando el motor global
-    llm_engine.stream_query(
-        &request.payload.query, 
-        &request.payload.module, 
-        &rag_laws, 
-        &request.request_id, 
-        abort_signal,
-        request.payload.grammar,
-        request.payload.temperature,
-        engine_history,
-        request.payload.prompt_profile.as_deref()
-    ).await;
+    llm_engine
+        .stream_query(
+            &request.payload.query,
+            &request.payload.module,
+            &rag_laws,
+            &request.request_id,
+            abort_signal,
+            request.payload.grammar,
+            request.payload.temperature,
+            engine_history,
+            request.payload.prompt_profile.as_deref(),
+        )
+        .await;
 }
-

@@ -9,7 +9,6 @@ import {
   RefreshCw,
   Scale,
   Upload,
-  Users,
   X,
 } from 'lucide-react';
 import { draftLegalDocument, type LegalDraftingArea, type UserReferenceFile } from '../services/ai';
@@ -28,7 +27,7 @@ import { cn } from '../lib/utils';
 
 type SourceMode = 'template' | 'reference';
 
-const ENGINEERING_AREAS: LegalEngineeringArea[] = ['mercantil', 'laboral'];
+const ENGINEERING_AREAS: LegalEngineeringArea[] = ['mercantil'];
 
 const AREA_CONTENT: Record<LegalEngineeringArea, {
   label: string;
@@ -48,19 +47,10 @@ const AREA_CONTENT: Record<LegalEngineeringArea, {
     activeClass: 'border-blue-300 bg-blue-50 text-blue-950 ring-blue-500/20',
     focusPlaceholder: 'Indica las partes, objeto, montos, vigencia, obligaciones y condiciones que debe contener el documento.',
   },
-  laboral: {
-    label: 'Contratos laborales',
-    shortLabel: 'Laboral',
-    description: 'Contratación, teletrabajo, confidencialidad y cambios de condiciones.',
-    icon: <Users size={19} />,
-    tone: 'amber',
-    activeClass: 'border-amber-300 bg-amber-50 text-amber-950 ring-amber-500/20',
-    focusPlaceholder: 'Indica patrón, persona trabajadora, puesto, salario, jornada, lugar de trabajo, vigencia y prestaciones.',
-  },
 };
 
-function normalizeEngineeringArea(area?: LegalDraftingArea): LegalEngineeringArea {
-  return area === 'laboral' ? 'laboral' : 'mercantil';
+function normalizeEngineeringArea(_area?: LegalDraftingArea): LegalEngineeringArea {
+  return 'mercantil';
 }
 
 const ACCEPTED_REFERENCE_TYPES = ['application/pdf', 'text/plain', 'text/markdown'];
@@ -107,25 +97,17 @@ export const LegalEngineering: React.FC = () => {
 
   const templates = useMemo(() => LEGAL_ENGINEERING_TEMPLATES[area], [area]);
   const visibleHistory = useMemo(
-    () => engineeringDraftingHistory.filter((item) => item.area !== 'fiscal' && item.ecosystem !== 'fiscal' && item.promptProfile !== 'fiscal_drafting'),
+    () => engineeringDraftingHistory.filter((item) => (!item.area || item.area === 'mercantil') && item.ecosystem !== 'fiscal' && item.promptProfile !== 'fiscal_drafting'),
     [engineeringDraftingHistory],
   );
   const areaContent = AREA_CONTENT[area];
-  const areaTheme = area === 'mercantil'
-    ? {
-        text: 'text-mercantil',
-        border: 'border-mercantil',
-        rail: 'bg-mercantil',
-        ring: 'focus:border-mercantil focus:ring-mercantil/15',
-        button: 'bg-mercantil hover:bg-mercantil-dark',
-      }
-    : {
-        text: 'text-amber-700',
-        border: 'border-amber-600',
-        rail: 'bg-amber-600',
-        ring: 'focus:border-amber-600 focus:ring-amber-600/15',
-        button: 'bg-amber-700 hover:bg-amber-800',
-      };
+  const areaTheme = {
+    text: 'text-mercantil',
+    border: 'border-mercantil',
+    rail: 'bg-mercantil',
+    ring: 'focus:border-mercantil focus:ring-mercantil/15',
+    button: 'bg-mercantil hover:bg-mercantil-dark',
+  };
 
   useEffect(() => {
     setEngineeringDraftState({
@@ -268,7 +250,7 @@ export const LegalEngineering: React.FC = () => {
             </div>
             <h1 className="font-serif text-3xl font-bold tracking-tight text-slate-950">Documentos y contratos</h1>
             <p className="mt-1.5 text-sm text-slate-600">
-              Redacta contratos mercantiles y documentos laborales desde una plantilla o un archivo existente.
+              Redacta contratos e instrumentos mercantiles desde una plantilla o un archivo existente, con fundamento local verificable.
             </p>
           </div>
           <button

@@ -102,7 +102,7 @@ export async function deleteCase(caseId: string): Promise<void> {
 
 export async function deleteAllCases(_userId: string): Promise<void> {
   try {
-    await window.lexDesktop.cases.deleteAll();
+    await window.lexDesktop.cases.deleteAll({ confirmation: 'DELETE_ALL_LOCAL_DATA' });
   } catch (err) {
     console.error('[Local Desktop] Error borrando todas las actividades locales:', err);
   }

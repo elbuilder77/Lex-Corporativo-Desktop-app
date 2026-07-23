@@ -14,7 +14,8 @@ const api: LexDesktopAPI = {
     deleteDraft: (payload) => ipcRenderer.invoke('vault:delete-draft', payload),
     saveState: (payload) => ipcRenderer.invoke('vault:save-state', payload),
     purgeExpired: () => ipcRenderer.invoke('vault:purge-expired'),
-    deleteAll: () => ipcRenderer.invoke('vault:delete-all'),
+    exportAll: () => ipcRenderer.invoke('vault:export-all'),
+    deleteAll: (payload) => ipcRenderer.invoke('vault:delete-all', payload),
   },
   documents: {
     selectFile: () => ipcRenderer.invoke('dialog:show-open-dialog'),

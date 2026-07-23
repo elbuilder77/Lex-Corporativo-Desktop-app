@@ -55,7 +55,7 @@ pub fn build_gemma_chat_prompt(
     rag_laws: &str,
     query: &str,
     history: Option<Vec<(String, String)>>,
-    prompt_profile: Option<&str>
+    prompt_profile: Option<&str>,
 ) -> String {
     let mut prompt = format!(
         "<bos><start_of_turn>user\n\
@@ -66,15 +66,18 @@ pub fn build_gemma_chat_prompt(
         rag_laws
     );
 
-    let allow_history = !matches!(prompt_profile, Some("mercantil_analysis") | Some("fiscal_analysis"));
+    let allow_history = !matches!(
+        prompt_profile,
+        Some("mercantil_analysis") | Some("fiscal_analysis")
+    );
     if allow_history {
-      if let Some(msgs) = history {
-        prompt.push_str("[HISTORIAL RECIENTE]\n");
-        for (role, content) in msgs {
-            prompt.push_str(&format!("{}: {}\n", role.to_uppercase(), content));
+        if let Some(msgs) = history {
+            prompt.push_str("[HISTORIAL RECIENTE]\n");
+            for (role, content) in msgs {
+                prompt.push_str(&format!("{}: {}\n", role.to_uppercase(), content));
+            }
+            prompt.push_str("\n");
         }
-        prompt.push_str("\n");
-      }
     }
 
     prompt.push_str(&format!(
@@ -114,8 +117,7 @@ pub fn build_gemma_rag_prefix(module: &str, rag_laws: &str) -> String {
         [BASE LEGAL - LEYES APLICABLES]\n\
         {}\n\n\
         [TEXTO DEL CLIENTE A EVALUAR]\n",
-        audit_identity,
-        rag_laws
+        audit_identity, rag_laws
     )
 }
 

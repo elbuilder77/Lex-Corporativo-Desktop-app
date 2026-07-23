@@ -1,7 +1,7 @@
 import { getAnalysisPromptProfile, getDraftingPromptProfile } from "../../shared/legal-contracts";
 
 const isElectron = typeof window !== 'undefined' && 'lexDesktop' in window;
-export type LegalDraftingArea = 'mercantil' | 'laboral' | 'fiscal';
+export type LegalDraftingArea = 'mercantil' | 'fiscal';
 
 export interface DraftTemplateContext {
   id: string;

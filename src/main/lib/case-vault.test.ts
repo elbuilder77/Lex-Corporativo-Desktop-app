@@ -4,7 +4,8 @@ import * as path from 'path';
 import { createRequire } from 'module';
 
 const mockState = {
-  isEncryptionAvailable: false,
+  isEncryptionAvailable: true,
+  backend: 'dpapi',
   testVaultPath: path.join(process.cwd(), 'temp_test_vault'),
 };
 
@@ -17,8 +18,9 @@ vi.mock('electron', () => ({
   },
   safeStorage: {
     isEncryptionAvailable: () => mockState.isEncryptionAvailable,
+    getSelectedStorageBackend: () => mockState.backend,
     encryptString: (str: string) => Buffer.from('encrypted:' + str, 'utf-8'),
-    decryptString: (buf: Buffer) => Buffer.from(buf.toString('utf-8').slice('encrypted:'.length), 'utf-8'),
+    decryptString: (buf: Buffer) => buf.toString('utf-8').slice('encrypted:'.length),
   },
 }));
 
@@ -39,7 +41,8 @@ let vault: typeof import('./case-vault') | null = null;
 
 describeVault('Local Case Vault', () => {
   beforeEach(() => {
-    mockState.isEncryptionAvailable = false;
+    mockState.isEncryptionAvailable = true;
+    mockState.backend = 'dpapi';
     vault?.closeDb(); // Close any lingering connections
     if (fs.existsSync(mockState.testVaultPath)) {
       fs.rmSync(mockState.testVaultPath, { recursive: true, force: true });
@@ -53,24 +56,13 @@ describeVault('Local Case Vault', () => {
     }
   });
 
-  it('creates and lists cases using the base64 obfuscation fallback when safeStorage is unavailable', async () => {
+  it('blocks new cases when secure OS encryption is unavailable', async () => {
     vault = await import('./case-vault');
     mockState.isEncryptionAvailable = false;
 
-    const metadata = await vault.createCase('case_123', 'Test Case 1', 'mercantil');
-    expect(metadata.caseId).toBe('case_123');
-    expect(metadata.name).toBe('Test Case 1');
-    expect(metadata.module).toBe('mercantil');
-
-    // Confirm database file exists physically
-    const dbPath = path.join(mockState.testVaultPath, 'CaseVault', 'vault.db');
-    expect(fs.existsSync(dbPath)).toBe(true);
-
-    // List cases and check correct decoding
-    const cases = await vault.listCases();
-    expect(cases.length).toBe(1);
-    expect(cases[0].name).toBe('Test Case 1');
-    expect(cases[0].module).toBe('mercantil');
+    await expect(vault.createCase('case_123', 'Test Case 1', 'mercantil'))
+      .rejects.toThrow('cifrado seguro del sistema operativo no está disponible');
+    expect(vault.getVaultProtectionStatus().ready).toBe(false);
   });
 
   it('creates and lists cases using OS safeStorage encryption when available', async () => {
@@ -87,7 +79,7 @@ describeVault('Local Case Vault', () => {
 
   it('saves, lists, and exports documents, analyses, and drafts securely', async () => {
     vault = await import('./case-vault');
-    mockState.isEncryptionAvailable = false;
+    mockState.isEncryptionAvailable = true;
 
     await vault.createCase('case_test', 'Full Test Case', 'mercantil');
     await vault.saveDocument('case_test', 'evidence.pdf', 'application/pdf', 'dummy-base64-content', 'mercantil');
@@ -113,7 +105,7 @@ describeVault('Local Case Vault', () => {
 
   it('updates case metadata without deleting child records', async () => {
     vault = await import('./case-vault');
-    mockState.isEncryptionAvailable = false;
+    mockState.isEncryptionAvailable = true;
 
     const original = await vault.createCase('case_upsert', 'Original', 'fiscal');
     await vault.saveAnalysis('case_upsert', 'analysis_1', { summary: 'Persistente' }, 'fiscal');
@@ -132,7 +124,7 @@ describeVault('Local Case Vault', () => {
 
   it('persists case state and replaces retried analysis and draft payloads idempotently', async () => {
     vault = await import('./case-vault');
-    mockState.isEncryptionAvailable = false;
+    mockState.isEncryptionAvailable = true;
 
     await vault.createCase('case_state', 'Estado', 'fiscal');
     await vault.saveAnalysis('case_state', 'analysis_1', { summary: 'v1' }, 'fiscal');
@@ -152,7 +144,7 @@ describeVault('Local Case Vault', () => {
 
   it('deletes one generated analysis or draft without deleting the case', async () => {
     vault = await import('./case-vault');
-    mockState.isEncryptionAvailable = false;
+    mockState.isEncryptionAvailable = true;
 
     await vault.createCase('case_artifacts', 'Artefactos', 'fiscal');
     await vault.saveAnalysis('case_artifacts', 'analysis_1', { id: 'analysis_1', summary: 'Eliminar' }, 'fiscal');
@@ -181,7 +173,7 @@ describeVault('Local Case Vault', () => {
 
   it('purges only activities whose retention date has expired', async () => {
     vault = await import('./case-vault');
-    mockState.isEncryptionAvailable = false;
+    mockState.isEncryptionAvailable = true;
 
     await vault.createCase('case_expired', 'Vencida', 'fiscal', '2026-01-01T00:00:00.000Z');
     await vault.createCase('case_active', 'Activa', 'fiscal', '2027-01-01T00:00:00.000Z');
@@ -193,7 +185,7 @@ describeVault('Local Case Vault', () => {
 
   it('deletes cases clean and completely from the workspace', async () => {
     vault = await import('./case-vault');
-    mockState.isEncryptionAvailable = false;
+    mockState.isEncryptionAvailable = true;
 
     await vault.createCase('case_delete', 'Delete Me', 'fiscal');
     const casesBefore = await vault.listCases();
@@ -207,7 +199,7 @@ describeVault('Local Case Vault', () => {
 
   it('renames cases without changing their ecosystem', async () => {
     vault = await import('./case-vault');
-    mockState.isEncryptionAvailable = false;
+    mockState.isEncryptionAvailable = true;
 
     await vault.createCase('case_rename', 'Original', 'mercantil');
     const renamed = await vault.renameCase('case_rename', 'Renombrado', 'mercantil');

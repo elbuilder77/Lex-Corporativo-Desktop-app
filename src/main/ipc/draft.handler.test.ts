@@ -41,8 +41,8 @@ describe('draft payload validation', () => {
     expect(payload.templateId).toBe('fiscal-escrito-sat');
   });
 
-  it('accepts labor drafting and assigns its isolated prompt profile', () => {
-    const payload = parseDraftPayload({
+  it('rejects labor drafting until a verified labor corpus exists', () => {
+    expect(() => parseDraftPayload({
       requirements: 'Preparar contrato individual por tiempo indeterminado.',
       ecosystem: 'laboral',
       template: {
@@ -50,10 +50,7 @@ describe('draft payload validation', () => {
         title: 'Contrato por tiempo indeterminado',
         prompt: 'Contrato individual de trabajo.',
       },
-    });
-
-    expect(payload.module).toBe('laboral');
-    expect(payload.promptProfile).toBe('laboral_drafting');
+    })).toThrow();
   });
 
   it('ignores renderer attempts to select an execution mode', () => {
@@ -70,15 +67,15 @@ describe('draft payload validation', () => {
   it('accepts a local reference file as a user-provided template', () => {
     const payload = parseDraftPayload({
       requirements: 'Completar el machote sin cambiar su estructura.',
-      ecosystem: 'laboral',
+      ecosystem: 'mercantil',
       referenceFile: {
-        name: 'contrato-base.txt',
+        name: 'contrato-mercantil-base.txt',
         mimeType: 'text/plain',
         base64: Buffer.from('CONTRATO BASE').toString('base64'),
       },
     });
 
-    expect(payload.referenceFile?.name).toBe('contrato-base.txt');
+    expect(payload.referenceFile?.name).toBe('contrato-mercantil-base.txt');
   });
 
   it('rejects a template from another legal area', () => {

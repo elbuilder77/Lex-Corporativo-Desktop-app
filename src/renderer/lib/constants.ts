@@ -263,60 +263,10 @@ export const FISCAL_DRAFTING_TEMPLATES: DraftingTemplate[] = [
   },
 ];
 
-// ── Labor Drafting Templates ──────────────────────────────
-export const LABORAL_DRAFTING_TEMPLATES: DraftingTemplate[] = [
-  {
-    id: 'laboral-contrato-indeterminado',
-    title: 'Contrato por tiempo indeterminado',
-    description: 'Contrato individual con puesto, jornada, salario, prestaciones y lugar de trabajo.',
-    prompt: 'Contrato individual de trabajo por tiempo indeterminado conforme a la legislación laboral mexicana, con cláusulas de puesto, jornada, salario, prestaciones, herramientas, confidencialidad y terminación.',
-    requiredFields: ['Patrón', 'Persona trabajadora', 'Puesto', 'Salario', 'Jornada', 'Lugar de trabajo', 'Fecha de ingreso', 'Prestaciones'],
-    output: 'Contrato individual listo para revisión y firma.',
-    intentGroup: 'Contratación',
-  },
-  {
-    id: 'laboral-contrato-determinado',
-    title: 'Contrato por tiempo determinado',
-    description: 'Contrato temporal con causa objetiva, vigencia y entregables definidos.',
-    prompt: 'Contrato individual de trabajo por tiempo determinado que identifique la causa temporal, periodo, puesto, jornada, salario, prestaciones y condiciones de terminación.',
-    requiredFields: ['Patrón', 'Persona trabajadora', 'Causa temporal', 'Fecha inicial', 'Fecha final', 'Puesto', 'Salario', 'Jornada'],
-    output: 'Contrato temporal con causa y vigencia claramente delimitadas.',
-    intentGroup: 'Contratación',
-  },
-  {
-    id: 'laboral-teletrabajo',
-    title: 'Convenio de teletrabajo',
-    description: 'Anexo para trabajo remoto, herramientas, conectividad y seguridad de la información.',
-    prompt: 'Convenio modificatorio o anexo de teletrabajo con domicilio de prestación, herramientas, costos, disponibilidad, protección de datos, seguridad de la información y reversibilidad.',
-    requiredFields: ['Partes', 'Contrato original', 'Domicilio de teletrabajo', 'Horario', 'Herramientas', 'Apoyos o costos', 'Medidas de seguridad'],
-    output: 'Anexo de teletrabajo listo para revisión interna.',
-    intentGroup: 'Modalidades de trabajo',
-  },
-  {
-    id: 'laboral-confidencialidad',
-    title: 'Convenio de confidencialidad laboral',
-    description: 'Obligaciones de reserva, propiedad intelectual y devolución de información.',
-    prompt: 'Convenio laboral de confidencialidad, protección de secretos industriales, propiedad intelectual, tratamiento de información y devolución de activos al terminar la relación.',
-    requiredFields: ['Patrón', 'Persona trabajadora', 'Información protegida', 'Sistemas o activos', 'Vigencia', 'Excepciones'],
-    output: 'Convenio de confidencialidad y propiedad intelectual.',
-    intentGroup: 'Protección de información',
-  },
-  {
-    id: 'laboral-convenio-modificatorio',
-    title: 'Convenio modificatorio laboral',
-    description: 'Modificación documentada de puesto, salario, jornada o lugar de trabajo.',
-    prompt: 'Convenio modificatorio de contrato individual de trabajo que preserve los derechos adquiridos y documente con claridad las nuevas condiciones acordadas.',
-    requiredFields: ['Partes', 'Contrato original', 'Condición anterior', 'Nueva condición', 'Fecha de efectos', 'Derechos preservados'],
-    output: 'Convenio modificatorio listo para revisión y firma.',
-    intentGroup: 'Cambios de condiciones',
-  },
-];
-
-export type LegalEngineeringArea = 'mercantil' | 'laboral';
+export type LegalEngineeringArea = 'mercantil';
 
 export const LEGAL_ENGINEERING_TEMPLATES: Record<LegalEngineeringArea, DraftingTemplate[]> = {
   mercantil: MERCANTIL_DRAFTING_TEMPLATES,
-  laboral: LABORAL_DRAFTING_TEMPLATES,
 };
 
 // Fase posterior: litigio fiscal profundo, no visible en el módulo actual.

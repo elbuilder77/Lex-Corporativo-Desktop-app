@@ -1,6 +1,6 @@
 # Lex Corporativo Desktop
 
-Aplicación Electron de trabajo jurídico local para materias mercantil, corporativa, laboral y fiscal mexicana.
+Aplicación Electron de trabajo jurídico local para materias mercantil, corporativa y fiscal mexicana. Laboral permanece fuera del producto hasta contar con un corpus oficial verificado.
 
 Este repositorio contiene exclusivamente el producto instalado: renderer React, procesos main/preload, backend local, motor Rust, corpus jurídico, plantillas y configuración de empaquetado. El sitio comercial debe mantenerse en un repositorio separado.
 
@@ -28,7 +28,7 @@ La fuente corresponde a `1.0.0-rc.12`. El shell Electron, la bóveda SQLite, el 
 ## Producto
 
 - Consultas jurídicas Mercantil y Fiscal.
-- Ingeniería Jurídica Mercantil y Laboral.
+- Ingeniería Jurídica Mercantil y Corporativa.
 - Flujo Fiscal: preparación, materialidad, deducibilidad, documentación y normativa.
 - Portafolio local con autosave y exportación.
 - Privacidad estricta por defecto y BYOK opcional.

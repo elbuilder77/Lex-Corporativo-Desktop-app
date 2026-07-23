@@ -10,7 +10,13 @@ import { lanceDbWriteMutex } from '../lib/mutex';
 import { getActiveByokConfig } from '../lib/byok-settings';
 import { composeLimitedByokPrompt, generateByokText } from '../lib/byok-client';
 import { logLegalExecution } from '../lib/traceability';
-import { validateOrRepairGroundedOutput } from '../lib/legal-grounding';
+import {
+  GROUNDED_CLAIM_JSON_SCHEMA,
+  GroundedClaimSchema,
+  validateStructuredGroundedOutput,
+  type GroundingSource,
+  type GroundingValidation,
+} from '../lib/legal-grounding';
 import {
   getAnalysisPromptProfile,
   isPromptProfileForEcosystem,
@@ -65,6 +71,7 @@ const ByokAnalysisResultSchema = z.object({
     operacionesInexistentes: z.array(z.string()),
   }).strict(),
   legalFoundations: z.array(LegalFoundationSchema),
+  groundingClaims: z.array(GroundedClaimSchema).min(1),
   confidence: z.enum(['low', 'medium', 'high']),
   engine: z.literal('byok'),
 }).strict();
@@ -72,7 +79,7 @@ const ByokAnalysisResultSchema = z.object({
 const BYOK_ANALYSIS_JSON_SCHEMA: Record<string, unknown> = {
   type: 'object',
   additionalProperties: false,
-  required: ['summary', 'documentType', 'riskScore', 'detectedParties', 'detectedObligations', 'missingClauses', 'missingData', 'risks', 'recommendedActions', 'checklist', 'riskCategories', 'legalFoundations', 'confidence', 'engine'],
+  required: ['summary', 'documentType', 'riskScore', 'detectedParties', 'detectedObligations', 'missingClauses', 'missingData', 'risks', 'recommendedActions', 'checklist', 'riskCategories', 'legalFoundations', 'groundingClaims', 'confidence', 'engine'],
   properties: {
     summary: { type: 'string' },
     documentType: { type: 'string' },
@@ -92,7 +99,7 @@ const BYOK_ANALYSIS_JSON_SCHEMA: Record<string, unknown> = {
           severity: { type: 'string', enum: ['low', 'medium', 'high'] },
           explanation: { type: 'string' },
           relatedClauses: { type: 'array', items: { type: 'string' } },
-          legalFoundations: { type: 'array', items: { $ref: '#/$defs/legalFoundation' } },
+          legalFoundations: { type: 'array', minItems: 1, items: { $ref: '#/$defs/legalFoundation' } },
         },
       },
     },
@@ -109,7 +116,8 @@ const BYOK_ANALYSIS_JSON_SCHEMA: Record<string, unknown> = {
         operacionesInexistentes: { type: 'array', items: { type: 'string' } },
       },
     },
-    legalFoundations: { type: 'array', items: { $ref: '#/$defs/legalFoundation' } },
+    legalFoundations: { type: 'array', minItems: 1, items: { $ref: '#/$defs/legalFoundation' } },
+    groundingClaims: { type: 'array', minItems: 1, maxItems: 200, items: GROUNDED_CLAIM_JSON_SCHEMA },
     confidence: { type: 'string', enum: ['low', 'medium', 'high'] },
     engine: { type: 'string', enum: ['byok'] },
   },
@@ -129,6 +137,73 @@ const BYOK_ANALYSIS_JSON_SCHEMA: Record<string, unknown> = {
     },
   },
 };
+
+type ByokAnalysisResult = z.infer<typeof ByokAnalysisResultSchema>;
+
+function analysisRequiredClaimTexts(result: ByokAnalysisResult): string[] {
+  return [
+    result.summary,
+    ...result.risks.map(risk => risk.explanation),
+    ...result.recommendedActions,
+  ].filter(value => value.trim().length > 0);
+}
+
+function validateByokAnalysisGrounding(
+  result: ByokAnalysisResult,
+  groundingSources: GroundingSource[],
+  legalSourceIds: Set<string>,
+): GroundingValidation {
+  const validation = validateStructuredGroundedOutput(
+    { claims: result.groundingClaims },
+    groundingSources,
+    { requiredClaimTexts: analysisRequiredClaimTexts(result) },
+  );
+  if (!validation.valid) return validation;
+
+  const foundationIds = [
+    ...result.legalFoundations.map(foundation => foundation.id),
+    ...result.risks.flatMap(risk => risk.legalFoundations.map(foundation => foundation.id)),
+  ];
+  const unknown = [...new Set(foundationIds.filter(id => !legalSourceIds.has(id)))];
+  if (unknown.length > 0) {
+    return {
+      valid: false,
+      cited: validation.cited,
+      unsupported: unknown,
+      unsupportedClaims: [],
+      reason: 'unknown_source_id',
+    };
+  }
+  return validation;
+}
+
+function hydrateByokAnalysisFoundations(
+  result: ByokAnalysisResult,
+  legalSources: Array<{ id: string | number; title: string; law_code?: string; article_number?: string; content: string; similarity: number }>,
+): ByokAnalysisResult {
+  const sourceMap = new Map(legalSources.map(source => [String(source.id), source]));
+  const hydrate = (foundation: z.infer<typeof LegalFoundationSchema>) => {
+    const source = sourceMap.get(foundation.id);
+    if (!source) return foundation;
+    return {
+      id: String(source.id),
+      title: source.title || source.law_code || 'Fundamento local',
+      law: source.law_code || source.title || 'Normativa local',
+      article: source.article_number || '',
+      excerpt: source.content.slice(0, 1_500),
+      relevanceScore: Math.max(0, Math.min(1, Number(source.similarity) || 0)),
+    };
+  };
+
+  return {
+    ...result,
+    legalFoundations: result.legalFoundations.map(hydrate),
+    risks: result.risks.map(risk => ({
+      ...risk,
+      legalFoundations: risk.legalFoundations.map(hydrate),
+    })),
+  };
+}
 
 // Zod schema for Zero-Trust analysis inputs
 const AnalyzePayloadSchema = z.object({
@@ -540,8 +615,15 @@ export async function processAnalyzePayload(
       retrievedLegalContexts.add(ragContext.context);
 
       emitProgress(4, `Analizando con ${byok.provider} BYOK`);
+      const documentSources = selectedChunks.map((chunk, index) => ({
+        id: `doc:${index + 1}`,
+        kind: 'evidence' as const,
+        title: chunk.fileName,
+        content: chunk.text.slice(0, 3_500),
+      }));
       const documentContext = selectedChunks
         .map((chunk, index) => [
+          `FUENTE_ID=doc:${index + 1}`,
           `Fragmento ${index + 1}`,
           `Archivo: ${chunk.fileName}`,
           chunk.pageNumber ? `Página: ${chunk.pageNumber}` : '',
@@ -550,7 +632,9 @@ export async function processAnalyzePayload(
         .join('\n\n---\n\n');
       const outputContract = [
         'Devuelve solamente el objeto JSON definido por el esquema estricto.',
-        'Cada fundamento debe copiar law y article de FUNDAMENTOS LOCALES VERIFICADOS.',
+        'Cada fundamento debe usar como id un FUENTE_ID legal exacto de FUNDAMENTOS LOCALES VERIFICADOS.',
+        'groundingClaims debe incluir el texto exacto de summary, de cada risks[].explanation y de cada recommendedActions[].',
+        'Cada groundingClaim debe vincular sourceIds exactos mostrados en los fundamentos o fragmentos del documento.',
         'No cites ni menciones disposiciones ausentes de esos fundamentos.',
         'Separa hechos observados, faltantes y riesgos. Para datos ausentes usa [DATO FALTANTE].',
         'engine debe ser exactamente "byok".',
@@ -582,17 +666,20 @@ export async function processAnalyzePayload(
       });
 
       emitProgress(5, 'Validando fundamentos y preparando reporte');
-      const parsedResult = ByokAnalysisResultSchema.parse(JSON.parse(extractJsonObject(providerResult)));
-      const initialCleanResult = JSON.stringify(parsedResult, null, 2);
-      const groundingSources = [
-        ...ragContext.sources,
-        { content: documentContext },
+      let parsedResult = ByokAnalysisResultSchema.parse(JSON.parse(extractJsonObject(providerResult)));
+      const groundingSources: GroundingSource[] = [
+        ...ragContext.sources.map(source => ({ ...source, kind: 'legal' as const })),
+        ...documentSources,
       ];
-      const groundingOutcome = await validateOrRepairGroundedOutput(
-        initialCleanResult,
-        groundingSources,
-        {},
-        async (validation, rejectedOutput) => {
+      const legalSourceIds = new Set(ragContext.sources.map(source => String(source.id)));
+      let grounding = validateByokAnalysisGrounding(parsedResult, groundingSources, legalSourceIds);
+      let repaired = false;
+      let initialGroundingReason: string | undefined;
+
+      if (!grounding.valid) {
+        initialGroundingReason = grounding.reason;
+        const rejectedOutput = JSON.stringify(parsedResult);
+        const validation = grounding;
           const repairedProviderResult = await generateByokText({
             provider: byok.provider,
             apiKey: byok.apiKey!,
@@ -627,18 +714,19 @@ export async function processAnalyzePayload(
               schema: BYOK_ANALYSIS_JSON_SCHEMA,
             },
           });
-          const repairedParsedResult = ByokAnalysisResultSchema.parse(JSON.parse(extractJsonObject(repairedProviderResult)));
-          return JSON.stringify(repairedParsedResult, null, 2);
-        },
-      );
-      const cleanResult = groundingOutcome.output;
-      const grounding = groundingOutcome.validation;
+        parsedResult = ByokAnalysisResultSchema.parse(JSON.parse(extractJsonObject(repairedProviderResult)));
+        grounding = validateByokAnalysisGrounding(parsedResult, groundingSources, legalSourceIds);
+        repaired = true;
+      }
+
       if (!grounding.valid) {
-        throw new Error(`La respuesta BYOK se bloqueó por control de fundamentación: ${grounding.reason}.`);
+        throw new Error(`La respuesta BYOK se bloqueó por trazabilidad estructurada: ${grounding.reason}.`);
       }
-      if (groundingOutcome.repaired) {
-        fallbackReason = `grounding_repair:${groundingOutcome.initialValidation?.reason}`;
+      if (repaired) {
+        fallbackReason = `grounding_repair:${initialGroundingReason}`;
       }
+      parsedResult = hydrateByokAnalysisFoundations(parsedResult, ragContext.sources);
+      const cleanResult = JSON.stringify(parsedResult, null, 2);
 
       await cleanupTemporaryDocumentRag();
       logLegalExecution({
@@ -647,12 +735,13 @@ export async function processAnalyzePayload(
         module: activeModule,
         primaryModel: `${byok.provider}:${byok.model}`,
         finalModelUsed: `${byok.provider}:${byok.model}`,
-        hasFallback: groundingOutcome.repaired,
+        hasFallback: repaired,
         fallbackReason,
         prompt: userPrompt,
         ragContext: ragContext.context,
         output: cleanResult,
         sources: ragContext.sources,
+        claims: parsedResult.groundingClaims,
       });
       return {
         result: cleanResult,

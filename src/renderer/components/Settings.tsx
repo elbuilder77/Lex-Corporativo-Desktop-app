@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../store/useAuthStore';
-import { User, Settings as SettingsIcon, Shield, Lock, FileText, AlertTriangle, LogOut, HelpCircle, ChevronRight, KeyRound, Wifi, CloudOff, CheckCircle2, RefreshCw, Download } from 'lucide-react';
+import { User, Settings as SettingsIcon, Shield, Lock, FileText, AlertTriangle, LogOut, HelpCircle, ChevronRight, KeyRound, Wifi, CloudOff, CheckCircle2, RefreshCw, Download, DatabaseBackup, Trash2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { endLocalSession } from '../services/local-desktop';
 import logoMarkUrl from '../assets/logo-mark.png';
 import { useUiStore } from '../store/useUiStore';
+import { useCaseStore } from '../store/useCaseStore';
 
 type ByokProvider = 'gemini' | 'openai' | 'anthropic';
 type ByokProviderStatus = {
@@ -39,9 +40,10 @@ export const Settings: React.FC = () => {
   const { user, logoutUser } = useAuthStore();
   const navigate = useNavigate();
   const { runtimeHealth, runtimeHealthLoading, refreshRuntimeHealth } = useUiStore();
+  const clearAllCaseState = useCaseStore((state) => state.clearAllState);
   const [searchParams] = useSearchParams();
   const requestedTab = searchParams.get('tab');
-  const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'ia' | 'trazabilidad' | 'legal' | 'session'>(requestedTab === 'ia' ? 'ia' : 'profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'ia' | 'trazabilidad' | 'data' | 'legal' | 'session'>(requestedTab === 'ia' ? 'ia' : 'profile');
   const [byokEnabled, setByokEnabled] = useState(false);
   const [byokProvider, setByokProvider] = useState<ByokProvider>('gemini');
   const [byokProviders, setByokProviders] = useState<Record<ByokProvider, ByokProviderStatus>>(EMPTY_PROVIDER_SETTINGS);
@@ -62,6 +64,10 @@ export const Settings: React.FC = () => {
   const [ledgerStatus, setLedgerStatus] = useState<{ path: string; exists: boolean; size: number } | null>(null);
   const [ledgerExporting, setLedgerExporting] = useState(false);
   const [ledgerMessage, setLedgerMessage] = useState('');
+  const [vaultExporting, setVaultExporting] = useState(false);
+  const [vaultDeleting, setVaultDeleting] = useState(false);
+  const [vaultMessage, setVaultMessage] = useState('');
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
 
   const containerVariants = {
     hidden: { opacity: 0, y: 10 },
@@ -73,6 +79,7 @@ export const Settings: React.FC = () => {
     { id: 'preferences', label: 'Preferencias', icon: <SettingsIcon size={16} /> },
     { id: 'ia', label: 'IA y API', icon: <KeyRound size={16} /> },
     { id: 'trazabilidad', label: 'Trazabilidad y Logs', icon: <Shield size={16} /> },
+    { id: 'data', label: 'Datos locales', icon: <DatabaseBackup size={16} /> },
     { id: 'legal', label: 'Legal y Privacidad', icon: <FileText size={16} /> },
     { id: 'session', label: 'Sesión', icon: <Lock size={16} /> },
   ] as const;
@@ -224,6 +231,42 @@ export const Settings: React.FC = () => {
       setLedgerMessage(err?.message || 'No se pudo exportar la bitácora.');
     } finally {
       setLedgerExporting(false);
+    }
+  };
+
+  const handleExportVault = async () => {
+    setVaultExporting(true);
+    setVaultMessage('');
+    try {
+      const result = await window.lexDesktop.cases.exportAll();
+      if (result.success) {
+        setVaultMessage(`Respaldo de ${result.caseCount} portafolio(s) exportado en ${result.filePath}.`);
+      } else if (result.canceled) {
+        setVaultMessage('Exportación cancelada; no se modificó la bóveda local.');
+      }
+    } catch (err: any) {
+      setVaultMessage(err?.message || 'No se pudo exportar el respaldo integral.');
+    } finally {
+      setVaultExporting(false);
+    }
+  };
+
+  const handleDeleteVault = async () => {
+    if (deleteConfirmation !== 'ELIMINAR') return;
+    const accepted = window.confirm('Esta acción elimina permanentemente todos los portafolios, documentos, análisis y borradores locales. ¿Deseas continuar?');
+    if (!accepted) return;
+
+    setVaultDeleting(true);
+    setVaultMessage('');
+    try {
+      const result = await window.lexDesktop.cases.deleteAll({ confirmation: 'DELETE_ALL_LOCAL_DATA' });
+      clearAllCaseState();
+      setDeleteConfirmation('');
+      setVaultMessage(`Se eliminaron permanentemente ${result.deleted} portafolio(s) locales.`);
+    } catch (err: any) {
+      setVaultMessage(err?.message || 'No se pudieron eliminar los datos locales.');
+    } finally {
+      setVaultDeleting(false);
     }
   };
 
@@ -501,6 +544,10 @@ export const Settings: React.FC = () => {
                     </span>
                   </label>
 
+                  <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-5 text-blue-900">
+                    <strong>Qué sale del equipo:</strong> al ejecutar un flujo BYOK se envían por HTTPS la instrucción, una selección limitada del texto extraído y los fundamentos locales recuperados. El archivo original y la bóveda completa no se transmiten. El proveedor puede tratar o conservar lo enviado conforme a tu cuenta y sus propias políticas.
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-3">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">API key de {BYOK_PROVIDER_LABELS[byokProvider]}</label>
@@ -614,9 +661,9 @@ export const Settings: React.FC = () => {
                   <div>
                     <h3 className="text-sm font-bold text-slate-900">Bitácora Local de Decisiones (Ledger)</h3>
                     <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                      Todas las respuestas generadas por el modelo de Inteligencia Artificial local están registradas 
+                      Las operaciones jurídicas locales y BYOK compatibles quedan registradas
                       en una bitácora JSONL saneada en este equipo. Este registro almacena hashes de entradas y salidas, 
-                      fuentes recuperadas de la base jurídica local y metadatos mínimos de trazabilidad, sin guardar el texto completo del portafolio.
+                      identificadores exactos de fuentes, vínculos afirmación–fuente y metadatos mínimos de trazabilidad, sin guardar el texto completo del portafolio.
                     </p>
                     <p className="text-[10px] text-slate-400 font-medium mt-2">
                       Ruta local: <code className="break-all bg-slate-200 px-1 py-0.5 rounded">{ledgerStatus?.path || 'Consultando ruta local...'}</code>
@@ -640,6 +687,51 @@ export const Settings: React.FC = () => {
                     {ledgerExporting ? 'Exportando...' : 'Exportar bitácora'}
                   </button>
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'data' && (
+              <div className="space-y-8">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Datos locales</h2>
+                  <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-500">
+                    Los portafolios se conservan al desinstalar. Desde aquí puedes crear un respaldo legible o eliminarlos de forma explícita.
+                  </p>
+                </div>
+
+                <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="flex max-w-2xl items-start gap-3">
+                      <span className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600"><DatabaseBackup size={20} /></span>
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">Exportar respaldo integral</h3>
+                        <p className="mt-1 text-xs leading-5 text-slate-500">Incluye portafolios, documentos, análisis, borradores y estado de trabajo en un JSON con hash SHA-256. El respaldo queda sin cifrar en la ubicación que elijas; protégelo como información confidencial.</p>
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => void handleExportVault()} disabled={vaultExporting} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white hover:bg-slate-800 disabled:opacity-50">
+                      <Download size={15} /> {vaultExporting ? 'Exportando…' : 'Exportar respaldo'}
+                    </button>
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-red-200 bg-red-50 p-5" aria-labelledby="delete-vault-title">
+                  <div className="flex items-start gap-3">
+                    <span className="rounded-xl border border-red-200 bg-white p-2 text-red-600"><Trash2 size={20} /></span>
+                    <div className="min-w-0 flex-1">
+                      <h3 id="delete-vault-title" className="text-sm font-bold text-red-900">Eliminar toda la bóveda local</h3>
+                      <p className="mt-1 text-xs leading-5 text-red-800">La eliminación es irreversible. Exporta primero un respaldo si necesitas conservar el trabajo.</p>
+                      <label htmlFor="delete-vault-confirmation" className="mt-4 block text-[11px] font-bold uppercase tracking-wider text-red-800">Escribe ELIMINAR para habilitar la acción</label>
+                      <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                        <input id="delete-vault-confirmation" value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} autoComplete="off" className="min-h-10 flex-1 rounded-xl border border-red-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-200" />
+                        <button type="button" onClick={() => void handleDeleteVault()} disabled={deleteConfirmation !== 'ELIMINAR' || vaultDeleting} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-red-700 px-4 text-xs font-bold text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-40">
+                          <Trash2 size={15} /> {vaultDeleting ? 'Eliminando…' : 'Eliminar datos'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <p className="text-xs text-slate-600" role="status">{vaultMessage}</p>
               </div>
             )}
 
@@ -676,7 +768,7 @@ export const Settings: React.FC = () => {
                     <ul className="text-xs text-slate-600 space-y-3 font-medium leading-relaxed">
                       <li className="flex gap-2"><span className="text-legal-gold">•</span> Lex Corporativo es un sistema de soporte documental asistido, no constituye asesoría legal vinculante.</li>
                       <li className="flex gap-2"><span className="text-legal-gold">•</span> Toda resolución generada por el sistema debe ser validada por un profesional del derecho.</li>
-                      <li className="flex gap-2"><span className="text-legal-gold">•</span> Los datos se procesan en este equipo y no se usan para entrenamiento externo.</li>
+                      <li className="flex gap-2"><span className="text-legal-gold">•</span> En modo local, el procesamiento permanece en este equipo. Con BYOK, la selección mostrada en IA y API se transmite al proveedor elegido bajo sus políticas.</li>
                     </ul>
                 </div>
               </div>

@@ -11,7 +11,14 @@ export interface LexDesktopAPI {
     deleteDraft: (payload: { caseId: string; draftId: string; expectedModule?: 'engineering' | 'fiscal' | 'mercantil' }) => Promise<{ success: true; deleted: boolean }>;
     saveState: (payload: { caseId: string; stateData: Record<string, unknown>; expectedModule?: 'engineering' | 'fiscal' | 'mercantil' }) => Promise<{ success: true }>;
     purgeExpired: () => Promise<{ deleted: number }>;
-    deleteAll: () => Promise<{ deleted: number }>;
+    exportAll: () => Promise<{
+      success: boolean;
+      canceled?: boolean;
+      filePath?: string;
+      caseCount: number;
+      packageHash?: string;
+    }>;
+    deleteAll: (payload: { confirmation: 'DELETE_ALL_LOCAL_DATA' }) => Promise<{ deleted: number }>;
   };
   documents: {
     selectFile: () => Promise<string[] | null>;
@@ -46,12 +53,12 @@ export interface LexDesktopAPI {
   drafts: {
     generateDraft: (payload: {
       requirements: string;
-      module?: 'mercantil' | 'laboral' | 'fiscal';
-      ecosystem?: 'mercantil' | 'laboral' | 'fiscal';
+      module?: 'mercantil' | 'fiscal';
+      ecosystem?: 'mercantil' | 'fiscal';
       workflowModule?: 'drafting';
       sourceAnalysisId?: string;
       templateId?: string;
-      promptProfile?: 'mercantil_drafting' | 'laboral_drafting' | 'fiscal_drafting';
+      promptProfile?: 'mercantil_drafting' | 'fiscal_drafting';
       template?: any;
       referenceFile?: {
         name: string;
@@ -61,9 +68,9 @@ export interface LexDesktopAPI {
     }) => Promise<{
       result: string;
       requestId: string;
-      ecosystem: 'mercantil' | 'laboral' | 'fiscal';
+      ecosystem: 'mercantil' | 'fiscal';
       module: 'drafting';
-      promptProfile: 'mercantil_drafting' | 'laboral_drafting' | 'fiscal_drafting';
+      promptProfile: 'mercantil_drafting' | 'fiscal_drafting';
       sourceAnalysisId?: string;
       templateId?: string;
       engine: 'local-gemma' | 'local-template' | 'byok';
@@ -89,6 +96,7 @@ export interface LexDesktopAPI {
         ggufModels: string[];
         embeddingModelExists: boolean;
         canUseDevelopmentMock: boolean;
+        modelPathSource: 'default' | 'environment';
       };
     }>;
   };

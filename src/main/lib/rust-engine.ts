@@ -1,5 +1,5 @@
 import { spawn, ChildProcess } from 'child_process';
-import { join } from 'path';
+import { dirname, isAbsolute, join, resolve } from 'path';
 import { app } from 'electron';
 import { EventEmitter } from 'events';
 import * as fs from 'fs';
@@ -26,19 +26,31 @@ export interface RustRuntimeHealth {
   ggufModels: string[];
   embeddingModelExists: boolean;
   canUseDevelopmentMock: boolean;
+  modelPathSource: 'default' | 'environment';
 }
 
-function getRuntimeBasePaths(): { enginePath: string; modelsPath: string } {
+function resolveConfiguredPath(value: string): string {
+  return isAbsolute(value) ? resolve(value) : resolve(app.getAppPath(), value);
+}
+
+export function getRuntimeBasePaths(): { enginePath: string; modelsPath: string; ggufModelPath: string; modelPathSource: 'default' | 'environment' } {
   const isDev = !app.isPackaged;
   const binaryName = process.platform === 'win32' ? 'lex-engine.exe' : 'lex-engine';
+  const defaultModelsPath = isDev
+    ? join(app.getAppPath(), 'src-rust', 'models')
+    : join(process.resourcesPath, 'lex-engine', 'models');
+  const configuredModelPath = process.env.LEX_ENGINE_MODEL_PATH?.trim();
+  const ggufModelPath = configuredModelPath
+    ? resolveConfiguredPath(configuredModelPath)
+    : join(defaultModelsPath, EXPECTED_GGUF_MODEL);
 
   return {
     enginePath: isDev
       ? join(app.getAppPath(), 'src-rust', 'target', 'release', binaryName)
       : join(process.resourcesPath, 'lex-engine', binaryName),
-    modelsPath: isDev
-      ? join(app.getAppPath(), 'src-rust', 'models')
-      : join(process.resourcesPath, 'lex-engine', 'models'),
+    modelsPath: configuredModelPath ? dirname(ggufModelPath) : defaultModelsPath,
+    ggufModelPath,
+    modelPathSource: configuredModelPath ? 'environment' : 'default',
   };
 }
 
@@ -66,20 +78,20 @@ function findFilesByExtension(root: string, extension: string): string[] {
 }
 
 export function getRustRuntimeHealth(): RustRuntimeHealth {
-  const { enginePath, modelsPath } = getRuntimeBasePaths();
+  const { enginePath, modelsPath, ggufModelPath, modelPathSource } = getRuntimeBasePaths();
   const embeddingModelPath = join(modelsPath, 'Xenova', 'all-MiniLM-L6-v2', 'onnx', 'model_quantized.onnx');
-  const expectedGgufModelPath = join(modelsPath, EXPECTED_GGUF_MODEL);
 
   return {
     binaryPath: enginePath,
     binaryExists: fs.existsSync(enginePath),
     modelsPath,
     expectedGgufModel: EXPECTED_GGUF_MODEL,
-    expectedGgufModelPath,
-    expectedGgufModelExists: fs.existsSync(expectedGgufModelPath),
+    expectedGgufModelPath: ggufModelPath,
+    expectedGgufModelExists: fs.existsSync(ggufModelPath),
     ggufModels: findFilesByExtension(modelsPath, '.gguf'),
     embeddingModelExists: fs.existsSync(embeddingModelPath),
     canUseDevelopmentMock: canUseRustEngineMock(),
+    modelPathSource,
   };
 }
 
@@ -113,7 +125,7 @@ export function getRustEngine(): ChildProcess | null {
   }
 
   const isDev = !app.isPackaged;
-  const { enginePath } = getRuntimeBasePaths();
+  const { enginePath, ggufModelPath } = getRuntimeBasePaths();
 
   if (!fs.existsSync(enginePath)) {
     const reason = `binario no encontrado en ${enginePath}`;
@@ -138,7 +150,8 @@ export function getRustEngine(): ChildProcess | null {
         ...process.env, 
         PYTHONIOENCODING: 'utf-8',
         LANG: 'en_US.UTF-8',
-        LC_ALL: 'en_US.UTF-8'
+        LC_ALL: 'en_US.UTF-8',
+        LEX_ENGINE_MODEL_PATH: ggufModelPath,
       }
     });
 

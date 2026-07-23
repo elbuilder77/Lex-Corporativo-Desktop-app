@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   FISCAL_DRAFTING_TEMPLATES,
-  LABORAL_DRAFTING_TEMPLATES,
   MERCANTIL_DRAFTING_TEMPLATES,
   applyDraftingTemplateToPrompt,
   buildDraftingPromptFromTemplate,
@@ -24,14 +23,12 @@ function expectTemplateCatalogIntegrity(catalog: DraftingTemplate[]) {
 }
 
 describe('drafting templates', () => {
-  it('keeps Mercantile, Labor and Fiscal catalogs complete and unique', () => {
+  it('keeps Mercantile and Fiscal catalogs complete and unique', () => {
     expect(MERCANTIL_DRAFTING_TEMPLATES.length).toBeGreaterThanOrEqual(7);
     expect(FISCAL_DRAFTING_TEMPLATES.length).toBeGreaterThanOrEqual(8);
-    expect(LABORAL_DRAFTING_TEMPLATES.length).toBeGreaterThanOrEqual(5);
 
     expectTemplateCatalogIntegrity(MERCANTIL_DRAFTING_TEMPLATES);
     expectTemplateCatalogIntegrity(FISCAL_DRAFTING_TEMPLATES);
-    expectTemplateCatalogIntegrity(LABORAL_DRAFTING_TEMPLATES);
   });
 
   it('builds a visible prompt scaffold with required fields', () => {

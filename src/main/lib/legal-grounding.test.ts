@@ -1,13 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
-import { validateGroundedLegalOutput, validateOrRepairGroundedOutput } from './legal-grounding';
+import {
+  renderGroundedClaims,
+  validateGroundedLegalOutput,
+  validateOrRepairStructuredGroundedOutput,
+  validateStructuredGroundedOutput,
+  type StructuredGroundedOutput,
+} from './legal-grounding';
 
 const sources = [
-  { law_code: 'CFF', article_number: 'Artículo 69-B', content: 'El artículo 69-B establece el procedimiento aplicable a comprobantes de operaciones inexistentes.' },
-  { law_code: 'LISR', article_number: 'Artículo 27', content: 'Las deducciones autorizadas deberán reunir los requisitos establecidos.' },
+  { id: 'law:cff:69-b', kind: 'legal' as const, law_code: 'CFF', article_number: 'Artículo 69-B', content: 'Procedimiento aplicable a comprobantes de operaciones inexistentes.' },
+  { id: 'law:lisr:27', kind: 'legal' as const, law_code: 'LISR', article_number: 'Artículo 27', content: 'Requisitos de las deducciones autorizadas.' },
+  { id: 'doc:1', kind: 'evidence' as const, title: 'Contrato.pdf', content: 'El contrato carece de entregables.' },
 ];
 
 describe('legal response grounding gate', () => {
-  it('accepts citations that were actually retrieved', () => {
+  it('keeps exact provision allow-list validation for local GGUF output', () => {
     const result = validateGroundedLegalOutput(
       'El CFF, Artículo 69-B establece el procedimiento descrito en el fundamento recuperado.',
       sources,
@@ -15,86 +22,76 @@ describe('legal response grounding gate', () => {
     expect(result.valid).toBe(true);
   });
 
-  it('rejects a citation not present in the retrieved context', () => {
-    const result = validateGroundedLegalOutput(
-      'También resulta aplicable el Artículo 113 del CFF.',
-      sources,
-    );
+  it('rejects a local citation not present in retrieved sources', () => {
+    const result = validateGroundedLegalOutput('También resulta aplicable el Artículo 113 del CFF.', sources);
     expect(result.valid).toBe(false);
     expect(result.reason).toBe('unsupported_citation');
   });
 
-  it('rejects an uncited legal answer', () => {
-    const result = validateGroundedLegalOutput('La operación es deducible sin más requisitos.', sources);
-    expect(result.valid).toBe(false);
-    expect(result.reason).toBe('missing_citation');
-  });
+  it('accepts structured claims linked to exact source identifiers', () => {
+    const result = validateStructuredGroundedOutput({
+      claims: [{
+        claimId: 'risk-1',
+        heading: 'Riesgo',
+        text: 'El contrato requiere revisar la evidencia de materialidad.',
+        sourceIds: ['law:cff:69-b', 'doc:1'],
+      }],
+    }, sources, { requiredSourceKinds: ['legal', 'evidence'] });
 
-  it('rejects a legal claim that is not supported by the cited fragment', () => {
-    const result = validateGroundedLegalOutput(
-      'El CFF, Artículo 69-B permite deducir cualquier gasto sin requisitos.',
-      sources,
-    );
-    expect(result.valid).toBe(false);
-    expect(result.reason).toBe('unsupported_claim');
-  });
-
-  it('rejects an invented quantified deadline', () => {
-    const result = validateGroundedLegalOutput(
-      'El CFF, Artículo 69-B establece un plazo de 90 días para el contribuyente.',
-      sources,
-    );
-    expect(result.valid).toBe(false);
-    expect(result.reason).toBe('unsupported_claim');
-  });
-
-  it('can validate uncited drafting claims against user evidence', () => {
-    const result = validateGroundedLegalOutput(
-      'El proveedor deberá entregar el informe dentro de 15 días.',
-      [{ content: 'El proveedor entregará el informe dentro de 15 días.' }],
-      { requireCitation: false },
-    );
     expect(result.valid).toBe(true);
+    expect(result.cited).toEqual(['law:cff:69-b', 'doc:1']);
   });
 
-  it('rejects an invented drafting quantity even when citations are optional', () => {
-    const result = validateGroundedLegalOutput(
-      'El proveedor deberá entregar el informe dentro de 90 días.',
-      [{ content: 'El proveedor entregará el informe dentro de 15 días.' }],
-      { requireCitation: false },
-    );
+  it('rejects provider-invented source identifiers without lexical guessing', () => {
+    const result = validateStructuredGroundedOutput({
+      claims: [{
+        claimId: 'risk-1',
+        heading: 'Riesgo',
+        text: 'Existe un plazo aplicable.',
+        sourceIds: ['law:cff:invented'],
+      }],
+    }, sources);
+
     expect(result.valid).toBe(false);
-    expect(result.reason).toBe('unsupported_claim');
+    expect(result.reason).toBe('unknown_source_id');
+    expect(result.unsupported).toEqual(['law:cff:invented']);
   });
 
-  it('allows one constrained repair pass before rejecting a remote answer', async () => {
-    const repair = vi.fn().mockResolvedValue(
-      'El CFF, Artículo 69-B establece el procedimiento aplicable a comprobantes de operaciones inexistentes.',
-    );
-    const result = await validateOrRepairGroundedOutput(
-      'La operación es deducible sin más requisitos.',
-      sources,
-      {},
-      repair,
-    );
+  it('rejects required analysis claims omitted from the grounding map', () => {
+    const result = validateStructuredGroundedOutput({
+      claims: [{
+        claimId: 'summary',
+        heading: 'Resumen',
+        text: 'Resumen distinto.',
+        sourceIds: ['law:cff:69-b'],
+      }],
+    }, sources, { requiredClaimTexts: ['Riesgo fiscal identificado.'] });
 
+    expect(result.valid).toBe(false);
+    expect(result.reason).toBe('missing_required_claim');
+  });
+
+  it('allows one structured repair pass and revalidates exact IDs', async () => {
+    const initial: StructuredGroundedOutput = {
+      claims: [{ claimId: 'answer', heading: 'Respuesta', text: 'Texto inicial.', sourceIds: ['invented'] }],
+    };
+    const repair = vi.fn().mockResolvedValue({
+      claims: [{ claimId: 'answer', heading: 'Respuesta', text: 'Texto corregido.', sourceIds: ['law:cff:69-b'] }],
+    });
+
+    const result = await validateOrRepairStructuredGroundedOutput(initial, sources, {}, repair);
     expect(repair).toHaveBeenCalledOnce();
     expect(result.repaired).toBe(true);
-    expect(result.initialValidation?.reason).toBe('missing_citation');
+    expect(result.initialValidation?.reason).toBe('unknown_source_id');
     expect(result.validation.valid).toBe(true);
   });
 
-  it('does not call the repair provider when the first answer is grounded', async () => {
-    const repair = vi.fn();
-    const result = await validateOrRepairGroundedOutput(
-      'El CFF, Artículo 69-B establece el procedimiento descrito en el fundamento recuperado.',
-      sources,
-      {},
-      repair,
-    );
+  it('renders traceable source labels without exposing raw IDs as the only reference', () => {
+    const rendered = renderGroundedClaims({
+      claims: [{ claimId: 'answer', heading: 'Respuesta ejecutiva', text: 'Texto sustentado.', sourceIds: ['law:cff:69-b'] }],
+    }, sources);
 
-    expect(repair).not.toHaveBeenCalled();
-    expect(result.repaired).toBe(false);
-    expect(result.validation.valid).toBe(true);
+    expect(rendered).toContain('Respuesta ejecutiva');
+    expect(rendered).toContain('Fuentes vinculadas: CFF Artículo 69-B');
   });
 });

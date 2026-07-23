@@ -7,6 +7,24 @@ import type { DocumentChunk } from './chunking';
 import { getModuleLabel, isLawAllowedForModule, normalizeLawCode, type LegalModule } from './prompts';
 import { assessLegalEvidence, getExplicitProvisionTarget, getPreferredLawCodes } from './legal-relevance';
 
+function resolveRuntimeOverride(value: string): string {
+  return path.isAbsolute(value) ? path.resolve(value) : path.resolve(app.getAppPath(), value);
+}
+
+function getConfiguredModelRoot(): string | null {
+  const configuredModelPath = process.env.LEX_ENGINE_MODEL_PATH?.trim();
+  return configuredModelPath ? path.dirname(resolveRuntimeOverride(configuredModelPath)) : null;
+}
+
+function getConfiguredLancePath(): string | null {
+  const configured = process.env.LEX_ENGINE_LANCE_PATH?.trim();
+  if (!configured) return null;
+  const resolved = resolveRuntimeOverride(configured);
+  return path.basename(resolved).toLowerCase() === 'legal_knowledge.lance'
+    ? path.dirname(resolved)
+    : resolved;
+}
+
 export interface RAGMatch {
   id: string | number;
   type: 'statute' | 'jurisprudence';
@@ -65,11 +83,11 @@ async function getExtractor() {
   if (!extractorModel) {
     if (app.isPackaged) {
       env.allowRemoteModels = false;
-      env.localModelPath = path.join(process.resourcesPath, 'lex-engine', 'models');
+      env.localModelPath = getConfiguredModelRoot() || path.join(process.resourcesPath, 'lex-engine', 'models');
     } else {
       env.allowRemoteModels = false; // Disable remote lookup to prevent hangs when offline
-      env.localModelPath = path.join(app.getAppPath(), 'src-rust', 'models');
-      env.cacheDir = path.join(app.getAppPath(), 'src-rust', 'models');
+      env.localModelPath = getConfiguredModelRoot() || path.join(app.getAppPath(), 'src-rust', 'models');
+      env.cacheDir = env.localModelPath;
     }
     
     try {
@@ -169,6 +187,8 @@ async function getLexicalMatches(
 }
 
 function getRagCandidatePaths(): string[] {
+  const configuredPath = getConfiguredLancePath();
+  if (configuredPath) return [configuredPath];
   const userDataPath = path.join(app.getPath('userData'), 'lance_data');
   const bundledPath = app.isPackaged
     ? path.join(process.resourcesPath, 'lex-engine', 'lance_data')
@@ -182,6 +202,8 @@ function hasLegalKnowledgeTable(dbPath: string): boolean {
 }
 
 function getLocalRagPath(): string {
+  const configuredPath = getConfiguredLancePath();
+  if (configuredPath) return configuredPath;
   const userDataPath = path.join(app.getPath('userData'), 'lance_data');
   const bundledPath = app.isPackaged
     ? path.join(process.resourcesPath, 'lex-engine', 'lance_data')
@@ -192,6 +214,10 @@ function getLocalRagPath(): string {
   return synchronizePackagedLegalKnowledge(userDataPath, bundledPath)
     ? userDataPath
     : path.join(app.getPath('userData'), 'legal-retrieval-disabled');
+}
+
+export function getLegalKnowledgeRuntimePath(): string {
+  return getLocalRagPath();
 }
 
 function getUserDocumentsRagPath(): string {
@@ -500,11 +526,11 @@ function formatRAGContext(matches: RAGMatch[], module: LegalModule, isDrafting =
 
   const statuteLines = matches
     .filter(m => m.type === 'statute')
-    .map(m => `— [FUENTE OFICIAL VERIFICADA] ${m.law_code || m.title} ${m.article_number || ''}: "${m.content.slice(0, 1500)}"`);
+    .map(m => `— [FUENTE_ID=${String(m.id)}] [FUENTE OFICIAL VERIFICADA] ${m.law_code || m.title} ${m.article_number || ''}: "${m.content.slice(0, 1500)}"`);
 
   const jurLines = matches
     .filter(m => m.type === 'jurisprudence')
-    .map(m => `— JURISPRUDENCIA [${m.subtitle}]: "${m.content.slice(0, 2000)}"`);
+    .map(m => `— [FUENTE_ID=${String(m.id)}] JURISPRUDENCIA [${m.subtitle}]: "${m.content.slice(0, 2000)}"`);
 
   let instructionLines: string[];
   if (isDrafting) {
@@ -557,7 +583,7 @@ export function formatAnalysisContext(
   });
 
   const legalLines = legalMatches.map(match => (
-    `- ${match.law_code || match.title} ${match.article_number || ''}: "${match.content.slice(0, 1500)}"`
+    `- [FUENTE_ID=${String(match.id)}] ${match.law_code || match.title} ${match.article_number || ''}: "${match.content.slice(0, 1500)}"`
   ));
 
   return `### DOCUMENTOS ANALIZADOS (Evidencia del Usuario)

@@ -29,7 +29,7 @@ export const TermsConditions: React.FC<TermsConditionsProps> = ({ onBack }) => {
               Términos y Condiciones
             </h1>
           </div>
-          <p className="text-sm text-slate-400 mb-10">Última actualización: 29 de abril de 2026</p>
+          <p className="text-sm text-slate-400 mb-10">Última actualización: 23 de julio de 2026</p>
         </motion.div>
 
         <motion.div
@@ -51,7 +51,7 @@ export const TermsConditions: React.FC<TermsConditionsProps> = ({ onBack }) => {
               LexCorporativo Desktop es una estación jurídica local asistida por inteligencia artificial para derecho corporativo mexicano que ofrece:
             </p>
             <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1 mt-3">
-              <li>Generación asistida de contratos y documentos jurídicos mercantiles, laborales y fiscales.</li>
+              <li>Generación asistida de contratos y documentos jurídicos mercantiles y fiscales.</li>
               <li>Análisis automatizado de documentos legales con identificación de riesgos.</li>
               <li>Generación de borradores de instrumentos jurídicos.</li>
               <li>Acceso a normativa federal mexicana vigente.</li>
@@ -136,7 +136,7 @@ export const TermsConditions: React.FC<TermsConditionsProps> = ({ onBack }) => {
             <ul className="list-disc pl-5 text-sm text-slate-600 space-y-2">
               <li><strong>Modo Offline (Gemma Local):</strong> La recuperación normativa, la administración documental y la inferencia se realizan en el equipo, sin contactar a un proveedor de modelos. Su disponibilidad y velocidad dependen de los recursos locales instalados.</li>
               <li><strong>Procesamiento mediante API propia (BYOK):</strong> Al activar este modo, cada operación compatible envía por HTTPS al proveedor configurado las instrucciones, una selección del texto extraído y los fundamentos recuperados. El archivo original no se transmite. El tratamiento, registro o retención del proveedor se rige por la cuenta, contrato y políticas que el usuario haya contratado con éste.</li>
-              <li><strong>Almacenamiento Local (Portafolio):</strong> Todos los resultados generados, historiales y documentos se guardan única y exclusivamente en el disco duro de su computadora.</li>
+              <li><strong>Almacenamiento Local (Portafolio):</strong> Los resultados, historiales y documentos se guardan en el disco del equipo. La desinstalación conserva la bóveda salvo que el usuario la elimine explícitamente desde Datos locales.</li>
               <li><strong>Control de fundamentación:</strong> En los flujos jurídicos compatibles, la respuesta del proveedor se valida localmente contra el corpus recuperado. Puede solicitarse una sola corrección automática; si la salida continúa sin sustento verificable, no se entrega.</li>
             </ul>
           </section>

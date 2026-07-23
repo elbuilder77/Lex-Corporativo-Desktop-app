@@ -29,7 +29,7 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
               Aviso de Privacidad
             </h1>
           </div>
-          <p className="text-sm text-slate-400 mb-10">Última actualización: 1 de junio de 2026</p>
+          <p className="text-sm text-slate-400 mb-10">Última actualización: 23 de julio de 2026</p>
         </motion.div>
 
         <motion.div
@@ -67,16 +67,19 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
             <p className="text-sm text-slate-600 leading-relaxed mt-3 mb-3"><strong>Finalidades secundarias (opcionales):</strong></p>
             <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1">
               <li>Generar reportes locales de soporte cuando el usuario decida compartirlos fuera de la aplicación.</li>
+              <li>Procesar una operación compatible mediante el proveedor de IA que el usuario active con su propia API key (BYOK).</li>
             </ul>
           </section>
 
           <section>
             <h2 className="text-lg font-serif font-bold text-legal-950 mb-3">IV. Transferencias de Datos</h2>
-            <p className="text-sm text-slate-600 leading-relaxed mb-3">La aplicación de escritorio no transfiere portafolios, documentos, consultas ni resultados a terceros para su procesamiento.</p>
+            <p className="text-sm text-slate-600 leading-relaxed mb-3">En modo local, la aplicación no transfiere portafolios, documentos, consultas ni resultados a proveedores de modelos. El tratamiento cambia únicamente cuando el usuario activa BYOK y ejecuta una operación compatible.</p>
             <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1">
-              <li>Los archivos del usuario permanecen en el almacenamiento local del equipo.</li>
+              <li>En BYOK se envían por HTTPS al proveedor elegido la instrucción, una selección limitada del texto extraído y los fundamentos locales recuperados.</li>
+              <li>El archivo original, la bóveda completa y los historiales no seleccionados no se transmiten al proveedor.</li>
+              <li>El tratamiento, registro y retención del contenido enviado dependen de la cuenta, contrato y políticas del proveedor elegido por el usuario.</li>
               <li>La compra, descarga o soporte comercial se atienden fuera de esta aplicación instalada.</li>
-              <li>Solo habrá salida de información si el usuario exporta archivos o los comparte manualmente.</li>
+              <li>También habrá salida de información si el usuario exporta archivos o los comparte manualmente.</li>
             </ul>
             <p className="text-sm text-slate-600 leading-relaxed mt-3">
               Cualquier servicio web de venta o descarga opera separado de la estación desktop y no forma parte del flujo de procesamiento jurídico local.
@@ -100,21 +103,21 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
           <section>
             <h2 className="text-lg font-serif font-bold text-legal-950 mb-3">VII. Tratamiento de Documentos</h2>
             <p className="text-sm text-slate-600 leading-relaxed">
-              Los documentos que usted cargue se procesan en el equipo local. Si decide guardarlos, se conservarán en el almacenamiento local de la aplicación; si decide exportarlos, el archivo resultante se genera en el destino local seleccionado.
+              Los archivos se extraen y organizan primero en el equipo local. En modo local no salen del dispositivo. Si BYOK está activo, la operación compatible puede enviar al proveedor configurado una selección limitada del texto extraído y los fundamentos recuperados; el archivo binario original no se transmite. Los respaldos exportados quedan sin cifrar en el destino elegido por el usuario.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg font-serif font-bold text-legal-950 mb-3">VIII. Retención y Eliminación</h2>
             <p className="text-sm text-slate-600 leading-relaxed">
-              El historial guardado puede ser eliminado por el usuario desde la aplicación. La retención depende de los archivos y portafolios que el usuario conserve en su equipo.
+              Los portafolios aplican la retención configurada al crearse y pueden respaldarse o eliminarse desde Datos locales. Desinstalar la aplicación no borra automáticamente la bóveda: la eliminación total requiere una confirmación explícita dentro del software.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg font-serif font-bold text-legal-950 mb-3">IX. Medidas de Seguridad</h2>
             <p className="text-sm text-slate-600 leading-relaxed">
-              Implementamos medidas de seguridad orientadas al entorno local: aislamiento de contexto de Electron, validación de payloads IPC, almacenamiento local de portafolios, bitácoras de trazabilidad y operación sin dependencia de servicios externos para procesar documentos.
+              Implementamos aislamiento de contexto de Electron, validación de payloads IPC, cifrado de contenidos de la bóveda mediante el almacén seguro del sistema operativo, bitácoras de trazabilidad con hashes e identificadores de fuentes y bloqueo de nuevas escrituras cuando el cifrado seguro no está disponible. La API key BYOK también se cifra con el almacén del sistema operativo.
             </p>
           </section>
 

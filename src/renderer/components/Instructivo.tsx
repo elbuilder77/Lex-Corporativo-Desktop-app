@@ -263,7 +263,7 @@ export const Instructivo: React.FC = () => {
           <aside className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-900 p-4 text-white shadow-sm lg:block">
             <CheckCircle2 size={19} className="shrink-0 text-legal-gold" />
             <div><h2 className="text-sm font-bold lg:mt-3">Privacidad local</h2>
-            <p className="mt-1 text-xs leading-5 text-slate-300">Portafolio, corpus y trazabilidad permanecen en este equipo.</p></div>
+            <p className="mt-1 text-xs leading-5 text-slate-300">La bóveda, el corpus y la trazabilidad permanecen en este equipo. Si activas BYOK, cada operación compatible envía al proveedor la instrucción, texto extraído seleccionado y fundamentos recuperados.</p></div>
           </aside>
         </section>
 

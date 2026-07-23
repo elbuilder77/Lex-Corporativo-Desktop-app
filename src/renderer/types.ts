@@ -80,6 +80,12 @@ export type DocumentAnalysisResult = {
     operacionesInexistentes?: string[];
   };
   legalFoundations: LegalFoundation[];
+  groundingClaims?: Array<{
+    claimId: string;
+    heading: string;
+    text: string;
+    sourceIds: string[];
+  }>;
   confidence: "low" | "medium" | "high";
   engine: "rules" | "local-embeddings" | "gemma-local" | "local-gemma" | "byok" | "hybrid";
 };
@@ -113,9 +119,9 @@ export interface DraftingHistory {
   prompt: string;
   requestId?: string;
   sourceAnalysisId?: string;
-  area?: 'mercantil' | 'laboral' | 'fiscal';
-  ecosystem?: 'mercantil' | 'laboral' | 'fiscal';
-  promptProfile?: 'mercantil_drafting' | 'laboral_drafting' | 'fiscal_drafting';
+  area?: 'mercantil' | 'fiscal';
+  ecosystem?: 'mercantil' | 'fiscal';
+  promptProfile?: 'mercantil_drafting' | 'fiscal_drafting';
   templateId?: string;
   templateTitle?: string;
   referenceFileName?: string;

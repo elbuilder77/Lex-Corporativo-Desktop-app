@@ -1,5 +1,6 @@
 import { dialog, ipcMain } from 'electron';
 import { writeFileSync } from 'fs';
+import { createHash } from 'crypto';
 import { z } from 'zod';
 import {
   createCase,
@@ -76,6 +77,10 @@ const ExportPdfSchema = z.object({
   base64: z.string().min(1),
   defaultPath: z.string().min(1).max(260),
 });
+
+const DeleteAllSchema = z.object({
+  confirmation: z.literal('DELETE_ALL_LOCAL_DATA'),
+}).strict();
 
 function parseCaseOperation(raw: unknown): { caseId: string; expectedModule?: 'engineering' | 'fiscal' | 'mercantil' } {
   const parsed = CaseOperationSchema.parse(raw);
@@ -185,7 +190,33 @@ export function registerVaultHandlers(): void {
   });
 
   ipcMain.handle('vault:purge-expired', async () => ({ deleted: await purgeExpiredCases() }));
-  ipcMain.handle('vault:delete-all', async () => ({ deleted: await deleteAllCases() }));
+  ipcMain.handle('vault:delete-all', async (_event, rawPayload: unknown) => {
+    DeleteAllSchema.parse(rawPayload);
+    return { deleted: await deleteAllCases() };
+  });
+
+  ipcMain.handle('vault:export-all', async () => {
+    const metadata = await listCases();
+    const cases = await Promise.all(metadata.map(async item => JSON.parse(await exportCase(item.caseId))));
+    const exportCore = {
+      format: 'lex-corporativo-vault-backup',
+      formatVersion: 1,
+      exportedAt: new Date().toISOString(),
+      caseCount: cases.length,
+      cases,
+    };
+    const packageHash = createHash('sha256').update(JSON.stringify(exportCore)).digest('hex');
+    const backup = { ...exportCore, packageHash };
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      defaultPath: `lex-corporativo-respaldo-${new Date().toISOString().slice(0, 10)}.json`,
+      filters: [{ name: 'Respaldo Lex Corporativo', extensions: ['json'] }],
+    });
+    if (canceled || !filePath) {
+      return { success: false, canceled: true, caseCount: cases.length };
+    }
+    writeFileSync(filePath, `${JSON.stringify(backup, null, 2)}\n`, 'utf8');
+    return { success: true, filePath, caseCount: cases.length, packageHash };
+  });
 
   // ── Load Case Data ───────────────────────
   ipcMain.handle('vault:load-case-data', async (_event, rawPayload: unknown) => {

@@ -1,5 +1,5 @@
 import { mkdirSync } from 'fs';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockState = vi.hoisted(() => ({
@@ -130,12 +130,18 @@ vi.mock('vectordb', () => {
   };
 });
 
-import { getAnalysisContext } from './rag';
+import { getAnalysisContext, getLegalKnowledgeRuntimePath } from './rag';
 
 describe('analysis double-lane RAG context', () => {
   beforeEach(() => {
     mockState.filters = [];
+    delete process.env.LEX_ENGINE_LANCE_PATH;
     mkdirSync(join(mockState.userDataPath, 'lance_data', 'user_documents.lance'), { recursive: true });
+  });
+
+  it('uses LEX_ENGINE_LANCE_PATH as the authoritative legal vector path', () => {
+    process.env.LEX_ENGINE_LANCE_PATH = 'runtime-lance';
+    expect(getLegalKnowledgeRuntimePath()).toBe(resolve(process.cwd(), 'runtime-lance'));
   });
 
   it('recovers only current-request document chunks and module-allowed laws', async () => {

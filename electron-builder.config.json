@@ -68,7 +68,7 @@
     "oneClick": false,
     "allowToChangeInstallationDirectory": true,
     "perMachine": false,
-    "deleteAppDataOnUninstall": true,
+    "deleteAppDataOnUninstall": false,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
     "shortcutName": "Lex Corporativo"
@@ -91,7 +91,7 @@
   },
   "publish": {
     "provider": "github",
-    "owner": "lexcorporativo",
-    "repo": "lex-corporativo-desktop"
+    "owner": "JPatronC92",
+    "repo": "Lex-Corp-Electron"
   }
 }

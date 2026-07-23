@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import path from 'path';
 
 const mockRuntime = vi.hoisted(() => ({
   isPackaged: false,
@@ -24,6 +25,7 @@ vi.mock('child_process', () => ({
 import {
   canUseRustEngineMock,
   getEngineUnavailableMessage,
+  getRuntimeBasePaths,
   rustEngineEvents,
   sendToRustEngine,
 } from './rust-engine';
@@ -33,6 +35,7 @@ describe('rust engine runtime policy', () => {
     mockRuntime.isPackaged = false;
     rustEngineEvents.removeAllListeners();
     delete process.env.LEX_DISABLE_ENGINE_MOCK;
+    delete process.env.LEX_ENGINE_MODEL_PATH;
     process.env.NODE_ENV = 'test';
     Object.defineProperty(process, 'resourcesPath', {
       value: process.cwd(),
@@ -73,6 +76,15 @@ describe('rust engine runtime policy', () => {
     expect(message).toContain('motor local ausente');
     expect(message).not.toContain('MODO DESARROLLO');
     expect(message).not.toContain('mensaje de prueba');
+  });
+
+  it('resolves LEX_ENGINE_MODEL_PATH and reports its directory as the model root', () => {
+    process.env.LEX_ENGINE_MODEL_PATH = 'runtime-models/custom.gguf';
+    const paths = getRuntimeBasePaths();
+
+    expect(paths.ggufModelPath).toBe(path.resolve(process.cwd(), 'runtime-models/custom.gguf'));
+    expect(paths.modelsPath).toBe(path.resolve(process.cwd(), 'runtime-models'));
+    expect(paths.modelPathSource).toBe('environment');
   });
 
   it('does not stream development mock output when the packaged runtime has no engine binary', async () => {
