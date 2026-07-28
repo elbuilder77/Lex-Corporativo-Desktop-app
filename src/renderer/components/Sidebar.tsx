@@ -266,6 +266,8 @@ export const Sidebar: React.FC = () => {
                           if (isMobile) setSidebarOpen(false);
                           else setTemporarilyExpanded(false);
                         }}
+                        aria-current={activeTab === sub.tab ? 'page' : undefined}
+                        aria-label={sub.label}
                         className={cn(
                           "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-200 min-w-0 group/sub cursor-pointer",
                           activeTab === sub.tab

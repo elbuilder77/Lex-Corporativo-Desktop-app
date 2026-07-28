@@ -7,6 +7,7 @@ import { useUiStore } from '../store/useUiStore';
 import { cn } from '../lib/utils';
 import { ensureModuleActivity } from '../lib/case-access';
 import { useProcessingGuard } from '../hooks/useProcessingGuard';
+import { useAIProcessing } from '../hooks/useAIProcessing';
 
 const FISCAL_TOPICS = [
   'Deducción',
@@ -27,7 +28,7 @@ export const FiscalConsultation: React.FC = () => {
   const { notify } = useUiStore();
   const canConsult = useProcessingGuard('legalGeneration', 'responder esta consulta fiscal');
   const [input, setInput] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
+  const { isProcessing, stageLabel, elapsed, execute, cancel } = useAIProcessing();
   const endRef = useRef<HTMLDivElement>(null);
   const hasUserMessages = messages.some((message) => message.role === 'user');
 
@@ -42,33 +43,42 @@ export const FiscalConsultation: React.FC = () => {
 
     const history = messages.filter((message) => !message.isThinking);
     setInput('');
-    setIsProcessing(true);
     setFiscalChatHistory((current) => [
       ...current,
       { role: 'user', text: query },
       { role: 'model', text: '', isThinking: true },
     ]);
 
-    try {
-      const caseId = await ensureModuleActivity('fiscal', currentCaseId);
-      setCurrentCaseId(caseId);
-      const response = await window.lexDesktop.assistant.askFiscal({
-        query,
-        history,
-      });
-      setFiscalChatHistory((current) => {
-        const next = current.filter((message) => !message.isThinking);
-        return [...next, { role: 'model', text: response.result }];
-      });
-      if (!response.citationsAvailable) {
-        notify('El sistema se abstuvo porque no recuperó fundamentos verificables.', 'warning', 'Consulta fiscal');
+    await execute(async (setStage, signal) => {
+      try {
+        setStage('preparing');
+        const caseId = await ensureModuleActivity('fiscal', currentCaseId);
+        setCurrentCaseId(caseId);
+        
+        setStage('searching');
+        const response = await window.lexDesktop.assistant.askFiscal({
+          query,
+          history,
+        });
+
+        if (signal.aborted) throw new Error('AbortError');
+        setStage('generating');
+
+        setFiscalChatHistory((current) => {
+          const next = current.filter((message) => !message.isThinking);
+          return [...next, { role: 'model', text: response.result }];
+        });
+        if (!response.citationsAvailable) {
+          notify('El sistema se abstuvo porque no recuperó fundamentos verificables.', 'warning', 'Consulta fiscal');
+        }
+      } catch (error: any) {
+        setFiscalChatHistory((current) => current.filter((message) => !message.isThinking));
+        if (error.message !== 'AbortError' && error.name !== 'AbortError') {
+          notify(error?.message || 'No se pudo procesar la consulta fiscal.', 'error', 'Consulta fiscal');
+        }
+        throw error;
       }
-    } catch (error: any) {
-      setFiscalChatHistory((current) => current.filter((message) => !message.isThinking));
-      notify(error?.message || 'No se pudo procesar la consulta fiscal.', 'error', 'Consulta fiscal');
-    } finally {
-      setIsProcessing(false);
-    }
+    });
   };
 
   return (
@@ -119,7 +129,11 @@ export const FiscalConsultation: React.FC = () => {
                 )}
                 <div className="min-w-0 flex-1 text-sm leading-7 text-slate-700">
                   {message.isThinking ? (
-                    <p className="animate-pulse text-slate-500">Recuperando y validando fundamentos fiscales…</p>
+                    <div className="flex items-center gap-2">
+                      <p className="animate-pulse text-slate-500">{stageLabel || 'Recuperando y validando fundamentos fiscales…'}</p>
+                      {elapsed > 0 && <span className="text-xs text-slate-400">({elapsed}s)</span>}
+                      <button onClick={cancel} className="ml-2 rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-600 hover:bg-slate-200">Cancelar</button>
+                    </div>
                   ) : message.role === 'model' ? (
                     <div className="prose prose-sm max-w-none prose-slate"><ReactMarkdown>{message.text}</ReactMarkdown></div>
                   ) : (

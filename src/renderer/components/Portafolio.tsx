@@ -8,6 +8,8 @@ import { useUiStore } from '../store/useUiStore';
 import { generateDocumentPDF } from '../lib/pdf-export';
 import { BRAND_CONTENT } from '../lib/product-content';
 import { cn } from '../lib/utils';
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
+import { ConfirmDialog } from './ui/ConfirmDialog';
 
 type ActivityFilter = 'all' | 'drafting' | 'analysis';
 
@@ -35,6 +37,7 @@ export const Portafolio: React.FC = () => {
   const [isLoadingActivity, setIsLoadingActivity] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
+  const [dialogState, confirm] = useConfirmDialog();
 
   useEffect(() => { fetchRecentCases(); }, [fetchRecentCases]);
 
@@ -150,7 +153,14 @@ export const Portafolio: React.FC = () => {
       return;
     }
     const label = item.activityType === 'analysis' ? 'esta revisión fiscal' : 'este documento generado';
-    if (!window.confirm(`¿Eliminar ${label}? Se quitará permanentemente del Portafolio local.`)) return;
+    const accepted = await confirm({
+      title: `Eliminar ${item.activityType === 'analysis' ? 'revisión fiscal' : 'documento'}`,
+      message: `¿Eliminar ${label}? Se quitará permanentemente del Portafolio local.`,
+      confirmLabel: 'Eliminar',
+      cancelLabel: 'Cancelar',
+      variant: 'danger',
+    });
+    if (!accepted) return;
 
     const key = activityKey(item);
     setDeletingKey(key);
@@ -270,6 +280,7 @@ export const Portafolio: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+      <ConfirmDialog {...dialogState} />
     </div>
   );
 };

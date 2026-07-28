@@ -22,6 +22,7 @@ import { FiscalNormativeLibrary } from './FiscalNormativeLibrary';
 import { useCaseStore } from '../store/useCaseStore';
 import { useNavigate } from 'react-router-dom';
 import { CapabilityGate, type RuntimeCapability } from './CapabilityGate';
+import { Stepper } from './ui/Stepper';
 
 const FISCAL_TABS: Array<{
   tab: ModuleTab;
@@ -65,6 +66,11 @@ export const FiscalModule: React.FC = () => {
       ? 'legalSearch'
       : 'legalGeneration';
 
+  const currentStepIndex = OPERATION_STEPS.findIndex(s => s.tab === effectiveTab);
+  const completedStepIndices = OPERATION_STEPS
+    .map((s, i) => fiscalOperationState.completedSteps.includes(s.step) ? i : -1)
+    .filter(i => i !== -1);
+
   return (
     <div className="flex h-full flex-col bg-slate-50 text-slate-900">
       <header className="shrink-0 border-b border-slate-200 bg-white px-5 py-3 md:px-8">
@@ -83,23 +89,24 @@ export const FiscalModule: React.FC = () => {
         </div>
       </header>
 
-      <section className="hidden shrink-0 items-center gap-4 border-b border-slate-200 bg-slate-50 px-5 py-2.5 md:flex md:px-8" aria-label="Avance de la operación fiscal">
+      <section className="hidden shrink-0 items-center gap-6 border-b border-slate-200 bg-slate-50 px-5 py-4 md:flex md:px-8" aria-label="Avance de la operación fiscal">
         <div className="min-w-0 w-52 shrink-0">
           <p className="truncate text-xs font-bold text-slate-900">{operationTitle}</p>
           <p className="mt-0.5 text-xs font-semibold uppercase tracking-wider text-slate-500">{completedCount} de {OPERATION_STEPS.length} etapas completas</p>
         </div>
-        <div className="grid min-w-0 flex-1 grid-cols-4 gap-1">
-          {OPERATION_STEPS.map((item) => {
-            const completed = fiscalOperationState.completedSteps.includes(item.step);
-            const active = effectiveTab === item.tab;
-            return (
-              <button key={item.step} type="button" onClick={() => setActiveTab(item.tab)} className={cn('inline-flex min-w-0 items-center justify-center gap-1 rounded-lg px-1 py-2 text-xs font-bold transition', active ? 'bg-fiscal text-white' : 'text-slate-600 hover:bg-white', completed && !active && 'text-emerald-700')}>
-                <CheckCircle2 size={13} className={cn('shrink-0', completed ? 'opacity-100' : 'opacity-35')} /> <span className="truncate">{item.label}</span>
-              </button>
-            );
-          })}
+        
+        <div className="flex-1 px-4">
+          <Stepper
+            steps={OPERATION_STEPS.map(s => s.label)}
+            currentStep={currentStepIndex}
+            completedSteps={completedStepIndices}
+            onStepClick={(idx) => setActiveTab(OPERATION_STEPS[idx].tab)}
+          />
         </div>
-        <button type="button" onClick={() => navigate('/portafolio')} className="inline-flex min-w-max items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100"><FolderOpen size={14} /> Portafolio</button>
+
+        <button type="button" onClick={() => navigate('/portafolio')} className="inline-flex min-w-max items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">
+          <FolderOpen size={14} /> Portafolio
+        </button>
       </section>
 
       <nav className="flex shrink-0 gap-2 overflow-x-auto border-b border-slate-200 bg-white px-4 py-3 md:hidden" aria-label="Herramientas fiscales">

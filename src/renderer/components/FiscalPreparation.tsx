@@ -9,6 +9,7 @@ import { useUiStore } from '../store/useUiStore';
 import type { DocumentAnalysisResult } from '../types';
 import { FiscalAnalysisResultPanel } from './FiscalAnalysisResultPanel';
 import { useProcessingGuard } from '../hooks/useProcessingGuard';
+import { useAIProcessing } from '../hooks/useAIProcessing';
 
 const PREPARATION_INSTRUCTION = `Evalúa integralmente la preparación fiscal de la operación. Revisa materialidad, CFDI, contraprestación, pagos, entregables, razón de negocios, deducibilidad, IVA acreditable y posible exposición al artículo 69-B del CFF. Separa evidencia disponible, evidencia pendiente y siguientes acciones. No inventes hechos ni fundamentos.`;
 
@@ -22,7 +23,7 @@ export const FiscalPreparation: React.FC = () => {
   const [description, setDescription] = useState(fiscalOperationState.description || '');
   const [files, setFiles] = useState<File[]>([]);
   const [result, setResult] = useState<DocumentAnalysisResult | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const { isProcessing: isAnalyzing, stageLabel, elapsed, execute, cancel } = useAIProcessing();
   const [progress, setProgress] = useState('');
   const [isExporting, setIsExporting] = useState(false);
 
@@ -43,50 +44,60 @@ export const FiscalPreparation: React.FC = () => {
       return;
     }
     if (!canAnalyze()) return;
-    setIsAnalyzing(true);
     setResult(null);
     setProgress('Preparando expediente local…');
 
-    try {
-      const caseId = await ensureModuleActivity('fiscal', currentCaseId);
-      setCurrentCaseId(caseId);
-      const operationTitle = description.trim().replace(/\s+/g, ' ').slice(0, 72);
-      updateFiscalOperationState({
-        title: operationTitle || 'Operación fiscal',
-        description: description.trim(),
-        evidenceFiles: files.map((file) => ({ name: file.name, type: file.type })),
-      });
-      window.lexDesktop.analysis.onProgress((state) => setProgress(state.label));
-      const response = await runFiscalAnalysis({
-        caseId,
-        context: description,
-        instruction: PREPARATION_INSTRUCTION,
-        files,
-        syntheticFileName: 'Descripcion_Operacion_Fiscal.txt',
-      });
-      setResult(response.result);
-      addFiscalAnalysis({
-        id: response.requestId,
-        requestId: response.requestId,
-        timestamp: new Date().toISOString(),
-        files: files.map((file) => ({ name: file.name, type: file.type })),
-        result: response.result,
-        module: 'fiscal',
-        ecosystem: 'fiscal',
-        promptProfile: response.promptProfile,
-        currentDocumentOnly: true,
-        customInstruction: description,
-        executionMode: response.requestedExecutionMode,
-        engine: response.engine,
-      });
-      completeFiscalOperationStep('preparation');
-      notify('Estado preventivo generado y guardado en el portafolio local.', 'success', 'Preparación fiscal');
-    } catch (error: any) {
-      notify(error?.message || 'No se pudo revisar la operación.', 'error', 'Preparación fiscal');
-    } finally {
-      setIsAnalyzing(false);
-      setProgress('');
-    }
+    await execute(async (setStage, signal) => {
+      try {
+        setStage('preparing');
+        const caseId = await ensureModuleActivity('fiscal', currentCaseId);
+        setCurrentCaseId(caseId);
+        const operationTitle = description.trim().replace(/\s+/g, ' ').slice(0, 72);
+        updateFiscalOperationState({
+          title: operationTitle || 'Operación fiscal',
+          description: description.trim(),
+          evidenceFiles: files.map((file) => ({ name: file.name, type: file.type })),
+        });
+        
+        setStage('analyzing');
+        window.lexDesktop.analysis.onProgress((state) => setProgress(state.label));
+        
+        const response = await runFiscalAnalysis({
+          caseId,
+          context: description,
+          instruction: PREPARATION_INSTRUCTION,
+          files,
+          syntheticFileName: 'Descripcion_Operacion_Fiscal.txt',
+        });
+        
+        if (signal.aborted) throw new Error('AbortError');
+        
+        setResult(response.result);
+        addFiscalAnalysis({
+          id: response.requestId,
+          requestId: response.requestId,
+          timestamp: new Date().toISOString(),
+          files: files.map((file) => ({ name: file.name, type: file.type })),
+          result: response.result,
+          module: 'fiscal',
+          ecosystem: 'fiscal',
+          promptProfile: response.promptProfile,
+          currentDocumentOnly: true,
+          customInstruction: description,
+          executionMode: response.requestedExecutionMode,
+          engine: response.engine,
+        });
+        completeFiscalOperationStep('preparation');
+        notify('Estado preventivo generado y guardado en el portafolio local.', 'success', 'Preparación fiscal');
+      } catch (error: any) {
+        if (error.message !== 'AbortError' && error.name !== 'AbortError') {
+          notify(error?.message || 'No se pudo revisar la operación.', 'error', 'Preparación fiscal');
+        }
+        throw error;
+      } finally {
+        setProgress('');
+      }
+    });
   };
 
   const reset = () => {
@@ -171,7 +182,9 @@ export const FiscalPreparation: React.FC = () => {
 
               {isAnalyzing && (
                 <div className="mt-5 flex items-center gap-3 rounded-xl border border-fiscal/15 bg-fiscal/5 px-4 py-3 text-sm font-semibold text-fiscal">
-                  <Loader2 size={17} className="animate-spin" /> {progress || 'Analizando expediente…'}
+                  <Loader2 size={17} className="animate-spin" /> {progress || stageLabel || 'Analizando expediente…'}
+                  {elapsed > 0 && <span className="ml-2 text-xs opacity-70">({elapsed}s)</span>}
+                  <button onClick={cancel} className="ml-auto rounded-md bg-white/50 px-2 py-1 text-xs text-fiscal hover:bg-white">Cancelar</button>
                 </div>
               )}
 

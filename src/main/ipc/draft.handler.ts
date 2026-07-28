@@ -255,9 +255,8 @@ export function registerDraftHandlers(): void {
 
       if (requestedExecutionMode === 'byok' && byok.apiKey) {
         const ragContext = await getHybridLegalContext(payload.requirements, activeModule, 8, true);
-        if (ragContext.sources.length === 0 || !ragContext.context.trim()) {
-          throw new Error('La redacción BYOK se bloqueó porque el corpus local no recuperó fundamentos verificables. No se enviaron datos al proveedor.');
-        }
+        const hasLegalContext = ragContext.sources.length > 0 && ragContext.context.trim().length > 0;
+
         const templateContext = payload.template
           ? [
               `FUENTE_ID=template:${payload.template.id}`,
@@ -286,7 +285,9 @@ export function registerDraftHandlers(): void {
         const structuredOutputContract = [
           'Devuelve exclusivamente JSON conforme al esquema estricto.',
           'Cada claim representa una sección autocontenida del documento final.',
-          'Cada claim debe vincular sourceIds exactos: al menos un FUENTE_ID legal recuperado y user:requirements.',
+          hasLegalContext 
+            ? 'Cada claim debe vincular sourceIds exactos: al menos un FUENTE_ID legal recuperado y user:requirements.' 
+            : 'Cada claim debe vincular sourceIds exactos correspondientes a user:requirements.',
           'Cuando uses datos del documento de referencia, añade user:reference. Cuando uses la plantilla, añade su FUENTE_ID.',
           'No escribas contenido fuera de claims ni inventes identificadores.',
         ].join('\n');
@@ -334,7 +335,7 @@ export function registerDraftHandlers(): void {
         const groundingOutcome = await validateOrRepairStructuredGroundedOutput(
           initialStructured,
           groundingSources,
-          { requiredSourceKinds: ['legal', 'instruction'] },
+          { requiredSourceKinds: hasLegalContext ? ['legal', 'instruction'] : ['instruction'] },
           async (validation, rejectedOutput) => {
             const repaired = await generateByokText({
               provider: byok.provider,

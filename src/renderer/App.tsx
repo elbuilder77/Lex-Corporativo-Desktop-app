@@ -5,6 +5,7 @@ import { CapabilityGate } from './components/CapabilityGate';
 import { ProcessingSetupDialog } from './components/ProcessingSetupDialog';
 import { Menu } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { AppShell } from './components/AppShell';
 
 const Introduction = lazy(() => import('./components/Introduction').then(m => ({ default: m.Introduction })));
 const NotificationHub = lazy(() => import('./components/NotificationHub').then(m => ({ default: m.NotificationHub })));
@@ -39,76 +40,7 @@ function getRetentionUntil(): string {
   return expiresAt.toISOString();
 }
 
-function Layout({ children }: { children: React.ReactNode }) {
-  const { isMobile, sidebarOpen, setSidebarOpen, sidebarCollapsed, notifications, dismissNotification } = useUiStore();
-  const location = useLocation();
 
-  const noSidebarRoutes = ['/', '/privacy', '/terms'];
-  const hasSidebar = !noSidebarRoutes.includes(location.pathname);
-
-  // Scroll to top on route change
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [location.pathname]);
-
-  useEffect(() => {
-    const applyViewportState = (matches: boolean) => {
-      useUiStore.getState().setIsMobile(matches);
-      useUiStore.getState().setSidebarOpen(!matches);
-    };
-    const mediaQuery = window.matchMedia('(max-width: 767px)');
-    applyViewportState(mediaQuery.matches);
-    const handleChange = (e: MediaQueryListEvent) => applyViewportState(e.matches);
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
-
-  return (
-    <div className={`flex h-screen ${hasSidebar ? 'bg-slate-50 text-slate-900' : 'bg-slate-50 text-slate-900'} overflow-hidden font-sans selection:bg-legal-gold/30`}>
-      <Suspense fallback={null}>
-        <NotificationHub notifications={notifications} onDismiss={dismissNotification} />
-      </Suspense>
-      <ProcessingSetupDialog />
-
-      {hasSidebar && sidebarOpen && isMobile && (
-        <button
-          type="button"
-          aria-label="Cerrar menú lateral"
-          className="fixed inset-0 bg-black/50 z-[70] md:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {hasSidebar && (!isMobile || sidebarOpen) && (
-        <div className={`
-          fixed inset-y-0 left-0 z-[80]
-          md:relative md:inset-auto md:z-[60] md:flex-shrink-0 md:overflow-visible
-          transform transition-all duration-300 ease-in-out
-          ${sidebarOpen 
-            ? `pointer-events-auto translate-x-0 ${isMobile ? 'w-72' : sidebarCollapsed ? 'w-[72px]' : 'w-[260px]'}` 
-            : 'pointer-events-none -translate-x-full md:translate-x-0 md:w-0'}
-        `}>
-          <Sidebar />
-        </div>
-      )}
-
-      <main className={`flex-1 relative ${hasSidebar ? 'bg-slate-50 text-slate-900' : 'bg-slate-50 text-slate-900'} overflow-hidden ${hasSidebar && sidebarOpen && isMobile ? 'pointer-events-none md:pointer-events-auto' : ''}`}>
-        {hasSidebar && !sidebarOpen && (
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="fixed top-4 left-4 z-[90] w-11 h-11 bg-legal-950 text-legal-gold rounded-lg flex items-center justify-center shadow-lg shadow-legal-950/30 hover:bg-legal-900 active:scale-95 transition-all duration-200"
-            aria-label="Abrir menú"
-          >
-            <Menu size={20} />
-          </button>
-        )}
-        <AnimatePresence mode="popLayout">
-          {children}
-        </AnimatePresence>
-      </main>
-    </div>
-  );
-}
 
 function GlobalEffects() {
   const { user, setUser, setIsAuthReady, setSubscription } = useAuthStore();
@@ -314,7 +246,7 @@ function App() {
   return (
     <div className="contents">
       <GlobalEffects />
-      <Layout>
+      <AppShell>
         <Suspense fallback={
           <div className="h-full w-full flex items-center justify-center bg-slate-50">
             <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="w-8 h-8 border-2 border-legal-gold border-t-transparent rounded-full" />
@@ -385,7 +317,7 @@ function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
-      </Layout>
+      </AppShell>
     </div>
   );
 }

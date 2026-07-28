@@ -38,10 +38,11 @@ export const useUiStore = create<UiState>((set) => ({
   notify: (message, type = 'info', title) => {
     const id = crypto.randomUUID();
     set((state) => ({ notifications: [...state.notifications, { id, type, message, title }] }));
-    if (type === 'success' || type === 'info') {
+    const autoDismissDelay = type === 'error' ? 0 : type === 'warning' ? 8000 : 5000;
+    if (autoDismissDelay > 0) {
       setTimeout(() => {
         set((state) => ({ notifications: state.notifications.filter(n => n.id !== id) }));
-      }, 5000);
+      }, autoDismissDelay);
     }
   },
   dismissNotification: (id) => set((state) => ({ notifications: state.notifications.filter(n => n.id !== id) })),
