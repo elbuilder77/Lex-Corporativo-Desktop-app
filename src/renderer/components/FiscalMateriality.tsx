@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowLeft, ArrowRight, BookOpen, ClipboardList, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { ensureModuleActivity } from '../lib/case-access';
 import { runFiscalAnalysis } from '../lib/fiscal-analysis';
 import { generateAnalysisPDF } from '../lib/pdf-export';
 import { useCaseStore } from '../store/useCaseStore';
@@ -26,7 +25,7 @@ const MATERIALITY_INSTRUCTION = `Analiza exclusivamente la materialidad y sustan
 export const FiscalMateriality: React.FC = () => {
   const { notify, setActiveTab } = useUiStore();
   const canAnalyze = useProcessingGuard('legalGeneration', 'generar la evaluación de materialidad');
-  const { currentCaseId, setCurrentCaseId, addFiscalAnalysis, fiscalOperationState, updateFiscalOperationState, completeFiscalOperationStep } = useCaseStore();
+  const { currentCaseId, addFiscalAnalysis, fiscalOperationState, updateFiscalOperationState, completeFiscalOperationStep } = useCaseStore();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>(fiscalOperationState.materialityAnswers || {});
   const [isProcessing, setIsProcessing] = useState(false);
@@ -48,11 +47,9 @@ export const FiscalMateriality: React.FC = () => {
     setProgress('Consolidando respuestas…');
     const context = QUESTIONS.map((item) => `${item.label}\n${answers[item.id] || '[DATO FALTANTE]'}`).join('\n\n');
     try {
-      const caseId = await ensureModuleActivity('fiscal', currentCaseId);
-      setCurrentCaseId(caseId);
       window.lexDesktop.analysis.onProgress((state) => setProgress(state.label));
       const response = await runFiscalAnalysis({
-        caseId,
+        caseId: currentCaseId || undefined,
         context,
         instruction: MATERIALITY_INSTRUCTION,
         syntheticFileName: 'Cuestionario_Materialidad.txt',
@@ -73,7 +70,7 @@ export const FiscalMateriality: React.FC = () => {
         engine: response.engine,
       });
       completeFiscalOperationStep('materiality');
-      notify('Evaluación de materialidad guardada en el portafolio local.', 'success', 'Materialidad');
+      notify('Evaluación de materialidad lista.', 'success', 'Materialidad');
     } catch (error: any) {
       notify(error?.message || 'No se pudo evaluar la materialidad.', 'error', 'Materialidad');
     } finally {
@@ -110,7 +107,7 @@ export const FiscalMateriality: React.FC = () => {
           { title: 'RAZÓN DE NEGOCIOS', content: answers.razon_negocios || '[DATO FALTANTE]' },
         ],
         risks: result.risks?.map((risk) => `${risk.title}: ${risk.explanation}`) || [],
-        recommendation: result.recommendedActions?.join('\n') || 'Completar el expediente probatorio.',
+        recommendation: result.recommendedActions?.join('\n') || 'Completar el soporte probatorio.',
         moduleName: 'Lex Corporativo · Fiscal',
         filenamePrefix: 'Revision_Materialidad_Fiscal',
       });
@@ -131,7 +128,7 @@ export const FiscalMateriality: React.FC = () => {
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-fiscal shadow-sm">
                 <ClipboardList size={24} strokeWidth={1.8} />
               </div>
-              <div className="min-w-0 flex-1"><h2 className="text-2xl font-bold text-slate-950">Materialidad</h2><p className="mt-1 text-sm text-slate-600">Completa la sustancia económica y trazabilidad de la misma operación.</p></div>
+              <div className="min-w-0 flex-1"><h2 className="text-2xl font-bold text-slate-950">Materialidad</h2><p className="mt-1 text-sm text-slate-600">Completa la sustancia económica y trazabilidad de la operación.</p></div>
               <div className="flex items-center gap-2 text-xs font-bold text-fiscal"><BookOpen size={16} /> CFF 69-B · CFF 5-A · LISR 27</div>
             </header>
 
@@ -152,9 +149,9 @@ export const FiscalMateriality: React.FC = () => {
                   <motion.div key={step} initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} className="mt-10">
                     <h3 className="text-2xl font-bold text-slate-900">{question.label}</h3>
                     {question.options ? (
-                      <div className="mt-7 grid gap-3">
+                      <div className="mt-7 grid gap-3" role="radiogroup" aria-label={question.label}>
                         {question.options.map((option) => (
-                          <button key={option} type="button" onClick={() => updateAnswer(question.id, option)} className={`rounded-2xl border p-4 text-left text-sm font-semibold transition ${answer === option ? 'border-fiscal bg-fiscal/5 text-fiscal ring-2 ring-fiscal/10' : 'border-slate-200 text-slate-600 hover:border-fiscal/30'}`}>
+                          <button key={option} type="button" role="radio" aria-checked={answer === option} onClick={() => updateAnswer(question.id, option)} className={`rounded-2xl border p-4 text-left text-sm font-semibold transition ${answer === option ? 'border-fiscal bg-fiscal/5 text-fiscal ring-2 ring-fiscal/10' : 'border-slate-200 text-slate-600 hover:border-fiscal/30'}`}>
                             {option}
                           </button>
                         ))}

@@ -71,10 +71,11 @@ export const BuscadorLegal: React.FC = () => {
     setExpandedArticles(new Set());
   };
 
-  const runSearch = async (targetModule: SearchableLegalModule) => {
-    const normalizedQuery = query.trim();
+  const runSearch = async (targetModule: SearchableLegalModule, searchValue = query) => {
+    const normalizedQuery = searchValue.trim();
     if (!normalizedQuery) return;
 
+    setQuery(normalizedQuery);
     setModule(targetModule);
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set('materia', targetModule);
@@ -159,7 +160,7 @@ export const BuscadorLegal: React.FC = () => {
       <div className="relative z-10 shrink-0 px-5 pb-5 md:px-8">
         <form onSubmit={(event) => { event.preventDefault(); void runSearch(module); }} className="group relative">
           <div className="pointer-events-none absolute inset-y-0 left-4 flex items-center"><Search className={cn('transition-colors', theme.searchIcon)} size={19} /></div>
-          <input type="text" value={query} onChange={(event) => { setQuery(event.target.value); setSuggestedModule(null); }} placeholder={`Busca una ley, artículo o concepto en ${MODULE_LABELS[module]}…`} className={cn('w-full rounded-2xl border border-slate-300 bg-white py-3.5 pl-12 pr-32 text-base font-medium text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:ring-2', theme.input)} />
+          <input type="text" value={query} onChange={(event) => { setQuery(event.target.value); setSuggestedModule(null); }} placeholder={`Busca una ley, artículo o concepto en ${MODULE_LABELS[module]}…`} aria-label={`Consulta en corpus ${MODULE_LABELS[module]}`} className={cn('w-full rounded-2xl border border-slate-300 bg-white py-3.5 pl-12 pr-32 text-base font-medium text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:ring-2', theme.input)} />
           <div className="absolute inset-y-2 right-2 flex items-center"><button type="submit" disabled={isSearching || !query.trim()} className={cn('flex h-full items-center gap-2 rounded-xl px-6 text-sm font-bold text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50', theme.button)}>{isSearching ? <Loader2 className="animate-spin" size={16} /> : <Search size={16} />} Buscar</button></div>
         </form>
       </div>
@@ -172,7 +173,7 @@ export const BuscadorLegal: React.FC = () => {
               <h2 className="mt-4 text-base font-bold text-slate-900">Busca por ley, artículo o problema jurídico</h2>
               <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">La búsqueda se limita al corpus {MODULE_LABELS[module].toLowerCase()} seleccionado y muestra texto recuperado con su procedencia.</p>
               <div className="mt-5 flex flex-wrap justify-center gap-2">
-                {SEARCH_EXAMPLES[module].map((example) => <button key={example} type="button" onClick={() => setQuery(example)} className={cn('rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600', theme.example)}>{example}</button>)}
+                {SEARCH_EXAMPLES[module].map((example) => <button key={example} type="button" onClick={() => void runSearch(module, example)} className={cn('rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600', theme.example)}>{example}</button>)}
               </div>
             </motion.section>
           )}

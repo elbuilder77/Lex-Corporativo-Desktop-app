@@ -41,7 +41,7 @@ const formatCaseDate = (value?: string) => {
 
 export const Instructivo: React.FC = () => {
   const navigate = useNavigate();
-  const { notify, runtimeHealth, refreshRuntimeHealth, setActiveTab, requestProcessingSetup } = useUiStore();
+  const { notify, runtimeHealth, refreshRuntimeHealth, setActiveTab, setFiscalGuided, requestProcessingSetup } = useUiStore();
   const { recentCases, fetchRecentCases, loadCase, switchModule } = useCaseStore();
   const [messages, setMessages] = useState<Message[]>([
     { role: 'model', text: 'Puedo ayudarte a ubicar una herramienta o completar un flujo. No respondo consultas jurídicas desde esta guía.' },
@@ -92,7 +92,10 @@ export const Instructivo: React.FC = () => {
   const resumeCase = async (savedCase: SavedCase) => {
     await loadCase(savedCase);
     const fiscal = savedCase.module === 'fiscal';
-    if (fiscal) setActiveTab('fiscal-consultation');
+    if (fiscal) {
+      setFiscalGuided(false);
+      setActiveTab(useCaseStore.getState().fiscalOperationState.lastActiveTab || 'fiscal-home');
+    }
     navigate(fiscal ? '/fiscal' : '/ingenieria-juridica');
   };
 
@@ -123,11 +126,11 @@ export const Instructivo: React.FC = () => {
 
   const taskRows = [
     {
-      title: 'Preparar una operación fiscal',
-      description: 'Organiza contexto, evidencia y siguientes pasos preventivos.',
+      title: 'Abrir Fiscal',
+      description: 'Consulta, evalúa o prepara documentación.',
       icon: BriefcaseBusiness,
       tone: 'bg-emerald-50 text-emerald-800',
-      action: () => openWorkspace('/fiscal', 'fiscal-preparation', 'fiscal'),
+      action: () => { useCaseStore.getState().resetFiscalWork(); setFiscalGuided(false); openWorkspace('/fiscal', 'fiscal-home', 'fiscal'); },
     },
     {
       title: 'Crear o corregir un documento',
@@ -154,7 +157,7 @@ export const Instructivo: React.FC = () => {
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-legal-golddark">Lex Corporativo</p>
               <h1 className="mt-1 font-serif text-3xl font-bold tracking-tight text-slate-950">Estación de trabajo</h1>
-              <p className="mt-1 text-sm text-slate-600">Retoma un asunto o comienza una tarea.</p>
+              <p className="mt-1 text-sm text-slate-600">Retoma un trabajo o comienza una tarea.</p>
             </div>
           </div>
           <button type="button" onClick={() => navigate('/settings?tab=ia')} className="inline-flex w-fit items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm hover:border-slate-400 hover:text-slate-950">
@@ -194,7 +197,7 @@ export const Instructivo: React.FC = () => {
                 ) : (
                   <div className="flex items-center gap-4 px-5 py-6">
                     <History size={20} className="shrink-0 text-slate-400" />
-                    <div><p className="text-sm font-bold text-slate-800">Tu primer asunto empieza aquí.</p><p className="mt-1 text-xs text-slate-500">Elige una tarea abajo; el progreso se guardará en este equipo.</p></div>
+                    <div><p className="text-sm font-bold text-slate-800">Comienza un nuevo trabajo.</p><p className="mt-1 text-xs text-slate-500">Elige una tarea para continuar.</p></div>
                   </div>
                 )}
               </div>
@@ -264,7 +267,7 @@ export const Instructivo: React.FC = () => {
 
             <div className="flex items-start gap-2 border-t border-slate-300 pt-5 text-xs leading-5 text-slate-600">
               {vaultReady ? <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-emerald-700" /> : <ShieldCheck size={15} className="mt-0.5 shrink-0 text-slate-500" />}
-              <p>Los asuntos y la trazabilidad permanecen en este equipo. Si usas BYOK, solo la operación compatible envía texto seleccionado al proveedor.</p>
+              <p>Los trabajos y la trazabilidad permanecen en este equipo. Si usas BYOK, solo la operación compatible envía texto seleccionado al proveedor.</p>
             </div>
           </aside>
         </div>

@@ -19,7 +19,7 @@ export interface FiscalAnalysisResponse {
 
 const FALLBACK_RESULT: DocumentAnalysisResult = {
   summary: 'El motor devolvió una respuesta sin estructura completa. Revise el contenido antes de tomar una decisión.',
-  documentType: 'Expediente fiscal',
+  documentType: 'Análisis fiscal',
   riskScore: 0,
   detectedParties: [],
   detectedObligations: [],
@@ -100,7 +100,7 @@ export function fileToEvidence(file: File): Promise<FiscalEvidenceUpload> {
 }
 
 export async function runFiscalAnalysis(input: {
-  caseId: string;
+  caseId?: string;
   context: string;
   instruction: string;
   files?: File[];

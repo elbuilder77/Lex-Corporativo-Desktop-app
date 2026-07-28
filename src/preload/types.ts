@@ -26,7 +26,7 @@ export interface LexDesktopAPI {
   };
   analysis: {
     analyzeDocument: (payload: {
-      caseId: string;
+      caseId?: string;
       documentId?: string;
       files: any[];
       prompt?: string;

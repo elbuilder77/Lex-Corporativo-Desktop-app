@@ -10,6 +10,8 @@ export interface StepperProps {
   className?: string;
 }
 
+export const isStepperStepCompleted = (completedSteps: number[], stepIndex: number) => completedSteps.includes(stepIndex);
+
 export function Stepper({
   steps,
   currentStep,
@@ -23,16 +25,18 @@ export function Stepper({
         <div className="absolute left-0 top-1/2 h-0.5 w-full -translate-y-1/2 bg-slate-200 z-0" />
         
         {steps.map((step, index) => {
-          const isCompleted = completedSteps.includes(index) || index < currentStep;
+          const isCompleted = isStepperStepCompleted(completedSteps, index);
           const isCurrent = index === currentStep;
-          const isClickable = onStepClick && (isCompleted || isCurrent);
+          const isClickable = Boolean(onStepClick);
 
           return (
             <div key={step} className="relative z-10 flex flex-col items-center">
               <button
                 type="button"
-                onClick={() => isClickable && onStepClick(index)}
+                onClick={() => { if (isClickable) onStepClick?.(index); }}
                 disabled={!isClickable}
+                aria-label={`${step}: ${isCompleted ? 'completada' : isCurrent ? 'en curso' : 'no iniciada'}`}
+                aria-current={isCurrent ? 'step' : undefined}
                 className={cn(
                   'flex h-8 w-8 items-center justify-center rounded-full border-2 transition-colors',
                   {

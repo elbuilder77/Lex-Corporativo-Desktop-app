@@ -12,8 +12,8 @@ describe('buildDeductibilityAssessment', () => {
       vatRequirements: 'IVA expreso y separado, efectivamente pagado y gasto deducible',
     });
 
-    expect(result.deductibility).toBe('Alta');
-    expect(result.vatCredit).toBe('Alta');
+    expect(result.deductibility).toBe('Sólido');
+    expect(result.vatCredit).toBe('Sólido');
     expect(result.fulfilled.length).toBeGreaterThanOrEqual(6);
   });
 
@@ -27,8 +27,8 @@ describe('buildDeductibilityAssessment', () => {
       vatRequirements: 'Sin IVA trasladado o requisitos incompletos',
     });
 
-    expect(result.deductibility).toBe('Baja');
-    expect(result.vatCredit).toBe('Baja');
+    expect(result.deductibility).toBe('Insuficiente');
+    expect(result.vatCredit).toBe('Insuficiente');
     expect(result.missing).toEqual(expect.arrayContaining([
       expect.stringContaining('CFDI vigente'),
       expect.stringContaining('materialidad'),

@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { CheckCircle2, Clipboard, Download, FileSignature, FileText, FolderOpen, Link2, Loader2, RotateCcw } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clipboard, Download, FileSignature, FileText, FolderOpen, Link2, Loader2, RotateCcw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import {
   buildDraftingPromptFromTemplate,
   FISCAL_DRAFTING_TEMPLATES,
   type DraftingTemplate,
 } from '../lib/constants';
-import { ensureModuleActivity } from '../lib/case-access';
 import { generateDocumentPDF } from '../lib/pdf-export';
 import { draftLegalDocument } from '../services/ai';
 import { useCaseStore } from '../store/useCaseStore';
@@ -14,14 +13,36 @@ import { useUiStore } from '../store/useUiStore';
 import { useProcessingGuard } from '../hooks/useProcessingGuard';
 import { DraftingTemplatePicker } from './DraftingTemplatePicker';
 import { useNavigate } from 'react-router-dom';
+import { FiscalSaveButton } from './FiscalSaveButton';
+
+const CONTEXT_LABELS: Record<string, string> = {
+  tipo_operacion: 'Operación',
+  proveedor: 'Proveedor o contraparte',
+  monto: 'Monto',
+  contrato: 'Contrato',
+  entregables: 'Entregables',
+  razon_negocios: 'Razón de negocios',
+  expenseType: 'Tipo de gasto',
+  amount: 'Monto del gasto',
+  cfdi: 'CFDI',
+  paymentMethod: 'Método de pago',
+  businessNeed: 'Necesidad del gasto',
+  documentaryEvidence: 'Evidencia documental',
+  economicActivityRelation: 'Relación con la actividad',
+  vatRequirements: 'IVA',
+};
+
+const formatAnswers = (answers: Record<string, string>) => Object.entries(answers)
+  .map(([key, value]) => `${CONTEXT_LABELS[key] || key}: ${value}`)
+  .join('; ');
+
+const amountKey = (value?: string) => String(value || '').replace(/\D/g, '');
 
 export const FiscalDocumentation: React.FC = () => {
   const navigate = useNavigate();
   const { notify } = useUiStore();
   const canGenerate = useProcessingGuard('legalGeneration', 'generar esta documentación fiscal');
   const {
-    currentCaseId,
-    setCurrentCaseId,
     addFiscalDrafting,
     fiscalDraftState,
     setFiscalDraftState,
@@ -33,6 +54,9 @@ export const FiscalDocumentation: React.FC = () => {
   const [generatedDoc, setGeneratedDoc] = useState(fiscalDraftState.generatedDoc || '');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const materialityAmount = amountKey(fiscalOperationState.materialityAnswers.monto);
+  const deductibilityAmount = amountKey(fiscalOperationState.deductibilityAnswers.amount);
+  const amountConflict = Boolean(materialityAmount && deductibilityAmount && materialityAmount !== deductibilityAmount);
 
   const selectTemplate = (template: DraftingTemplate) => {
     const nextPrompt = buildDraftingPromptFromTemplate(template);
@@ -54,27 +78,27 @@ export const FiscalDocumentation: React.FC = () => {
       notify('Primero describe la operación en Preparación.', 'warning', 'Sin contexto de operación');
       return;
     }
-    if (prompt.includes('CONTEXTO DEL EXPEDIENTE FISCAL')) {
-      notify('El contexto del expediente ya está incorporado.', 'info');
+    if (prompt.includes('CONTEXTO FISCAL INCORPORADO')) {
+      notify('El contexto ya está incorporado.', 'info');
       return;
     }
     const context = [
-      'CONTEXTO DEL EXPEDIENTE FISCAL',
+      'CONTEXTO FISCAL INCORPORADO',
       fiscalOperationState.description,
       fiscalOperationState.evidenceFiles.length
         ? `Evidencia registrada: ${fiscalOperationState.evidenceFiles.map((file) => file.name).join(', ')}`
         : 'Evidencia registrada: sin archivos asociados.',
       Object.keys(fiscalOperationState.materialityAnswers).length
-        ? `Materialidad: ${Object.entries(fiscalOperationState.materialityAnswers).map(([key, value]) => `${key}: ${value}`).join('; ')}`
+        ? `Materialidad: ${formatAnswers(fiscalOperationState.materialityAnswers)}`
         : '',
       Object.keys(fiscalOperationState.deductibilityAnswers).length
-        ? `Deducibilidad e IVA: ${Object.entries(fiscalOperationState.deductibilityAnswers).map(([key, value]) => `${key}: ${value}`).join('; ')}`
+        ? `Deducibilidad e IVA: ${formatAnswers(fiscalOperationState.deductibilityAnswers)}`
         : '',
     ].filter(Boolean).join('\n');
     const nextPrompt = `${prompt.trim()}\n\n${context}`.trim();
     setPrompt(nextPrompt);
     setFiscalDraftState({ prompt: nextPrompt });
-    notify('Contexto del expediente incorporado a las instrucciones.', 'success');
+    notify('Contexto incorporado.', 'success');
   };
 
   const generate = async () => {
@@ -89,8 +113,6 @@ export const FiscalDocumentation: React.FC = () => {
     if (!canGenerate()) return;
     setIsGenerating(true);
     try {
-      const caseId = await ensureModuleActivity('fiscal', currentCaseId);
-      setCurrentCaseId(caseId);
       const response = await draftLegalDocument(
         prompt,
         'fiscal',
@@ -121,7 +143,7 @@ export const FiscalDocumentation: React.FC = () => {
         engine: response.engine,
       });
       completeFiscalOperationStep('documentation');
-      notify('Documento fiscal preparado y guardado localmente.', 'success', 'Documentación fiscal');
+      notify('Documento fiscal listo.', 'success', 'Documentación fiscal');
     } catch (error: any) {
       notify(error?.message || 'No se pudo generar el documento fiscal.', 'error', 'Documentación fiscal');
     } finally {
@@ -149,7 +171,7 @@ export const FiscalDocumentation: React.FC = () => {
           <>
             <header className="flex items-start gap-4">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-fiscal/10 text-fiscal"><FileSignature size={24} strokeWidth={1.8} /></div>
-              <div><h2 className="text-2xl font-bold text-slate-950">Documentación Fiscal</h2><p className="mt-1 max-w-3xl text-sm text-slate-600">Genera el soporte de la operación y conserva el resultado dentro del mismo expediente.</p></div>
+              <div><h2 className="text-2xl font-bold text-slate-950">Documentación Fiscal</h2><p className="mt-1 max-w-3xl text-sm text-slate-600">Selecciona una plantilla y completa los datos del documento.</p></div>
             </header>
 
             <main className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
@@ -164,10 +186,10 @@ export const FiscalDocumentation: React.FC = () => {
                 {fiscalOperationState.description && (
                   <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0"><p className="text-xs font-bold text-emerald-900">Contexto disponible del expediente</p><p className="mt-1 line-clamp-2 text-xs leading-5 text-emerald-800">{fiscalOperationState.description}</p></div>
+                      <div className="min-w-0"><p className="text-xs font-bold text-emerald-900">Contexto disponible</p><p className="mt-1 line-clamp-2 text-xs leading-5 text-emerald-800">{fiscalOperationState.description}</p></div>
                       <button type="button" onClick={incorporateOperationContext} className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 text-xs font-bold text-emerald-800 hover:bg-emerald-100"><Link2 size={14} /> Incorporar</button>
                     </div>
-                    <p className="mt-2 text-xs leading-4 text-emerald-700">El contexto se añadirá a la solicitud y seguirá el modo de procesamiento configurado.</p>
+                    {amountConflict && <p className="mt-3 flex items-center gap-2 text-xs font-semibold text-amber-800"><AlertTriangle size={14} /> Revisa los montos capturados antes de incorporar.</p>}
                   </div>
                 )}
                 <textarea
@@ -189,10 +211,11 @@ export const FiscalDocumentation: React.FC = () => {
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div><p className="flex items-center gap-2 text-sm font-semibold text-emerald-700"><CheckCircle2 size={17} /> Documento preparado</p><h2 className="mt-1 font-serif text-2xl font-bold text-slate-950">{selectedTemplate?.title || 'Documento fiscal'}</h2></div>
               <div className="flex flex-wrap gap-2">
+                <FiscalSaveButton name={selectedTemplate?.title || 'Documento fiscal'} />
                 <button type="button" onClick={async () => { await navigator.clipboard.writeText(generatedDoc); notify('Documento copiado.', 'success'); }} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-100"><Clipboard size={16} /> Copiar</button>
                 <button type="button" onClick={() => void exportPdf()} disabled={isExporting} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50">{isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} Exportar PDF</button>
                 <button type="button" onClick={() => { setGeneratedDoc(''); setFiscalDraftState({ generatedDoc: '' }); }} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-fiscal px-4 text-sm font-semibold text-white hover:bg-fiscal-light"><RotateCcw size={16} /> Editar datos</button>
-                <button type="button" onClick={() => navigate('/portafolio')} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800"><FolderOpen size={16} /> Ver expediente</button>
+                <button type="button" onClick={() => navigate('/portafolio')} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800"><FolderOpen size={16} /> Ver actividad</button>
               </div>
             </div>
             <article className="prose prose-slate mt-6 max-w-none rounded-3xl border border-slate-200 bg-white px-8 py-9 shadow-sm"><ReactMarkdown>{generatedDoc}</ReactMarkdown></article>

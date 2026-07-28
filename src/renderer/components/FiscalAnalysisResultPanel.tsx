@@ -9,6 +9,7 @@ import {
   Scale,
 } from 'lucide-react';
 import type { DocumentAnalysisResult } from '../types';
+import { FiscalSaveButton } from './FiscalSaveButton';
 
 interface FiscalAnalysisResultPanelProps {
   title: string;
@@ -57,7 +58,7 @@ export const FiscalAnalysisResultPanel: React.FC<FiscalAnalysisResultPanelProps>
   onExport,
   exporting = false,
   onContinue,
-  continueLabel = 'Continuar expediente',
+  continueLabel = 'Continuar',
 }) => {
   const normalizedRisk = Math.max(0, Math.min(100, Number(result.riskScore) || 0));
   const preparation = 100 - normalizedRisk;
@@ -66,10 +67,13 @@ export const FiscalAnalysisResultPanel: React.FC<FiscalAnalysisResultPanelProps>
   const foundations = list(result.legalFoundations?.map((foundation) => (
     `${foundation.law || foundation.title}${foundation.article ? ` · ${foundation.article}` : ''}`
   )));
+  const scoreLabel = result.engine === 'rules' ? 'Cobertura documental' : 'Índice de revisión';
+  const foundationsLabel = result.engine === 'rules' ? 'Referencias normativas aplicadas' : 'Fundamentos recuperados';
 
   return (
     <div className="space-y-5 animate-fade-in-up">
       <div className="flex flex-wrap justify-end gap-2">
+        <FiscalSaveButton name={result.documentType || title} />
         <button type="button" onClick={onReset} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 hover:border-fiscal/30 hover:text-fiscal">
           <RotateCcw size={16} /> Nueva revisión
         </button>
@@ -93,7 +97,7 @@ export const FiscalAnalysisResultPanel: React.FC<FiscalAnalysisResultPanelProps>
             <p className="mt-3 text-sm leading-6 text-slate-600">{result.summary}</p>
           </div>
           <div className="min-w-36 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center">
-            <span className="block text-xs font-bold uppercase tracking-wider text-emerald-700">Preparación</span>
+            <span className="block text-xs font-bold uppercase tracking-wider text-emerald-700">{scoreLabel}</span>
             <strong className="mt-1 block text-4xl font-black text-fiscal">{preparation}</strong>
             <span className="text-xs text-emerald-800">de 100</span>
           </div>
@@ -103,7 +107,7 @@ export const FiscalAnalysisResultPanel: React.FC<FiscalAnalysisResultPanelProps>
           <ListCard title="Hallazgos y riesgos" items={risks} tone="slate" icon={<AlertTriangle size={17} />} />
           <ListCard title="Información o evidencia pendiente" items={missing} tone="amber" icon={<FileQuestion size={17} />} />
           <ListCard title="Siguientes acciones" items={list(result.recommendedActions)} tone="emerald" icon={<CheckCircle2 size={17} />} />
-          <ListCard title="Fundamentos recuperados" items={foundations} tone="blue" icon={<Scale size={17} />} />
+          <ListCard title={foundationsLabel} items={foundations} tone="blue" icon={<Scale size={17} />} />
         </div>
 
         {result.riskCategories && Object.values(result.riskCategories).some((items) => items?.length) && (

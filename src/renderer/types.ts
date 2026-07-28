@@ -19,6 +19,7 @@ export enum AppView {
 }
 
 export type ModuleTab =
+  | 'fiscal-home'
   | 'analysis'
   | 'fiscal-consultation'
   | 'fiscal-preparation'
@@ -37,6 +38,7 @@ export interface FiscalOperationState {
   materialityAnswers: Record<string, string>;
   deductibilityAnswers: Record<string, string>;
   completedSteps: FiscalOperationStep[];
+  lastActiveTab?: ModuleTab;
   updatedAt?: string;
 }
 

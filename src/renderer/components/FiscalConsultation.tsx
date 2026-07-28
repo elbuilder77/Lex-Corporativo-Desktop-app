@@ -5,9 +5,9 @@ import ReactMarkdown from 'react-markdown';
 import { useCaseStore } from '../store/useCaseStore';
 import { useUiStore } from '../store/useUiStore';
 import { cn } from '../lib/utils';
-import { ensureModuleActivity } from '../lib/case-access';
 import { useProcessingGuard } from '../hooks/useProcessingGuard';
 import { useAIProcessing } from '../hooks/useAIProcessing';
+import { FiscalSaveButton } from './FiscalSaveButton';
 
 const FISCAL_TOPICS = [
   'Deducción',
@@ -24,7 +24,7 @@ const FISCAL_TOPICS = [
 ];
 
 export const FiscalConsultation: React.FC = () => {
-  const { currentCaseId, setCurrentCaseId, fiscalChatHistory: messages, setFiscalChatHistory } = useCaseStore();
+  const { fiscalChatHistory: messages, setFiscalChatHistory } = useCaseStore();
   const { notify } = useUiStore();
   const canConsult = useProcessingGuard('legalGeneration', 'responder esta consulta fiscal');
   const [input, setInput] = useState('');
@@ -52,9 +52,6 @@ export const FiscalConsultation: React.FC = () => {
     await execute(async (setStage, signal) => {
       try {
         setStage('preparing');
-        const caseId = await ensureModuleActivity('fiscal', currentCaseId);
-        setCurrentCaseId(caseId);
-        
         setStage('searching');
         const response = await window.lexDesktop.assistant.askFiscal({
           query,
@@ -90,7 +87,7 @@ export const FiscalConsultation: React.FC = () => {
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-fiscal/10 text-fiscal">
                 <FileSearch size={24} strokeWidth={1.8} />
               </div>
-              <div><h2 className="text-2xl font-bold text-slate-950">Consulta Fiscal</h2><p className="mt-1 text-sm text-slate-600">Recupera fundamento del corpus y entrega la respuesta sólo si supera el control de sustento.</p></div>
+              <div><h2 className="text-2xl font-bold text-slate-950">Consulta asistida</h2><p className="mt-1 text-sm text-slate-600">Recupera fundamento local y prepara una respuesta.</p></div>
             </div>
             <div className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Temas frecuentes</p>
@@ -148,6 +145,7 @@ export const FiscalConsultation: React.FC = () => {
       </div>
 
       <div className="border-t border-slate-200 bg-white/90 p-4 backdrop-blur">
+        {hasUserMessages && <div className="mx-auto mb-2 flex max-w-4xl justify-end"><FiscalSaveButton name="Consulta asistida" /></div>}
         <div className="mx-auto flex max-w-4xl items-end gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-md focus-within:border-fiscal/40 focus-within:ring-4 focus-within:ring-fiscal/10">
           <textarea
             value={input}

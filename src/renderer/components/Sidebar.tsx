@@ -10,7 +10,7 @@ import { useCaseStore } from '../store/useCaseStore';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const fiscalSubItems: { tab: ModuleTab; label: string; icon: React.ReactNode }[] = [
-  { tab: 'fiscal-consultation', label: 'Consulta', icon: <Search size={14} /> },
+  { tab: 'fiscal-consultation', label: 'Consulta asistida', icon: <Search size={14} /> },
   { tab: 'fiscal-preparation', label: 'Preparación', icon: <ShieldCheck size={14} /> },
   { tab: 'fiscal-materiality', label: 'Materialidad', icon: <ClipboardList size={14} /> },
   { tab: 'fiscal-deductibility', label: 'Deducibilidad / IVA', icon: <ReceiptText size={14} /> },
@@ -26,7 +26,7 @@ export const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const { activeTab, setActiveTab, setSidebarOpen, isMobile, sidebarCollapsed, setSidebarCollapsed, runtimeHealth } = useUiStore();
+  const { activeTab, setActiveTab, setFiscalGuided, setSidebarOpen, isMobile, sidebarCollapsed, setSidebarCollapsed, runtimeHealth } = useUiStore();
 
   const currentPath = location.pathname;
   const searchMatter = new URLSearchParams(location.search).get('materia') === 'fiscal' ? 'fiscal' : 'mercantil';
@@ -83,8 +83,8 @@ export const Sidebar: React.FC = () => {
     },
     {
       path: '/fiscal',
-      label: 'Flujo Fiscal',
-      description: 'Materialidad, CFDI y cumplimiento',
+      label: 'Fiscal',
+      description: 'Consultas, evaluación y documentos',
       icon: <Calculator size={18} />,
       badge: null,
       subItems: fiscalSubItems,
@@ -108,8 +108,12 @@ export const Sidebar: React.FC = () => {
   ];
 
   const handleNavigate = (path: string) => {
+    if (path === '/fiscal' && useCaseStore.getState().activeModule === 'fiscal' && useCaseStore.getState().currentCaseId) {
+      useCaseStore.getState().resetFiscalWork();
+    }
     navigate(path);
-    setActiveTab(path.includes('fiscal') ? 'fiscal-consultation' : 'analysis');
+    setActiveTab(path.includes('fiscal') ? 'fiscal-home' : 'analysis');
+    if (path.includes('fiscal')) setFiscalGuided(false);
     if (path.includes('ingenieria-juridica')) {
       useCaseStore.getState().switchModule('engineering');
     } else if (path.includes('fiscal')) {
@@ -262,6 +266,7 @@ export const Sidebar: React.FC = () => {
                         type="button"
                         key={sub.tab}
                         onClick={() => {
+                          setFiscalGuided(false);
                           setActiveTab(sub.tab);
                           if (isMobile) setSidebarOpen(false);
                           else setTemporarilyExpanded(false);

@@ -19,6 +19,7 @@ interface CaseState {
   setFiscalChatHistory: (updater: ChatMessage[] | ((current: ChatMessage[]) => ChatMessage[])) => void;
   updateFiscalOperationState: (state: Partial<FiscalOperationState>) => void;
   completeFiscalOperationStep: (step: FiscalOperationStep) => void;
+  saveFiscalWork: (name?: string) => Promise<string>;
   
   setCurrentCaseId: (id: string | null) => void;
   switchModule: (module: 'engineering' | 'fiscal') => void;
@@ -30,6 +31,7 @@ interface CaseState {
   removeRecentCase: (caseId: string) => void;
   
   resetCase: () => void;
+  resetFiscalWork: () => void;
   loadCase: (c: SavedCase) => Promise<void>;
   
   clearAllState: () => void;
@@ -60,7 +62,7 @@ const createDefaultFiscalOperationState = (): FiscalOperationState => ({
   completedSteps: [],
 });
 
-export const useCaseStore = create<CaseState>((set) => ({
+export const useCaseStore = create<CaseState>((set, get) => ({
   currentCaseId: null,
   activeModule: null,
   fiscalAnalysisHistory: [],
@@ -95,12 +97,68 @@ export const useCaseStore = create<CaseState>((set) => ({
       updatedAt: new Date().toISOString(),
     },
   })),
+  saveFiscalWork: async (name) => {
+    if (!window.lexDesktop?.cases) {
+      throw new Error('El guardado local no está disponible.');
+    }
+
+    const state = get();
+    const canReuseCurrent = Boolean(state.currentCaseId && state.activeModule === 'fiscal');
+    const caseId = canReuseCurrent
+      ? state.currentCaseId as string
+      : `fiscal_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
+    const latestAnalysisTitle = state.fiscalAnalysisHistory[0]?.result?.documentType;
+    const latestDraftTitle = state.fiscalDraftingHistory[0]?.templateTitle;
+    const activityName = name?.trim()
+      || state.fiscalOperationState.title
+      || latestDraftTitle
+      || latestAnalysisTitle
+      || (state.fiscalChatHistory.length ? 'Consulta fiscal' : 'Trabajo fiscal');
+
+    await window.lexDesktop.cases.createCase({
+      caseId,
+      name: activityName.slice(0, 96),
+      module: 'fiscal',
+    });
+
+    await Promise.all([
+      ...state.fiscalAnalysisHistory.map((item) => window.lexDesktop.cases.saveAnalysis({
+        caseId,
+        analysisId: item.id,
+        analysisData: item,
+        expectedModule: 'fiscal',
+      })),
+      ...state.fiscalDraftingHistory.map((item) => window.lexDesktop.cases.saveDraft({
+        caseId,
+        draftId: item.id,
+        draftData: item,
+        expectedModule: 'fiscal',
+      })),
+    ]);
+
+    await window.lexDesktop.cases.saveState({
+      caseId,
+      expectedModule: 'fiscal',
+      stateData: {
+        fiscalAnalysisHistory: state.fiscalAnalysisHistory,
+        fiscalDraftingHistory: state.fiscalDraftingHistory,
+        fiscalChatHistory: state.fiscalChatHistory,
+        fiscalDraftState: state.fiscalDraftState,
+        fiscalOperationState: state.fiscalOperationState,
+      },
+    });
+
+    set({ currentCaseId: caseId, activeModule: 'fiscal' });
+    await get().fetchRecentCases();
+    return caseId;
+  },
   
   setCurrentCaseId: (id) => set({ currentCaseId: id }),
   switchModule: (module) => set((state) => {
     if (state.activeModule === module) return {};
     return {
-      activeModule: module
+      activeModule: module,
+      currentCaseId: state.activeModule && state.activeModule !== module ? null : state.currentCaseId,
     };
   }),
   addFiscalAnalysis: (item) => set((state) => {
@@ -194,6 +252,14 @@ export const useCaseStore = create<CaseState>((set) => ({
     engineeringDraftState: createDefaultEngineeringDraftState(),
     fiscalDraftState: createDefaultFiscalDraftState(),
   }),
+  resetFiscalWork: () => set((state) => ({
+    currentCaseId: state.activeModule === 'fiscal' ? null : state.currentCaseId,
+    fiscalAnalysisHistory: [],
+    fiscalDraftingHistory: [],
+    fiscalChatHistory: [],
+    fiscalOperationState: createDefaultFiscalOperationState(),
+    fiscalDraftState: createDefaultFiscalDraftState(),
+  })),
   
   loadCase: async (c) => {
     set({

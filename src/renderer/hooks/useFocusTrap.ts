@@ -12,6 +12,7 @@ export function useFocusTrap<T extends HTMLElement>(active: boolean) {
 
   useEffect(() => {
     if (!active || !ref.current) return;
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Tab' || !ref.current) return;
@@ -48,6 +49,7 @@ export function useFocusTrap<T extends HTMLElement>(active: boolean) {
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
+      previouslyFocused?.focus();
     };
   }, [active]);
 

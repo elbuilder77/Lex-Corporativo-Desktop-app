@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, BookOpen, Database, Loader2, Search, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, BookOpen, ChevronDown, ChevronUp, Database, Loader2, Search, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '../lib/utils';
 
-interface FiscalCitation {
+export interface FiscalCitation {
   id: string | number;
   title?: string;
   subtitle?: string;
@@ -12,6 +12,15 @@ interface FiscalCitation {
   law_code?: string;
   article_number?: string;
   citation_label?: string;
+}
+
+export function selectFiscalCitations(citations: FiscalCitation[], lawCode?: string) {
+  if (!lawCode) return { results: citations.slice(0, 10), related: false };
+  const exact = citations.filter((citation) => String(citation.law_code || '').trim().toUpperCase() === lawCode.toUpperCase());
+  return {
+    results: (exact.length > 0 ? exact : citations).slice(0, 10),
+    related: exact.length === 0 && citations.length > 0,
+  };
 }
 
 const FISCAL_LIBRARY = [
@@ -28,6 +37,8 @@ export const FiscalNormativeLibrary: React.FC = () => {
   const [results, setResults] = useState<FiscalCitation[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [ragReady, setRagReady] = useState<boolean | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [relatedResults, setRelatedResults] = useState(false);
 
   useEffect(() => {
     window.lexDesktop.runtime.getHealth()
@@ -35,15 +46,20 @@ export const FiscalNormativeLibrary: React.FC = () => {
       .catch(() => setRagReady(false));
   }, []);
 
-  const searchCorpus = async (value: string) => {
+  const searchCorpus = async (value: string, lawCode?: string) => {
     const normalized = value.trim();
     if (!normalized) return;
     setQuery(normalized);
     setIsSearching(true);
     setResults(null);
+    setExpandedIds(new Set());
+    setRelatedResults(false);
     try {
-      const response = await window.lexDesktop.legalKnowledge.searchRAG({ query: normalized, module: 'fiscal', limit: 10 });
-      setResults(Array.isArray(response?.citations) ? response.citations : []);
+      const response = await window.lexDesktop.legalKnowledge.searchRAG({ query: normalized, module: 'fiscal', limit: 20 });
+      const citations = Array.isArray(response?.citations) ? response.citations as FiscalCitation[] : [];
+      const selected = selectFiscalCitations(citations, lawCode);
+      setRelatedResults(selected.related);
+      setResults(selected.results);
     } catch {
       setResults([]);
     } finally {
@@ -79,16 +95,15 @@ export const FiscalNormativeLibrary: React.FC = () => {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.04 }}
-              onClick={() => void searchCorpus(`${regulation.code} ${regulation.title}`)}
-              className="group min-h-52 rounded-3xl border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:border-fiscal/40 hover:shadow-lg"
+              onClick={() => void searchCorpus(`${regulation.code} ${regulation.title}`, regulation.code)}
+              className="group min-h-40 rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-fiscal/40 hover:shadow-md"
             >
               <div className="flex items-start justify-between gap-3">
                 <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 transition group-hover:bg-fiscal/10 group-hover:text-fiscal"><BookOpen size={22} /></span>
                 <span className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-black tracking-wider text-slate-500 group-hover:border-fiscal/20 group-hover:text-fiscal">{regulation.code}</span>
               </div>
-              <h3 className="mt-6 text-lg font-bold text-slate-950 transition group-hover:text-fiscal">{regulation.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-500">{regulation.description}</p>
-              <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-slate-400 group-hover:text-fiscal"><Database size={13} /> Consultar en base local</span>
+              <h3 className="mt-4 text-base font-bold text-slate-950 transition group-hover:text-fiscal">{regulation.title}</h3>
+              <p className="mt-2 line-clamp-2 text-sm leading-5 text-slate-500">{regulation.description}</p>
             </motion.button>
           ))}
         </div>
@@ -109,14 +124,18 @@ export const FiscalNormativeLibrary: React.FC = () => {
 
         {!isSearching && results && results.length > 0 && (
           <section className="space-y-4" aria-live="polite">
-            <div className="flex items-center justify-between"><h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500"><Database size={15} /> Fundamentos recuperados</h3><span className="text-xs font-semibold text-slate-500">{results.length} coincidencias</span></div>
+            <div className="flex items-center justify-between"><h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500"><Database size={15} /> {relatedResults ? 'Resultados relacionados' : 'Fundamentos recuperados'}</h3><span className="text-xs font-semibold text-slate-500">{results.length} coincidencias</span></div>
             <div className="grid gap-4 lg:grid-cols-2">
-              {results.map((result, index) => (
-                <article key={`${result.id}-${index}`} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              {results.map((result, index) => {
+                const resultKey = `${result.id}-${index}`;
+                const expanded = expandedIds.has(resultKey);
+                return (
+                <article key={resultKey} className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="flex items-start justify-between gap-3"><div><span className="inline-flex rounded-lg border border-fiscal/15 bg-fiscal/5 px-2.5 py-1 text-xs font-black uppercase tracking-wider text-fiscal">{result.law_code || result.title || 'Norma fiscal'}</span><h4 className="mt-3 font-serif text-lg font-bold text-slate-950">{result.article_number || result.subtitle || result.citation_label || 'Fundamento recuperado'}</h4></div>{typeof result.similarity === 'number' && <span className="shrink-0 text-xs font-bold uppercase tracking-wider text-slate-400">{Math.round(result.similarity * 100)}% afinidad</span>}</div>
-                  <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-600">{result.content}</p>
+                  <p className={cn('mt-4 break-words whitespace-pre-wrap text-sm leading-6 text-slate-600 [overflow-wrap:anywhere]', expanded ? 'max-h-96 overflow-y-auto pr-2' : 'line-clamp-5')}>{result.content}</p>
+                  <button type="button" onClick={() => setExpandedIds((current) => { const next = new Set(current); if (next.has(resultKey)) next.delete(resultKey); else next.add(resultKey); return next; })} aria-expanded={expanded} className="mt-4 inline-flex min-h-9 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-700 hover:bg-slate-100">{expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}{expanded ? 'Ver menos' : 'Ver texto'}</button>
                 </article>
-              ))}
+              );})}
             </div>
           </section>
         )}

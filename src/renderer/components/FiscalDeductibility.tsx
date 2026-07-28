@@ -1,14 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, ReceiptText } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { ensureModuleActivity } from '../lib/case-access';
 import { generateAnalysisPDF } from '../lib/pdf-export';
 import { useCaseStore } from '../store/useCaseStore';
 import { useUiStore } from '../store/useUiStore';
 import type { DocumentAnalysisResult } from '../types';
 import { FiscalAnalysisResultPanel } from './FiscalAnalysisResultPanel';
 
-type Probability = 'Alta' | 'Media' | 'Baja';
+type DocumentarySupport = 'Sólido' | 'Parcial' | 'Insuficiente';
 type Question = { id: string; label: string; placeholder?: string; options?: string[] };
 
 const QUESTIONS: Question[] = [
@@ -23,14 +22,14 @@ const QUESTIONS: Question[] = [
 ];
 
 interface Assessment {
-  deductibility: Probability;
-  vatCredit: Probability;
+  deductibility: DocumentarySupport;
+  vatCredit: DocumentarySupport;
   fulfilled: string[];
   missing: string[];
   actions: string[];
 }
 
-const probability = (score: number): Probability => score >= 6 ? 'Alta' : score >= 3 ? 'Media' : 'Baja';
+const supportLevel = (score: number): DocumentarySupport => score >= 6 ? 'Sólido' : score >= 3 ? 'Parcial' : 'Insuficiente';
 
 export function buildDeductibilityAssessment(answers: Record<string, string>): Assessment {
   const fulfilled: string[] = [];
@@ -71,12 +70,12 @@ export function buildDeductibilityAssessment(answers: Record<string, string>): A
     missing.push('Comprobar pago efectivo del IVA y deducibilidad de la erogación.'); vatScore += 1;
   } else missing.push('Integrar requisitos de IVA trasladado, pago efectivo y acreditamiento.');
 
-  actions.push('Integrar expediente con CFDI XML/PDF, contrato u orden, entregables, recepción, comprobante bancario y justificación de negocio.');
+  actions.push('Integrar CFDI XML/PDF, contrato u orden, entregables, recepción, comprobante bancario y justificación de negocio.');
   if (missing.length) actions.push('Asignar responsable y fecha de cierre a cada requisito pendiente antes de presentar la deducción o acreditamiento.');
 
   return {
-    deductibility: probability(deductionScore),
-    vatCredit: probability(vatScore + Math.min(deductionScore, 3)),
+    deductibility: supportLevel(deductionScore),
+    vatCredit: supportLevel(vatScore + Math.min(deductionScore, 3)),
     fulfilled,
     missing: [...new Set(missing)],
     actions,
@@ -84,11 +83,11 @@ export function buildDeductibilityAssessment(answers: Record<string, string>): A
 }
 
 function toDocumentResult(answers: Record<string, string>, assessment: Assessment): DocumentAnalysisResult {
-  const weak = assessment.deductibility === 'Baja' || assessment.vatCredit === 'Baja';
-  const medium = assessment.deductibility === 'Media' || assessment.vatCredit === 'Media';
+  const weak = assessment.deductibility === 'Insuficiente' || assessment.vatCredit === 'Insuficiente';
+  const medium = assessment.deductibility === 'Parcial' || assessment.vatCredit === 'Parcial';
   const riskScore = weak ? 80 : medium ? 50 : 20;
   return {
-    summary: `Evaluación preliminar de ${answers.expenseType || 'gasto'} por ${answers.amount || 'monto no precisado'}. Probabilidad de deducibilidad ${assessment.deductibility} y de IVA acreditable ${assessment.vatCredit}.`,
+    summary: `Evaluación preliminar de ${answers.expenseType || 'gasto'} por ${answers.amount || 'monto no precisado'}. Soporte documental para deducibilidad: ${assessment.deductibility}. Soporte para IVA acreditable: ${assessment.vatCredit}.`,
     documentType: 'Evaluación de deducibilidad e IVA',
     riskScore,
     detectedParties: [],
@@ -105,8 +104,8 @@ function toDocumentResult(answers: Record<string, string>, assessment: Assessmen
     recommendedActions: assessment.actions,
     checklist: assessment.fulfilled,
     riskCategories: {
-      deducibilidad: [`Probabilidad ${assessment.deductibility}`, ...assessment.missing],
-      ivaAcreditable: [`Probabilidad ${assessment.vatCredit}`],
+      deducibilidad: [`Soporte ${assessment.deductibility}`, ...assessment.missing],
+      ivaAcreditable: [`Soporte ${assessment.vatCredit}`],
       materialidad: assessment.fulfilled,
     },
     legalFoundations: [
@@ -114,14 +113,14 @@ function toDocumentResult(answers: Record<string, string>, assessment: Assessmen
       { id: 'liva-5', title: 'Requisitos del acreditamiento', law: 'LIVA', article: '5' },
       { id: 'cff-29', title: 'Comprobantes fiscales digitales', law: 'CFF', article: '29 y 29-A' },
     ],
-    confidence: 'high',
+    confidence: 'medium',
     engine: 'rules',
   };
 }
 
 export const FiscalDeductibility: React.FC = () => {
   const { notify, setActiveTab } = useUiStore();
-  const { currentCaseId, setCurrentCaseId, addFiscalAnalysis, fiscalOperationState, updateFiscalOperationState, completeFiscalOperationStep } = useCaseStore();
+  const { addFiscalAnalysis, fiscalOperationState, updateFiscalOperationState, completeFiscalOperationStep } = useCaseStore();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>(fiscalOperationState.deductibilityAnswers || {});
   const [result, setResult] = useState<DocumentAnalysisResult | null>(null);
@@ -138,8 +137,6 @@ export const FiscalDeductibility: React.FC = () => {
 
   const finish = async () => {
     const nextResult = toDocumentResult(answers, assessment);
-    const caseId = await ensureModuleActivity('fiscal', currentCaseId);
-    setCurrentCaseId(caseId);
     const id = crypto.randomUUID();
     addFiscalAnalysis({
       id,
@@ -157,7 +154,7 @@ export const FiscalDeductibility: React.FC = () => {
     });
     completeFiscalOperationStep('deductibility');
     setResult(nextResult);
-    notify('Evaluación de deducibilidad e IVA guardada localmente.', 'success', 'Deducibilidad e IVA');
+    notify('Evaluación de deducibilidad e IVA lista.', 'success', 'Deducibilidad e IVA');
   };
 
   const next = () => {
@@ -212,8 +209,8 @@ export const FiscalDeductibility: React.FC = () => {
                 <motion.div key={step} initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} className="mt-10">
                   <h3 className="text-2xl font-bold text-slate-900">{question.label}</h3>
                   {question.options ? (
-                    <div className="mt-7 grid gap-3">
-                      {question.options.map((option) => <button key={option} type="button" onClick={() => updateAnswer(question.id, option)} className={`rounded-2xl border p-4 text-left text-sm font-semibold transition ${answer === option ? 'border-fiscal bg-fiscal/5 text-fiscal ring-2 ring-fiscal/10' : 'border-slate-200 text-slate-600 hover:border-fiscal/30'}`}>{option}</button>)}
+                    <div className="mt-7 grid gap-3" role="radiogroup" aria-label={question.label}>
+                      {question.options.map((option) => <button key={option} type="button" role="radio" aria-checked={answer === option} onClick={() => updateAnswer(question.id, option)} className={`rounded-2xl border p-4 text-left text-sm font-semibold transition ${answer === option ? 'border-fiscal bg-fiscal/5 text-fiscal ring-2 ring-fiscal/10' : 'border-slate-200 text-slate-600 hover:border-fiscal/30'}`}>{option}</button>)}
                     </div>
                   ) : (
                     <input autoFocus type="text" value={answer} onChange={(event) => updateAnswer(question.id, event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') next(); }} placeholder={question.placeholder} aria-label={question.label} className="mt-7 w-full rounded-2xl border border-slate-200 bg-slate-50 p-5 text-base text-slate-800 outline-none focus:border-fiscal focus:ring-4 focus:ring-fiscal/10" />

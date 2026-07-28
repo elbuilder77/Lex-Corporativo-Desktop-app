@@ -5,11 +5,12 @@ import ReactMarkdown from 'react-markdown';
 import { useNavigate } from 'react-router-dom';
 import { useCaseStore } from '../store/useCaseStore';
 import { useUiStore } from '../store/useUiStore';
-import { generateDocumentPDF } from '../lib/pdf-export';
+import { generateAnalysisPDF, generateDocumentPDF } from '../lib/pdf-export';
 import { BRAND_CONTENT } from '../lib/product-content';
 import { cn } from '../lib/utils';
 import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import { ConfirmDialog } from './ui/ConfirmDialog';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 type ActivityFilter = 'all' | 'drafting' | 'analysis';
 
@@ -19,7 +20,7 @@ function normalizeModule(module?: string): 'engineering' | 'fiscal' {
 
 export const Portafolio: React.FC = () => {
   const navigate = useNavigate();
-  const { notify, setActiveTab } = useUiStore();
+  const { notify, setActiveTab, setFiscalGuided } = useUiStore();
   const {
     engineeringDraftingHistory,
     fiscalAnalysisHistory,
@@ -38,6 +39,7 @@ export const Portafolio: React.FC = () => {
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [dialogState, confirm] = useConfirmDialog();
+  const detailDialogRef = useFocusTrap<HTMLDivElement>(Boolean(selectedActivity));
 
   useEffect(() => { fetchRecentCases(); }, [fetchRecentCases]);
 
@@ -107,7 +109,8 @@ export const Portafolio: React.FC = () => {
   const resumeCase = async (savedCase: typeof recentCases[number]) => {
     await loadCase(savedCase);
     if (savedCase.module === 'fiscal') {
-      setActiveTab('fiscal-consultation');
+      setFiscalGuided(false);
+      setActiveTab(useCaseStore.getState().fiscalOperationState.lastActiveTab || 'fiscal-home');
       navigate('/fiscal');
     } else {
       setActiveTab('drafting');
@@ -117,26 +120,59 @@ export const Portafolio: React.FC = () => {
 
   const titleFor = (item: any) => item.activityType === 'drafting'
     ? item.templateTitle || item.referenceFileName || 'Documento jurídico'
-    : item.files?.[0]?.name ? `Revisión fiscal · ${item.files[0].name}` : 'Revisión fiscal';
+    : item.files?.[0]?.name ? `Revisión fiscal · ${item.files[0].name}` : item.result?.documentType || 'Revisión fiscal';
 
   const bodyFor = (item: any) => {
     if (item.activityType === 'drafting') return item.generatedDoc || 'Sin contenido disponible.';
     const result = item.result;
     if (!result) return 'Sin resultados disponibles.';
+    const bullets = (entries?: string[]) => entries?.filter(Boolean).map((entry) => `- ${entry}`).join('\n') || '';
+    const risks = result.risks?.map((risk: any) => `- **${risk.title || 'Hallazgo'}:** ${risk.explanation || 'Sin detalle.'}`).join('\n') || '';
+    const foundations = result.legalFoundations?.map((foundation: any) => `- ${foundation.law || foundation.title || 'Normativa'}${foundation.article ? ` · ${foundation.article}` : ''}${foundation.source ? ` · ${foundation.source}` : ''}`).join('\n') || '';
+    const categories = result.riskCategories
+      ? Object.entries(result.riskCategories).filter(([, entries]) => Array.isArray(entries) && entries.length).map(([category, entries]) => `### ${category.replace(/([A-Z])/g, ' $1')}\n${bullets(entries as string[])}`).join('\n\n')
+      : '';
     return [
       `## Resumen\n${result.summary || 'Sin resumen.'}`,
-      result.missingData?.length ? `## Evidencia pendiente\n${result.missingData.map((entry: string) => `- ${entry}`).join('\n')}` : '',
-      result.recommendedActions?.length ? `## Siguientes acciones\n${result.recommendedActions.map((entry: string) => `- ${entry}`).join('\n')}` : '',
+      `**Tipo:** ${result.documentType || 'Revisión fiscal'}  \n**Índice:** ${Number.isFinite(Number(result.riskScore)) ? `${100 - Number(result.riskScore)} de 100` : 'Sin dato'}  \n**Motor:** ${result.engine || 'No indicado'}`,
+      result.detectedParties?.length ? `## Participantes\n${bullets(result.detectedParties)}` : '',
+      result.detectedObligations?.length ? `## Requisitos identificados\n${bullets(result.detectedObligations)}` : '',
+      risks ? `## Hallazgos\n${risks}` : '',
+      [...(result.missingClauses || []), ...(result.missingData || [])].length ? `## Información o evidencia pendiente\n${bullets([...(result.missingClauses || []), ...(result.missingData || [])])}` : '',
+      result.checklist?.length ? `## Lista de revisión\n${bullets(result.checklist)}` : '',
+      categories ? `## Pilares\n${categories}` : '',
+      foundations ? `## Referencias normativas\n${foundations}` : '',
+      result.recommendedActions?.length ? `## Siguientes acciones\n${bullets(result.recommendedActions)}` : '',
     ].filter(Boolean).join('\n\n');
   };
 
   const exportSelected = async () => {
-    if (!selectedActivity || selectedActivity.activityType !== 'drafting') return;
+    if (!selectedActivity) return;
     setIsExportingPdf(true);
     try {
-      const area = selectedActivity.area || 'mercantil';
-      const result = await generateDocumentPDF(bodyFor(selectedActivity), BRAND_CONTENT.name, `Ingeniería Jurídica · ${area}`, `Documento_${area}`);
-      if (result.success) notify('Documento exportado en PDF.', 'success');
+      if (selectedActivity.activityType === 'drafting') {
+        const area = selectedActivity.area || 'mercantil';
+        const result = await generateDocumentPDF(bodyFor(selectedActivity), BRAND_CONTENT.name, `Ingeniería Jurídica · ${area}`, `Documento_${area}`);
+        if (result.success) notify('Documento exportado en PDF.', 'success');
+      } else {
+        const result = selectedActivity.result || {};
+        await generateAnalysisPDF({
+          title: titleFor(selectedActivity),
+          subtitle: 'Fiscal',
+          riskScore: Number(result.riskScore) || 0,
+          summary: result.summary || 'Sin resumen.',
+          pillars: [
+            { title: 'REQUISITOS', content: result.detectedObligations?.join('\n') || 'Sin requisitos registrados.' },
+            { title: 'PENDIENTES', content: [...(result.missingClauses || []), ...(result.missingData || [])].join('\n') || 'Sin pendientes registrados.' },
+            { title: 'REFERENCIAS', content: result.legalFoundations?.map((foundation: any) => `${foundation.law || foundation.title}${foundation.article ? ` · ${foundation.article}` : ''}`).join('\n') || 'Sin referencias registradas.' },
+          ],
+          risks: result.risks?.map((risk: any) => `${risk.title}: ${risk.explanation}`) || [],
+          recommendation: result.recommendedActions?.join('\n') || 'Sin acciones registradas.',
+          moduleName: 'Lex Corporativo · Fiscal',
+          filenamePrefix: 'Revision_Fiscal',
+        });
+        notify('Revisión exportada en PDF.', 'success');
+      }
     } catch (error: any) {
       notify(error?.message || 'No se pudo exportar el documento.', 'error');
     } finally {
@@ -197,25 +233,25 @@ export const Portafolio: React.FC = () => {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <span className="rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-amber-700"><FolderOpen size={22} /></span>
-            <div><h1 className="font-serif text-2xl font-bold text-slate-950">Portafolio local</h1><p className="mt-0.5 text-sm text-slate-500">Asuntos, documentos y revisiones guardados en este equipo.</p></div>
+            <div><h1 className="font-serif text-2xl font-bold text-slate-950">Actividad local</h1><p className="mt-0.5 text-sm text-slate-500">Trabajos, documentos y revisiones guardados en este equipo.</p></div>
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => { setActiveTab('drafting'); navigate('/ingenieria-juridica'); }} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-100"><FileSignature size={16} /> Nuevo documento</button>
-            <button type="button" onClick={() => { setActiveTab('fiscal-preparation'); navigate('/fiscal'); }} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-slate-900 px-4 text-sm font-bold text-white hover:bg-slate-800"><Plus size={16} /> Nueva operación fiscal</button>
+            <button type="button" onClick={() => { useCaseStore.getState().resetFiscalWork(); setActiveTab('fiscal-home'); navigate('/fiscal'); }} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-slate-900 px-4 text-sm font-bold text-white hover:bg-slate-800"><Plus size={16} /> Abrir Fiscal</button>
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-8 md:px-8">
         <section className="grid gap-3 sm:grid-cols-3" aria-label="Resumen del portafolio">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-700"><Layers3 size={17} /></span><strong className="mt-3 block text-2xl font-black text-slate-950">{recentCases.length}</strong><span className="text-xs font-semibold text-slate-500">Asuntos locales</span></div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-700"><Layers3 size={17} /></span><strong className="mt-3 block text-2xl font-black text-slate-950">{recentCases.length}</strong><span className="text-xs font-semibold text-slate-500">Trabajos guardados</span></div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-700"><FileSignature size={17} /></span><strong className="mt-3 block text-2xl font-black text-slate-950">{documentCount}</strong><span className="text-xs font-semibold text-slate-500">Documentos generados</span></div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><FileSearch size={17} /></span><strong className="mt-3 block text-2xl font-black text-slate-950">{reviewCount}</strong><span className="text-xs font-semibold text-slate-500">Revisiones fiscales</span></div>
         </section>
 
         {recentCases.length > 0 && (
           <section className="mt-8" aria-labelledby="portfolio-cases-title">
-            <div className="flex items-end justify-between gap-4"><div><h2 id="portfolio-cases-title" className="text-sm font-bold text-slate-900">Asuntos recientes</h2><p className="mt-1 text-xs text-slate-500">Abre el asunto para recuperar su contexto y continuar el flujo.</p></div></div>
+            <div className="flex items-end justify-between gap-4"><div><h2 id="portfolio-cases-title" className="text-sm font-bold text-slate-900">Guardados recientes</h2><p className="mt-1 text-xs text-slate-500">Abre un trabajo para continuar.</p></div></div>
             <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {recentCases.slice(0, 6).map((savedCase) => {
                 const itemCount = allActivity.filter((item) => item.caseId === savedCase.id).length;
@@ -248,7 +284,7 @@ export const Portafolio: React.FC = () => {
           <div className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-6 text-center">
             <FolderOpen size={32} className="text-slate-300" />
             <h2 className="mt-4 text-lg font-bold text-slate-950">{allActivity.length ? 'No hay resultados en este filtro' : 'Tu portafolio está vacío'}</h2>
-            <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">{allActivity.length ? 'Selecciona otro tipo de actividad.' : 'Inicia una operación fiscal o un documento desde las acciones superiores; el asunto aparecerá aquí al guardarse.'}</p>
+            <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">{allActivity.length ? 'Selecciona otro tipo de actividad.' : 'Abre Fiscal o Documentos y contratos para comenzar.'}</p>
           </div>
         ) : (
           <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -272,10 +308,10 @@ export const Portafolio: React.FC = () => {
       <AnimatePresence>
         {selectedActivity && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4" onClick={() => setSelectedActivity(null)}>
-            <motion.div initial={{ y: 15, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 15, opacity: 0 }} role="dialog" aria-modal="true" aria-labelledby="portfolio-detail-title" onClick={(event) => event.stopPropagation()} className="flex h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
-              <header className="flex items-center justify-between border-b border-slate-200 px-6 py-5"><div><h2 id="portfolio-detail-title" className="text-lg font-bold text-slate-950">{titleFor(selectedActivity)}</h2><p className="mt-1 text-xs text-slate-500">Guardado localmente</p></div><button type="button" onClick={() => setSelectedActivity(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Cerrar"><X size={18} /></button></header>
+            <motion.div ref={detailDialogRef} initial={{ y: 15, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 15, opacity: 0 }} role="dialog" aria-modal="true" aria-labelledby="portfolio-detail-title" onClick={(event) => event.stopPropagation()} className="flex h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
+              <header className="flex items-center justify-between border-b border-slate-200 px-6 py-5"><div><h2 id="portfolio-detail-title" className="text-lg font-bold text-slate-950">{titleFor(selectedActivity)}</h2><p className="mt-1 text-xs text-slate-500">{selectedActivity.caseId ? 'Guardado localmente' : 'En esta sesión'}</p></div><button type="button" onClick={() => setSelectedActivity(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Cerrar"><X size={18} /></button></header>
               <div className="flex-1 overflow-y-auto px-7 py-6"><div className="prose prose-slate max-w-none prose-sm"><ReactMarkdown>{bodyFor(selectedActivity)}</ReactMarkdown></div></div>
-              <footer className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-6 py-4"><button type="button" onClick={() => void deleteActivity(selectedActivity)} disabled={deletingKey === activityKey(selectedActivity)} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-red-200 bg-white px-4 text-sm font-bold text-red-700 hover:bg-red-50 disabled:opacity-50">{deletingKey === activityKey(selectedActivity) ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />} Eliminar</button>{selectedActivity.activityType === 'drafting' && <button type="button" onClick={exportSelected} disabled={isExportingPdf} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold hover:bg-slate-100 disabled:opacity-50">{isExportingPdf ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} Exportar PDF</button>}<button type="button" onClick={() => setSelectedActivity(null)} className="min-h-10 rounded-lg bg-slate-900 px-5 text-sm font-bold text-white">Cerrar</button></footer>
+              <footer className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-6 py-4"><button type="button" onClick={() => void deleteActivity(selectedActivity)} disabled={deletingKey === activityKey(selectedActivity)} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-red-200 bg-white px-4 text-sm font-bold text-red-700 hover:bg-red-50 disabled:opacity-50">{deletingKey === activityKey(selectedActivity) ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />} Eliminar</button><button type="button" onClick={exportSelected} disabled={isExportingPdf} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold hover:bg-slate-100 disabled:opacity-50">{isExportingPdf ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} Exportar PDF</button><button type="button" onClick={() => setSelectedActivity(null)} className="min-h-10 rounded-lg bg-slate-900 px-5 text-sm font-bold text-white">Cerrar</button></footer>
             </motion.div>
           </motion.div>
         )}

@@ -1,7 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { FileText, FileUp, Loader2, ShieldCheck, X } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { ensureModuleActivity } from '../lib/case-access';
 import { runFiscalAnalysis } from '../lib/fiscal-analysis';
 import { generateAnalysisPDF } from '../lib/pdf-export';
 import { useCaseStore } from '../store/useCaseStore';
@@ -18,7 +17,7 @@ const ACCEPTED_TYPES = ['application/pdf', 'text/plain', 'text/markdown'];
 export const FiscalPreparation: React.FC = () => {
   const { notify, setActiveTab } = useUiStore();
   const canAnalyze = useProcessingGuard('legalGeneration', 'revisar la preparación de esta operación');
-  const { currentCaseId, setCurrentCaseId, addFiscalAnalysis, fiscalOperationState, updateFiscalOperationState, completeFiscalOperationStep } = useCaseStore();
+  const { currentCaseId, addFiscalAnalysis, fiscalOperationState, updateFiscalOperationState, completeFiscalOperationStep } = useCaseStore();
   const inputRef = useRef<HTMLInputElement>(null);
   const [description, setDescription] = useState(fiscalOperationState.description || '');
   const [files, setFiles] = useState<File[]>([]);
@@ -45,13 +44,11 @@ export const FiscalPreparation: React.FC = () => {
     }
     if (!canAnalyze()) return;
     setResult(null);
-    setProgress('Preparando expediente local…');
+    setProgress('Preparando análisis local…');
 
     await execute(async (setStage, signal) => {
       try {
         setStage('preparing');
-        const caseId = await ensureModuleActivity('fiscal', currentCaseId);
-        setCurrentCaseId(caseId);
         const operationTitle = description.trim().replace(/\s+/g, ' ').slice(0, 72);
         updateFiscalOperationState({
           title: operationTitle || 'Operación fiscal',
@@ -63,7 +60,7 @@ export const FiscalPreparation: React.FC = () => {
         window.lexDesktop.analysis.onProgress((state) => setProgress(state.label));
         
         const response = await runFiscalAnalysis({
-          caseId,
+          caseId: currentCaseId || undefined,
           context: description,
           instruction: PREPARATION_INSTRUCTION,
           files,
@@ -88,7 +85,7 @@ export const FiscalPreparation: React.FC = () => {
           engine: response.engine,
         });
         completeFiscalOperationStep('preparation');
-        notify('Estado preventivo generado y guardado en el portafolio local.', 'success', 'Preparación fiscal');
+        notify('Estado preventivo listo.', 'success', 'Preparación fiscal');
       } catch (error: any) {
         if (error.message !== 'AbortError' && error.name !== 'AbortError') {
           notify(error?.message || 'No se pudo revisar la operación.', 'error', 'Preparación fiscal');
@@ -142,7 +139,7 @@ export const FiscalPreparation: React.FC = () => {
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-fiscal/10 text-fiscal">
                 <ShieldCheck size={24} strokeWidth={1.8} />
               </div>
-              <div><h2 className="text-2xl font-bold text-slate-950">Preparación fiscal de operación</h2><p className="mt-1 max-w-2xl text-sm text-slate-600">Describe el asunto e integra la evidencia inicial para abrir un expediente continuo.</p></div>
+              <div><h2 className="text-2xl font-bold text-slate-950">Preparación fiscal de operación</h2><p className="mt-1 max-w-2xl text-sm text-slate-600">Describe la operación e integra la evidencia disponible.</p></div>
             </header>
 
             <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
@@ -182,7 +179,7 @@ export const FiscalPreparation: React.FC = () => {
 
               {isAnalyzing && (
                 <div className="mt-5 flex items-center gap-3 rounded-xl border border-fiscal/15 bg-fiscal/5 px-4 py-3 text-sm font-semibold text-fiscal">
-                  <Loader2 size={17} className="animate-spin" /> {progress || stageLabel || 'Analizando expediente…'}
+                  <Loader2 size={17} className="animate-spin" /> {progress || stageLabel || 'Analizando operación…'}
                   {elapsed > 0 && <span className="ml-2 text-xs opacity-70">({elapsed}s)</span>}
                   <button onClick={cancel} className="ml-auto rounded-md bg-white/50 px-2 py-1 text-xs text-fiscal hover:bg-white">Cancelar</button>
                 </div>
