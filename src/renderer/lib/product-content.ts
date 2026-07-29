@@ -9,8 +9,8 @@ export const MODULE_CONTENT = {
   fiscal: {
     ecosystemTitle: 'Fiscal',
     analysis: {
-      title: 'Preparación Fiscal de Operación',
-      subtitle: 'Revisa soporte de materialidad, CFDI y documentación fiscal para identificar evidencia disponible, pendientes y acciones preventivas.',
+      title: 'Revisar operación',
+      subtitle: 'Revisa documentos, evidencia y pendientes de una operación.',
       focusLabel: 'Contexto de la operación',
       focusPlaceholder: 'Ej: Revisa materialidad, CFDI, contraprestación, entregables, pagos, deducibilidad, IVA o exposición 69-B.',
     },

@@ -11,7 +11,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 const fiscalSubItems: { tab: ModuleTab; label: string; icon: React.ReactNode }[] = [
   { tab: 'fiscal-consultation', label: 'Consulta asistida', icon: <Search size={14} /> },
-  { tab: 'fiscal-preparation', label: 'Preparación', icon: <ShieldCheck size={14} /> },
+  { tab: 'fiscal-preparation', label: 'Revisar operación', icon: <ShieldCheck size={14} /> },
   { tab: 'fiscal-materiality', label: 'Materialidad', icon: <ClipboardList size={14} /> },
   { tab: 'fiscal-deductibility', label: 'Deducibilidad / IVA', icon: <ReceiptText size={14} /> },
   { tab: 'fiscal-documentation', label: 'Documentación', icon: <FileSignature size={14} /> },

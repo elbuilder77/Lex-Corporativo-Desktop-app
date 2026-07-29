@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { FileSearch, Loader2, Send, Sparkles } from 'lucide-react';
+import { FileSearch, Link2, Loader2, Send, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { useCaseStore } from '../store/useCaseStore';
@@ -24,13 +24,15 @@ const FISCAL_TOPICS = [
 ];
 
 export const FiscalConsultation: React.FC = () => {
-  const { fiscalChatHistory: messages, setFiscalChatHistory } = useCaseStore();
+  const { fiscalChatHistory: messages, setFiscalChatHistory, fiscalOperationState } = useCaseStore();
   const { notify } = useUiStore();
   const canConsult = useProcessingGuard('legalGeneration', 'responder esta consulta fiscal');
   const [input, setInput] = useState('');
+  const [useSessionContext, setUseSessionContext] = useState(false);
   const { isProcessing, stageLabel, elapsed, execute, cancel } = useAIProcessing();
   const endRef = useRef<HTMLDivElement>(null);
   const hasUserMessages = messages.some((message) => message.role === 'user');
+  const hasSessionContext = Boolean(fiscalOperationState.description || fiscalOperationState.evidenceFiles.length);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -53,8 +55,21 @@ export const FiscalConsultation: React.FC = () => {
       try {
         setStage('preparing');
         setStage('searching');
+        const pending = fiscalOperationState.evidenceMatrix
+          .filter((item) => item.status !== 'supported' && !fiscalOperationState.resolvedEvidenceIds.includes(item.id))
+          .map((item) => item.title)
+          .slice(0, 12);
+        const contextualQuery = useSessionContext && hasSessionContext
+          ? [
+            query,
+            'CONTEXTO DE LA SESIÓN ACTUAL:',
+            fiscalOperationState.description,
+            fiscalOperationState.evidenceFiles.length ? `Archivos: ${fiscalOperationState.evidenceFiles.map((file) => file.name).join(', ')}` : '',
+            pending.length ? `Pendientes: ${pending.join('; ')}` : '',
+          ].filter(Boolean).join('\n')
+          : query;
         const response = await window.lexDesktop.assistant.askFiscal({
-          query,
+          query: contextualQuery,
           history,
         });
 
@@ -145,7 +160,21 @@ export const FiscalConsultation: React.FC = () => {
       </div>
 
       <div className="border-t border-slate-200 bg-white/90 p-4 backdrop-blur">
-        {hasUserMessages && <div className="mx-auto mb-2 flex max-w-4xl justify-end"><FiscalSaveButton name="Consulta asistida" /></div>}
+        {(hasUserMessages || hasSessionContext) && (
+          <div className="mx-auto mb-2 flex max-w-4xl items-center justify-end gap-2">
+            {hasSessionContext && (
+              <button
+                type="button"
+                onClick={() => setUseSessionContext((current) => !current)}
+                aria-pressed={useSessionContext}
+                className={cn('inline-flex min-h-9 items-center gap-2 rounded-lg border px-3 text-xs font-bold transition', useSessionContext ? 'border-fiscal/20 bg-fiscal/10 text-fiscal' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100')}
+              >
+                <Link2 size={14} /> Usar sesión actual
+              </button>
+            )}
+            {hasUserMessages && <FiscalSaveButton name="Consulta asistida" />}
+          </div>
+        )}
         <div className="mx-auto flex max-w-4xl items-end gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-md focus-within:border-fiscal/40 focus-within:ring-4 focus-within:ring-fiscal/10">
           <textarea
             value={input}

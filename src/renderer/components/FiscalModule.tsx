@@ -22,6 +22,7 @@ import { FiscalNormativeLibrary } from './FiscalNormativeLibrary';
 import { useCaseStore } from '../store/useCaseStore';
 import { CapabilityGate, type RuntimeCapability } from './CapabilityGate';
 import { Stepper } from './ui/Stepper';
+import { FiscalSessionSummary } from './FiscalSessionSummary';
 
 const FISCAL_TOOLS: Array<{
   tab: Exclude<ModuleTab, 'analysis' | 'drafting' | 'fiscal-home'>;
@@ -30,7 +31,7 @@ const FISCAL_TOOLS: Array<{
   icon: React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
 }> = [
   { tab: 'fiscal-consultation', label: 'Consulta asistida', description: 'Respuesta con fundamento local.', icon: Search },
-  { tab: 'fiscal-preparation', label: 'Preparación', description: 'Contexto y evidencia de una operación.', icon: ShieldCheck },
+  { tab: 'fiscal-preparation', label: 'Revisar operación', description: 'Documentos, hallazgos y pendientes.', icon: ShieldCheck },
   { tab: 'fiscal-materiality', label: 'Materialidad', description: 'Ejecución, trazabilidad y soporte.', icon: ClipboardList },
   { tab: 'fiscal-deductibility', label: 'Deducibilidad e IVA', description: 'Requisitos documentales por reglas.', icon: ReceiptText },
   { tab: 'fiscal-documentation', label: 'Documentación', description: 'Plantillas y documentos fiscales.', icon: FileSignature },
@@ -40,7 +41,7 @@ const FISCAL_TOOLS: Array<{
 const FISCAL_TAB_IDS: ModuleTab[] = FISCAL_TOOLS.map((item) => item.tab);
 
 const OPERATION_STEPS = [
-  { step: 'preparation', tab: 'fiscal-preparation', label: 'Preparación' },
+  { step: 'preparation', tab: 'fiscal-preparation', label: 'Operación' },
   { step: 'materiality', tab: 'fiscal-materiality', label: 'Materialidad' },
   { step: 'deductibility', tab: 'fiscal-deductibility', label: 'Deducibilidad' },
   { step: 'documentation', tab: 'fiscal-documentation', label: 'Documentos' },
@@ -159,7 +160,8 @@ export const FiscalModule: React.FC = () => {
         {effectiveTab === 'fiscal-home' ? (
           <div className="h-full overflow-y-auto px-5 py-6 md:px-8">
             <div className="mx-auto max-w-6xl">
-              <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+              <FiscalSessionSummary onContinue={openTool} />
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                 {FISCAL_TOOLS.map((item) => {
                   const Icon = item.icon;
                   return (
@@ -177,7 +179,7 @@ export const FiscalModule: React.FC = () => {
 
               <button type="button" onClick={openGuided} className="group mt-5 flex w-full items-center gap-4 rounded-2xl border border-slate-200 bg-slate-900 px-5 py-4 text-left text-white shadow-sm transition hover:bg-slate-800">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10"><ShieldCheck size={19} /></span>
-                <span className="min-w-0 flex-1"><span className="block text-sm font-bold">Revisión guiada</span><span className="mt-0.5 block text-xs text-slate-300">Preparación · Materialidad · Deducibilidad · Documentación</span></span>
+                <span className="min-w-0 flex-1"><span className="block text-sm font-bold">Revisión guiada</span><span className="mt-0.5 block text-xs text-slate-300">Operación · Materialidad · Deducibilidad · Documentación</span></span>
                 <ArrowRight size={17} className="shrink-0 text-slate-400 transition group-hover:translate-x-1 group-hover:text-white" />
               </button>
             </div>

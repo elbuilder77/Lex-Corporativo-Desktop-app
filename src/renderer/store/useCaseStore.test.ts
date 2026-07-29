@@ -76,4 +76,26 @@ describe('standalone fiscal work', () => {
     }));
     expect(useCaseStore.getState().currentCaseId).toBe(caseId);
   });
+
+  it('keeps a shared evidence matrix and lets the user resolve pending items', () => {
+    useCaseStore.getState().addFiscalAnalysis({
+      ...analysis,
+      result: {
+        ...analysis.result,
+        detectedObligations: ['CFDI disponible.'],
+        missingData: ['Comprobante de pago.'],
+        legalFoundations: [],
+        recommendedActions: ['Agregar comprobante bancario.'],
+      },
+    });
+
+    const pending = useCaseStore.getState().fiscalOperationState.evidenceMatrix.find((item) => item.status === 'missing');
+    expect(pending?.title).toBe('Comprobante de pago.');
+
+    useCaseStore.getState().toggleFiscalEvidenceResolved(pending!.id);
+    expect(useCaseStore.getState().fiscalOperationState.resolvedEvidenceIds).toContain(pending!.id);
+
+    useCaseStore.getState().toggleFiscalEvidenceResolved(pending!.id);
+    expect(useCaseStore.getState().fiscalOperationState.resolvedEvidenceIds).not.toContain(pending!.id);
+  });
 });

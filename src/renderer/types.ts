@@ -31,10 +31,40 @@ export type ModuleTab =
 
 export type FiscalOperationStep = 'preparation' | 'materiality' | 'deductibility' | 'documentation';
 
+export type FiscalReviewFocus = 'complete' | 'materiality' | 'deductibility' | 'documentation';
+
+export type FiscalEvidenceStatus = 'supported' | 'attention' | 'missing';
+
+export interface FiscalEvidenceRecord {
+  id: string;
+  analysisId?: string;
+  status: FiscalEvidenceStatus;
+  title: string;
+  detail?: string;
+  sourceFiles: string[];
+  foundations: string[];
+  action?: string;
+}
+
+export interface FiscalCfdiRecord {
+  fileName: string;
+  uuid?: string;
+  version?: string;
+  issuerRfc?: string;
+  receiverRfc?: string;
+  total?: string;
+  currency?: string;
+  issuedAt?: string;
+}
+
 export interface FiscalOperationState {
   title: string;
   description: string;
   evidenceFiles: Array<{ name: string; type: string }>;
+  reviewFocus: FiscalReviewFocus;
+  cfdiRecords: FiscalCfdiRecord[];
+  evidenceMatrix: FiscalEvidenceRecord[];
+  resolvedEvidenceIds: string[];
   materialityAnswers: Record<string, string>;
   deductibilityAnswers: Record<string, string>;
   completedSteps: FiscalOperationStep[];
@@ -88,6 +118,7 @@ export type DocumentAnalysisResult = {
     text: string;
     sourceIds: string[];
   }>;
+  evidenceMatrix?: FiscalEvidenceRecord[];
   confidence: "low" | "medium" | "high";
   engine: "rules" | "local-embeddings" | "gemma-local" | "local-gemma" | "byok" | "hybrid";
 };

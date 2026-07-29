@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { AnalyzedDocumentHistory, ChatMessage, DraftingHistory, FiscalOperationState, FiscalOperationStep, SavedCase } from '../types';
+import { buildCfdiEvidence, buildFiscalEvidenceMatrix, mergeFiscalEvidence } from '../lib/fiscal-evidence';
 
 interface CaseState {
   currentCaseId: string | null;
@@ -19,6 +20,7 @@ interface CaseState {
   setFiscalChatHistory: (updater: ChatMessage[] | ((current: ChatMessage[]) => ChatMessage[])) => void;
   updateFiscalOperationState: (state: Partial<FiscalOperationState>) => void;
   completeFiscalOperationStep: (step: FiscalOperationStep) => void;
+  toggleFiscalEvidenceResolved: (evidenceId: string) => void;
   saveFiscalWork: (name?: string) => Promise<string>;
   
   setCurrentCaseId: (id: string | null) => void;
@@ -57,6 +59,10 @@ const createDefaultFiscalOperationState = (): FiscalOperationState => ({
   title: '',
   description: '',
   evidenceFiles: [],
+  reviewFocus: 'complete',
+  cfdiRecords: [],
+  evidenceMatrix: [],
+  resolvedEvidenceIds: [],
   materialityAnswers: {},
   deductibilityAnswers: {},
   completedSteps: [],
@@ -81,13 +87,27 @@ export const useCaseStore = create<CaseState>((set, get) => ({
   setFiscalChatHistory: (updater) => set((state) => ({
     fiscalChatHistory: typeof updater === 'function' ? updater(state.fiscalChatHistory) : updater,
   })),
-  updateFiscalOperationState: (nextState) => set((state) => ({
-    fiscalOperationState: {
-      ...state.fiscalOperationState,
-      ...nextState,
-      updatedAt: new Date().toISOString(),
-    },
-  })),
+  updateFiscalOperationState: (nextState) => set((state) => {
+    const evidenceMatrix = nextState.evidenceMatrix
+      || (nextState.cfdiRecords
+        ? mergeFiscalEvidence(
+          state.fiscalOperationState.evidenceMatrix.filter((item) => item.analysisId !== 'cfdi-local'),
+          buildCfdiEvidence(nextState.cfdiRecords),
+        )
+        : state.fiscalOperationState.evidenceMatrix);
+    return {
+      fiscalOperationState: {
+        ...state.fiscalOperationState,
+        ...nextState,
+        evidenceMatrix,
+        resolvedEvidenceIds: nextState.resolvedEvidenceIds
+          ?? (nextState.cfdiRecords
+            ? state.fiscalOperationState.resolvedEvidenceIds.filter((id) => evidenceMatrix.some((item) => item.id === id))
+            : state.fiscalOperationState.resolvedEvidenceIds),
+        updatedAt: new Date().toISOString(),
+      },
+    };
+  }),
   completeFiscalOperationStep: (step) => set((state) => ({
     fiscalOperationState: {
       ...state.fiscalOperationState,
@@ -97,6 +117,18 @@ export const useCaseStore = create<CaseState>((set, get) => ({
       updatedAt: new Date().toISOString(),
     },
   })),
+  toggleFiscalEvidenceResolved: (evidenceId) => set((state) => {
+    const resolved = state.fiscalOperationState.resolvedEvidenceIds.includes(evidenceId);
+    return {
+      fiscalOperationState: {
+        ...state.fiscalOperationState,
+        resolvedEvidenceIds: resolved
+          ? state.fiscalOperationState.resolvedEvidenceIds.filter((id) => id !== evidenceId)
+          : [...state.fiscalOperationState.resolvedEvidenceIds, evidenceId],
+        updatedAt: new Date().toISOString(),
+      },
+    };
+  }),
   saveFiscalWork: async (name) => {
     if (!window.lexDesktop?.cases) {
       throw new Error('El guardado local no está disponible.');
@@ -162,11 +194,22 @@ export const useCaseStore = create<CaseState>((set, get) => ({
     };
   }),
   addFiscalAnalysis: (item) => set((state) => {
-    const next = [item, ...state.fiscalAnalysisHistory];
+    const evidenceMatrix = item.result.evidenceMatrix?.length
+      ? item.result.evidenceMatrix
+      : buildFiscalEvidenceMatrix(item.result, item.files, item.id);
+    const nextItem = { ...item, result: { ...item.result, evidenceMatrix } };
+    const next = [nextItem, ...state.fiscalAnalysisHistory];
     if (state.currentCaseId && window.lexDesktop?.cases) {
-      window.lexDesktop.cases.saveAnalysis({ caseId: state.currentCaseId, analysisId: item.id, analysisData: item, expectedModule: 'fiscal' }).catch(console.error);
+      window.lexDesktop.cases.saveAnalysis({ caseId: state.currentCaseId, analysisId: item.id, analysisData: nextItem, expectedModule: 'fiscal' }).catch(console.error);
     }
-    return { fiscalAnalysisHistory: next };
+    return {
+      fiscalAnalysisHistory: next,
+      fiscalOperationState: {
+        ...state.fiscalOperationState,
+        evidenceMatrix: mergeFiscalEvidence(state.fiscalOperationState.evidenceMatrix, evidenceMatrix),
+        updatedAt: new Date().toISOString(),
+      },
+    };
   }),
   addEngineeringDrafting: (item) => set((state) => {
     if (state.currentCaseId && window.lexDesktop?.cases) {
@@ -184,6 +227,11 @@ export const useCaseStore = create<CaseState>((set, get) => ({
     if (activityType === 'analysis') {
       return {
         fiscalAnalysisHistory: state.fiscalAnalysisHistory.filter((item) => item.id !== artifactId),
+        fiscalOperationState: {
+          ...state.fiscalOperationState,
+          evidenceMatrix: state.fiscalOperationState.evidenceMatrix.filter((item) => item.analysisId !== artifactId),
+          resolvedEvidenceIds: state.fiscalOperationState.resolvedEvidenceIds.filter((id) => state.fiscalOperationState.evidenceMatrix.some((item) => item.id === id && item.analysisId !== artifactId)),
+        },
         fiscalDraftState: state.fiscalDraftState.linkedAnalysisId === artifactId
           ? { ...state.fiscalDraftState, linkedAnalysisId: undefined }
           : state.fiscalDraftState,

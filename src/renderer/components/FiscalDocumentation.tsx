@@ -75,7 +75,7 @@ export const FiscalDocumentation: React.FC = () => {
 
   const incorporateOperationContext = () => {
     if (!fiscalOperationState.description.trim()) {
-      notify('Primero describe la operación en Preparación.', 'warning', 'Sin contexto de operación');
+      notify('Primero describe la operación en Revisar operación.', 'warning', 'Sin contexto de operación');
       return;
     }
     if (prompt.includes('CONTEXTO FISCAL INCORPORADO')) {
@@ -88,6 +88,12 @@ export const FiscalDocumentation: React.FC = () => {
       fiscalOperationState.evidenceFiles.length
         ? `Evidencia registrada: ${fiscalOperationState.evidenceFiles.map((file) => file.name).join(', ')}`
         : 'Evidencia registrada: sin archivos asociados.',
+      fiscalOperationState.cfdiRecords.length
+        ? `CFDI leídos: ${fiscalOperationState.cfdiRecords.map((record) => record.uuid || record.fileName).join(', ')}`
+        : '',
+      fiscalOperationState.evidenceMatrix.some((item) => item.status !== 'supported' && !fiscalOperationState.resolvedEvidenceIds.includes(item.id))
+        ? `Pendientes: ${fiscalOperationState.evidenceMatrix.filter((item) => item.status !== 'supported' && !fiscalOperationState.resolvedEvidenceIds.includes(item.id)).map((item) => item.title).join('; ')}`
+        : '',
       Object.keys(fiscalOperationState.materialityAnswers).length
         ? `Materialidad: ${formatAnswers(fiscalOperationState.materialityAnswers)}`
         : '',

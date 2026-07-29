@@ -274,13 +274,20 @@ export function parseAnalyzePayload(rawPayload: unknown): ParsedAnalyzePayload {
 
 const ALLOWED_MIME_TYPES = [
   'application/pdf',
+  'application/xml',
   'text/plain',
   'text/markdown',
+  'text/xml',
   'image/jpeg',
   'image/png',
   'image/webp',
   'image/gif',
 ];
+
+export function isAllowedAnalysisFile(file: { name: string; mimeType: string }): boolean {
+  return ALLOWED_MIME_TYPES.includes(file.mimeType)
+    || file.name.toLowerCase().endsWith('.xml');
+}
 
 type AnalysisModule = 'fiscal';
 
@@ -549,7 +556,7 @@ export async function processAnalyzePayload(
     const unlock = await lanceDbWriteMutex.lock();
     try {
       for (const file of payload.files) {
-        if (!ALLOWED_MIME_TYPES.includes(file.mimeType)) continue;
+        if (!isAllowedAnalysisFile(file)) continue;
 
         let extractedDocument: any = null;
         if (file.mimeType === 'application/pdf') {
@@ -557,7 +564,7 @@ export async function processAnalyzePayload(
             Buffer.from(file.base64, 'base64'),
             file.name
           );
-        } else if (file.mimeType.startsWith('text/') || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
+        } else if (file.mimeType.startsWith('text/') || file.name.toLowerCase().endsWith('.txt') || file.name.toLowerCase().endsWith('.md') || file.name.toLowerCase().endsWith('.xml')) {
           const textContent = Buffer.from(file.base64, 'base64').toString('utf8');
           extractedDocument = {
             fileName: file.name,

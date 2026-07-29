@@ -11,6 +11,7 @@ import { cn } from '../lib/utils';
 import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import { ConfirmDialog } from './ui/ConfirmDialog';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { buildFiscalEvidenceMatrix } from '../lib/fiscal-evidence';
 
 type ActivityFilter = 'all' | 'drafting' | 'analysis';
 
@@ -25,6 +26,7 @@ export const Portafolio: React.FC = () => {
     engineeringDraftingHistory,
     fiscalAnalysisHistory,
     fiscalDraftingHistory,
+    fiscalOperationState,
     currentCaseId,
     removeGeneratedArtifact,
     recentCases,
@@ -55,6 +57,7 @@ export const Portafolio: React.FC = () => {
         try {
           const fullData = await window.lexDesktop.cases.getCase(item.id);
           const module = normalizeModule(fullData.metadata?.module || item.module);
+          const resolvedEvidenceIds = fullData.state?.fiscalOperationState?.resolvedEvidenceIds || [];
           const drafts = (fullData.drafts || []).map((draft: any) => ({
             ...draft,
             caseId: item.id,
@@ -62,7 +65,7 @@ export const Portafolio: React.FC = () => {
             activityType: 'drafting',
           }));
           const analyses = module === 'fiscal'
-            ? (fullData.analyses || []).map((analysis: any) => ({ ...analysis, caseId: item.id, module, activityType: 'analysis' }))
+            ? (fullData.analyses || []).map((analysis: any) => ({ ...analysis, caseId: item.id, module, activityType: 'analysis', resolvedEvidenceIds }))
             : [];
           return [...drafts, ...analyses];
         } catch {
@@ -89,7 +92,7 @@ export const Portafolio: React.FC = () => {
     const live = [
       ...engineeringDraftingHistory.map((item) => ({ ...item, caseId: currentCaseId, module: 'engineering', activityType: 'drafting' })),
       ...fiscalDraftingHistory.map((item) => ({ ...item, caseId: currentCaseId, module: 'fiscal', activityType: 'drafting' })),
-      ...fiscalAnalysisHistory.map((item) => ({ ...item, caseId: currentCaseId, module: 'fiscal', activityType: 'analysis' })),
+      ...fiscalAnalysisHistory.map((item) => ({ ...item, caseId: currentCaseId, module: 'fiscal', activityType: 'analysis', resolvedEvidenceIds: fiscalOperationState.resolvedEvidenceIds })),
     ];
     const seen = new Set<string>();
     return [...live, ...persistedActivity]
@@ -100,7 +103,7 @@ export const Portafolio: React.FC = () => {
         return true;
       })
       .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
-  }, [currentCaseId, engineeringDraftingHistory, fiscalAnalysisHistory, fiscalDraftingHistory, persistedActivity]);
+  }, [currentCaseId, engineeringDraftingHistory, fiscalAnalysisHistory, fiscalDraftingHistory, fiscalOperationState.resolvedEvidenceIds, persistedActivity]);
 
   const filtered = allActivity.filter((item) => filter === 'all' || item.activityType === filter);
   const documentCount = allActivity.filter((item) => item.activityType === 'drafting').length;
@@ -129,18 +132,41 @@ export const Portafolio: React.FC = () => {
     const bullets = (entries?: string[]) => entries?.filter(Boolean).map((entry) => `- ${entry}`).join('\n') || '';
     const risks = result.risks?.map((risk: any) => `- **${risk.title || 'Hallazgo'}:** ${risk.explanation || 'Sin detalle.'}`).join('\n') || '';
     const foundations = result.legalFoundations?.map((foundation: any) => `- ${foundation.law || foundation.title || 'Normativa'}${foundation.article ? ` · ${foundation.article}` : ''}${foundation.source ? ` · ${foundation.source}` : ''}`).join('\n') || '';
+    const resolvedEvidenceIds = new Set<string>(item.resolvedEvidenceIds || []);
+    const normalizedEvidence = result.evidenceMatrix?.length
+      ? result.evidenceMatrix
+      : buildFiscalEvidenceMatrix(result, item.files || [], item.id);
+    const evidenceMatrix = normalizedEvidence.map((evidence: any) => {
+      const status = resolvedEvidenceIds.has(evidence.id)
+        ? 'Atendido'
+        : evidence.status === 'supported'
+          ? 'Disponible'
+          : evidence.status === 'missing'
+            ? 'Falta documentación'
+            : 'Requiere atención';
+      return `- **${status}:** ${evidence.title}${evidence.action && !resolvedEvidenceIds.has(evidence.id) ? ` — ${evidence.action}` : ''}`;
+    }).join('\n') || '';
+    const openEvidence = normalizedEvidence.filter((evidence: any) => evidence.status !== 'supported' && !resolvedEvidenceIds.has(evidence.id));
+    const reviewStatus = !normalizedEvidence.length
+      ? 'Revisión incompleta'
+      : openEvidence.some((evidence: any) => evidence.status === 'missing')
+        ? 'Falta documentación'
+        : openEvidence.length
+          ? 'Requiere atención'
+          : 'Sin pendientes identificados';
     const categories = result.riskCategories
       ? Object.entries(result.riskCategories).filter(([, entries]) => Array.isArray(entries) && entries.length).map(([category, entries]) => `### ${category.replace(/([A-Z])/g, ' $1')}\n${bullets(entries as string[])}`).join('\n\n')
       : '';
     return [
       `## Resumen\n${result.summary || 'Sin resumen.'}`,
-      `**Tipo:** ${result.documentType || 'Revisión fiscal'}  \n**Índice:** ${Number.isFinite(Number(result.riskScore)) ? `${100 - Number(result.riskScore)} de 100` : 'Sin dato'}  \n**Motor:** ${result.engine || 'No indicado'}`,
+      `**Tipo:** ${result.documentType || 'Revisión fiscal'}  \n**Estado:** ${reviewStatus}  \n**Motor:** ${result.engine || 'No indicado'}`,
       result.detectedParties?.length ? `## Participantes\n${bullets(result.detectedParties)}` : '',
       result.detectedObligations?.length ? `## Requisitos identificados\n${bullets(result.detectedObligations)}` : '',
       risks ? `## Hallazgos\n${risks}` : '',
       [...(result.missingClauses || []), ...(result.missingData || [])].length ? `## Información o evidencia pendiente\n${bullets([...(result.missingClauses || []), ...(result.missingData || [])])}` : '',
       result.checklist?.length ? `## Lista de revisión\n${bullets(result.checklist)}` : '',
       categories ? `## Pilares\n${categories}` : '',
+      evidenceMatrix ? `## Evidencia y pendientes\n${evidenceMatrix}` : '',
       foundations ? `## Referencias normativas\n${foundations}` : '',
       result.recommendedActions?.length ? `## Siguientes acciones\n${bullets(result.recommendedActions)}` : '',
     ].filter(Boolean).join('\n\n');

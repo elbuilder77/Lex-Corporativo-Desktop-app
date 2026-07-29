@@ -9,10 +9,23 @@ import type { DocumentAnalysisResult } from '../types';
 import { FiscalAnalysisResultPanel } from './FiscalAnalysisResultPanel';
 import { useProcessingGuard } from '../hooks/useProcessingGuard';
 import { useAIProcessing } from '../hooks/useAIProcessing';
+import { formatCfdiContext, readCfdiFiles } from '../lib/fiscal-cfdi';
+import type { FiscalReviewFocus } from '../types';
 
-const PREPARATION_INSTRUCTION = `Evalúa integralmente la preparación fiscal de la operación. Revisa materialidad, CFDI, contraprestación, pagos, entregables, razón de negocios, deducibilidad, IVA acreditable y posible exposición al artículo 69-B del CFF. Separa evidencia disponible, evidencia pendiente y siguientes acciones. No inventes hechos ni fundamentos.`;
+const REVIEW_OPTIONS: Array<{ value: FiscalReviewFocus; label: string; instruction: string }> = [
+  { value: 'complete', label: 'Revisión general', instruction: 'Revisa materialidad, CFDI, contraprestación, pagos, entregables, razón de negocios, deducibilidad, IVA acreditable y posible exposición al artículo 69-B del CFF.' },
+  { value: 'materiality', label: 'Materialidad', instruction: 'Concentra la revisión en sustancia económica, razón de negocios, ejecución, entregables y trazabilidad de la operación.' },
+  { value: 'deductibility', label: 'Deducibilidad e IVA', instruction: 'Concentra la revisión en requisitos de deducibilidad, CFDI, forma de pago, estricta indispensabilidad e IVA acreditable.' },
+  { value: 'documentation', label: 'Documentación', instruction: 'Concentra la revisión en documentos disponibles, documentos faltantes y consistencia entre contrato, CFDI, pagos y entregables.' },
+];
 
-const ACCEPTED_TYPES = ['application/pdf', 'text/plain', 'text/markdown'];
+const ACCEPTED_TYPES = ['application/pdf', 'text/plain', 'text/markdown', 'application/xml', 'text/xml'];
+
+const normalizedMime = (file: File) => file.name.toLowerCase().endsWith('.md')
+  ? 'text/markdown'
+  : file.name.toLowerCase().endsWith('.xml')
+    ? 'application/xml'
+    : file.type;
 
 export const FiscalPreparation: React.FC = () => {
   const { notify, setActiveTab } = useUiStore();
@@ -20,6 +33,7 @@ export const FiscalPreparation: React.FC = () => {
   const { currentCaseId, addFiscalAnalysis, fiscalOperationState, updateFiscalOperationState, completeFiscalOperationStep } = useCaseStore();
   const inputRef = useRef<HTMLInputElement>(null);
   const [description, setDescription] = useState(fiscalOperationState.description || '');
+  const [reviewFocus, setReviewFocus] = useState<FiscalReviewFocus>(fiscalOperationState.reviewFocus || 'complete');
   const [files, setFiles] = useState<File[]>([]);
   const [result, setResult] = useState<DocumentAnalysisResult | null>(null);
   const { isProcessing: isAnalyzing, stageLabel, elapsed, execute, cancel } = useAIProcessing();
@@ -28,13 +42,27 @@ export const FiscalPreparation: React.FC = () => {
 
   const addFiles = (selected: File[]) => {
     const accepted = selected.filter((file) => {
-      const mime = file.name.toLowerCase().endsWith('.md') ? 'text/markdown' : file.type;
+      const mime = normalizedMime(file);
       return ACCEPTED_TYPES.includes(mime) && file.size <= 15 * 1024 * 1024;
     });
     if (accepted.length !== selected.length) {
-      notify('Sólo se admiten PDF, TXT o Markdown de hasta 15 MB.', 'warning', 'Evidencia no compatible');
+      notify('Sólo se admiten PDF, XML, TXT o Markdown de hasta 15 MB.', 'warning', 'Evidencia no compatible');
     }
-    setFiles((current) => [...current, ...accepted].slice(0, 5));
+    const nextFiles = [...files, ...accepted].slice(0, 5);
+    setFiles(nextFiles);
+    updateFiscalOperationState({
+      evidenceFiles: nextFiles.map((file) => ({ name: file.name, type: normalizedMime(file) })),
+    });
+    void readCfdiFiles(nextFiles).then((cfdiRecords) => updateFiscalOperationState({ cfdiRecords }));
+  };
+
+  const removeFile = (file: File) => {
+    const nextFiles = files.filter((item) => item !== file);
+    setFiles(nextFiles);
+    updateFiscalOperationState({
+      evidenceFiles: nextFiles.map((item) => ({ name: item.name, type: normalizedMime(item) })),
+    });
+    void readCfdiFiles(nextFiles).then((cfdiRecords) => updateFiscalOperationState({ cfdiRecords }));
   };
 
   const analyze = async () => {
@@ -50,10 +78,16 @@ export const FiscalPreparation: React.FC = () => {
       try {
         setStage('preparing');
         const operationTitle = description.trim().replace(/\s+/g, ' ').slice(0, 72);
+        const cfdiRecords = await readCfdiFiles(files);
+        const cfdiContext = formatCfdiContext(cfdiRecords);
+        const review = REVIEW_OPTIONS.find((option) => option.value === reviewFocus) || REVIEW_OPTIONS[0];
+        const analysisContext = [description.trim(), cfdiContext ? `DATOS LEÍDOS DE CFDI XML:\n${cfdiContext}` : ''].filter(Boolean).join('\n\n');
         updateFiscalOperationState({
           title: operationTitle || 'Operación fiscal',
           description: description.trim(),
-          evidenceFiles: files.map((file) => ({ name: file.name, type: file.type })),
+          reviewFocus,
+          cfdiRecords,
+          evidenceFiles: files.map((file) => ({ name: file.name, type: normalizedMime(file) })),
         });
         
         setStage('analyzing');
@@ -61,8 +95,8 @@ export const FiscalPreparation: React.FC = () => {
         
         const response = await runFiscalAnalysis({
           caseId: currentCaseId || undefined,
-          context: description,
-          instruction: PREPARATION_INSTRUCTION,
+          context: analysisContext,
+          instruction: `${review.instruction} Separa evidencia disponible, elementos que requieren atención, documentación faltante y siguientes acciones. No presentes como validado lo que sólo fue leído del documento. No inventes hechos ni fundamentos.`,
           files,
           syntheticFileName: 'Descripcion_Operacion_Fiscal.txt',
         });
@@ -74,7 +108,7 @@ export const FiscalPreparation: React.FC = () => {
           id: response.requestId,
           requestId: response.requestId,
           timestamp: new Date().toISOString(),
-          files: files.map((file) => ({ name: file.name, type: file.type })),
+          files: files.map((file) => ({ name: file.name, type: normalizedMime(file) })),
           result: response.result,
           module: 'fiscal',
           ecosystem: 'fiscal',
@@ -85,10 +119,10 @@ export const FiscalPreparation: React.FC = () => {
           engine: response.engine,
         });
         completeFiscalOperationStep('preparation');
-        notify('Estado preventivo listo.', 'success', 'Preparación fiscal');
+        notify('Revisión de la operación lista.', 'success', 'Fiscal');
       } catch (error: any) {
         if (error.message !== 'AbortError' && error.name !== 'AbortError') {
-          notify(error?.message || 'No se pudo revisar la operación.', 'error', 'Preparación fiscal');
+          notify(error?.message || 'No se pudo revisar la operación.', 'error', 'Fiscal');
         }
         throw error;
       } finally {
@@ -139,15 +173,40 @@ export const FiscalPreparation: React.FC = () => {
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-fiscal/10 text-fiscal">
                 <ShieldCheck size={24} strokeWidth={1.8} />
               </div>
-              <div><h2 className="text-2xl font-bold text-slate-950">Preparación fiscal de operación</h2><p className="mt-1 max-w-2xl text-sm text-slate-600">Describe la operación e integra la evidencia disponible.</p></div>
+              <div><h2 className="text-2xl font-bold text-slate-950">Revisar operación</h2><p className="mt-1 max-w-2xl text-sm text-slate-600">Describe la operación y agrega los documentos disponibles.</p></div>
             </header>
 
             <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
-              <label htmlFor="fiscal-operation" className="text-base font-bold text-slate-900">Describe la operación</label>
+              <fieldset>
+                <legend className="text-sm font-bold text-slate-900">Qué quieres revisar</legend>
+                <div className="mt-3 flex flex-wrap gap-2" role="radiogroup" aria-label="Alcance de la revisión">
+                  {REVIEW_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={reviewFocus === option.value}
+                      onClick={() => { setReviewFocus(option.value); updateFiscalOperationState({ reviewFocus: option.value }); }}
+                      className={`rounded-full border px-4 py-2 text-xs font-bold transition ${reviewFocus === option.value ? 'border-fiscal bg-fiscal text-white' : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-fiscal/30 hover:text-fiscal'}`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+
+              <label htmlFor="fiscal-operation" className="mt-6 block text-base font-bold text-slate-900">Describe la operación</label>
               <textarea
                 id="fiscal-operation"
                 value={description}
-                onChange={(event) => { setDescription(event.target.value); updateFiscalOperationState({ description: event.target.value }); }}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setDescription(value);
+                  updateFiscalOperationState({
+                    description: value,
+                    title: value.trim().replace(/\s+/g, ' ').slice(0, 72),
+                  });
+                }}
                 rows={3}
                 disabled={isAnalyzing}
                 placeholder="Ej: Pago de 500,000 MXN a un proveedor de servicios de marketing. Tenemos CFDI y transferencia bancaria, pero no existe contrato formal…"
@@ -155,11 +214,11 @@ export const FiscalPreparation: React.FC = () => {
               />
 
               <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 p-5">
-                <input ref={inputRef} type="file" multiple accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown" className="hidden" onChange={(event) => { addFiles(Array.from(event.target.files || [])); event.target.value = ''; }} />
+                <input ref={inputRef} type="file" multiple accept=".pdf,.xml,.txt,.md,application/pdf,application/xml,text/xml,text/plain,text/markdown" className="hidden" onChange={(event) => { addFiles(Array.from(event.target.files || [])); event.target.value = ''; }} />
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="font-bold text-slate-900">Evidencia opcional</p>
-                    <p className="mt-1 text-sm text-slate-500">Contratos, CFDI, pagos o entregables en PDF, TXT o Markdown. Máximo 5 archivos.</p>
+                    <p className="mt-1 text-sm text-slate-500">Contratos, CFDI XML, pagos o entregables. Máximo 5 archivos.</p>
                   </div>
                   <button type="button" onClick={() => inputRef.current?.click()} disabled={isAnalyzing} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 hover:border-fiscal/40 hover:text-fiscal disabled:opacity-50">
                     <FileUp size={18} /> Adjuntar
@@ -170,7 +229,7 @@ export const FiscalPreparation: React.FC = () => {
                     {files.map((file) => (
                       <span key={`${file.name}-${file.size}`} className="inline-flex items-center gap-2 rounded-full border border-fiscal/20 bg-white px-3 py-1.5 text-xs font-semibold text-fiscal">
                         <FileText size={13} /> {file.name}
-                        <button type="button" onClick={() => setFiles((current) => current.filter((item) => item !== file))} aria-label={`Quitar ${file.name}`} className="rounded-full p-0.5 hover:bg-fiscal/10"><X size={12} /></button>
+                        <button type="button" onClick={() => removeFile(file)} aria-label={`Quitar ${file.name}`} className="rounded-full p-0.5 hover:bg-fiscal/10"><X size={12} /></button>
                       </span>
                     ))}
                   </div>
@@ -188,7 +247,7 @@ export const FiscalPreparation: React.FC = () => {
               <div className="mt-6 flex justify-end">
                 <button type="button" onClick={() => void analyze()} disabled={isAnalyzing || !description.trim()} className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-fiscal px-6 text-sm font-bold text-white transition hover:bg-fiscal-light disabled:cursor-not-allowed disabled:opacity-40">
                   {isAnalyzing ? <Loader2 size={18} className="animate-spin" /> : <ShieldCheck size={18} />}
-                  {isAnalyzing ? 'Revisando operación' : 'Revisar preparación'}
+                  {isAnalyzing ? 'Revisando operación' : 'Revisar operación'}
                 </button>
               </div>
             </motion.section>

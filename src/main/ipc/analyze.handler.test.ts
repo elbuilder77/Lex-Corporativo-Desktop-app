@@ -20,7 +20,7 @@ vi.mock('@lancedb/lancedb', () => ({
   connect: vi.fn(),
 }));
 
-import { parseAnalyzePayload } from './analyze.handler';
+import { isAllowedAnalysisFile, parseAnalyzePayload } from './analyze.handler';
 
 const basePayload = {
   caseId: 'activity_fiscal',
@@ -74,5 +74,10 @@ describe('analysis payload contract', () => {
       ecosystem: 'mercantil',
       promptProfile: 'mercantil_analysis',
     })).toThrow();
+  });
+
+  it('accepts CFDI XML as local text evidence', () => {
+    expect(isAllowedAnalysisFile({ name: 'cfdi.xml', mimeType: 'application/xml' })).toBe(true);
+    expect(isAllowedAnalysisFile({ name: 'cfdi.xml', mimeType: 'application/octet-stream' })).toBe(true);
   });
 });

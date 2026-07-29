@@ -90,7 +90,11 @@ export function fileToEvidence(file: File): Promise<FiscalEvidenceUpload> {
       const value = String(reader.result || '');
       resolve({
         name: file.name,
-        mimeType: file.name.toLowerCase().endsWith('.md') ? 'text/markdown' : (file.type || 'application/octet-stream'),
+        mimeType: file.name.toLowerCase().endsWith('.md')
+          ? 'text/markdown'
+          : file.name.toLowerCase().endsWith('.xml')
+            ? 'application/xml'
+            : (file.type || 'application/octet-stream'),
         base64: value.includes(',') ? value.split(',')[1] : value,
       });
     };
