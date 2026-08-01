@@ -3,10 +3,10 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export const CORPUS_DIR = path.resolve(__dirname, '../src-rust/corpus');
-export const LANCEDB_DIR = path.resolve(__dirname, '../src-rust/lance_data');
+export const CORPUS_DIR = path.resolve(__dirname, '../legal-runtime/corpus');
+export const LANCEDB_DIR = path.resolve(__dirname, '../legal-runtime/lance_data');
 export const MANIFEST_PATH = path.resolve(__dirname, '../reports/audits/legal_knowledge_manifest.json');
-export const CORPUS_MANIFEST_PATH = path.resolve(__dirname, '../src-rust/corpus/corpus-manifest.json');
+export const CORPUS_MANIFEST_PATH = path.resolve(__dirname, '../legal-runtime/corpus/corpus-manifest.json');
 export const RETRIEVAL_PROBE_PATH = path.resolve(__dirname, '../reports/audits/legal_retrieval_probe.json');
 export const EMBEDDING_MODEL = 'Xenova/all-MiniLM-L6-v2';
 export const CORPUS_SCHEMA_VERSION = 1;

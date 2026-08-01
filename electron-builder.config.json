@@ -19,7 +19,7 @@
   ],
   "extraResources": [
     {
-      "from": "src-rust/models",
+      "from": "legal-runtime/models",
       "to": "legal-runtime/models",
       "filter": [
         "**/*.onnx",
@@ -27,11 +27,11 @@
       ]
     },
     {
-      "from": "src-rust/lance_data",
+      "from": "legal-runtime/lance_data",
       "to": "legal-runtime/lance_data"
     },
     {
-      "from": "src-rust/corpus/corpus-manifest.json",
+      "from": "legal-runtime/corpus/corpus-manifest.json",
       "to": "legal-runtime/corpus-manifest.json"
     },
     {

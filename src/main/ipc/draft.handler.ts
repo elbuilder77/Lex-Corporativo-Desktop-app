@@ -1,8 +1,7 @@
-import { app, ipcMain } from 'electron';
+import { ipcMain } from 'electron';
 import { z } from 'zod';
 import { getHybridLegalContext } from '../lib/rag';
-import { getDraftInstruction, getNoRagWarning } from '../lib/prompts';
-import { sendToRustEngine, rustEngineEvents } from '../lib/local-generation-disabled';
+import { getDraftInstruction } from '../lib/prompts';
 import {
   getDraftingPromptProfile,
   isPromptProfileForEcosystem,
@@ -10,11 +9,6 @@ import {
   type LegalEcosystem,
 } from '../../shared/legal-contracts';
 import * as crypto from 'crypto';
-import * as fs from 'fs';
-import * as path from 'path';
-import Handlebars from 'handlebars';
-import { generateFlatJsonGrammar } from '../lib/gbnf-generator';
-import { isPagareRequest, isEscritoSatRequest } from '../lib/templates';
 import { getActiveByokConfig } from '../lib/byok-settings';
 import { composeLimitedByokPrompt, generateByokText } from '../lib/byok-client';
 import { extractTextContentAsync } from '../lib/pdf-parser';
@@ -132,42 +126,8 @@ async function extractReferenceFile(payload: DraftPayload): Promise<string> {
   return buffer.toString('utf8').slice(0, 60_000);
 }
 
-// Configuración de las plantillas deterministas
-const TEMPLATES_CONFIG = {
-  pagare: {
-    file: 'pagare_mercantil.hbs',
-    keys: ["nombre_acreedor", "lugar_pago", "fecha_pago", "monto_numero", "monto_letra", "interes_moratorio", "nombre_deudor", "fecha_suscripcion"]
-  },
-  escrito_sat: {
-    file: 'escrito_sat.hbs',
-    keys: ["contribuyente", "rfc", "domicilio", "autoridad", "folio", "hechos"]
-  }
-};
-
-function resolveBundledTemplatePath(fileName: string): string {
-  const templatesRoot = app.isPackaged
-    ? path.join(process.resourcesPath, 'plantillas')
-    : path.resolve(process.cwd(), 'plantillas');
-  const templatePath = path.resolve(templatesRoot, fileName);
-  const relativePath = path.relative(templatesRoot, templatePath);
-
-  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-    throw new Error('La ruta de plantilla no es válida.');
-  }
-
-  return templatePath;
-}
-
 function formatDraftError(err: any): string {
   const message = String(err?.message || '');
-
-  if (message.includes('TIMEOUT')) {
-    return 'El motor local tardó demasiado en generar el documento. Intenta de nuevo con instrucciones más concretas.';
-  }
-
-  if (message.includes('se detuvo inesperadamente')) {
-    return 'El motor local se detuvo durante la generación. Reinicia la app y vuelve a intentar con instrucciones más concretas.';
-  }
 
   if (message.includes('no pertenece al ecosistema')) {
     return message;
@@ -181,64 +141,11 @@ function formatDraftError(err: any): string {
     return message;
   }
 
-  return 'No se pudo generar el documento local. Revisa las instrucciones y vuelve a intentar.';
-}
-
-function collectRustStream<T>(
-  requestId: string,
-  onDone: (content: string) => T,
-  timeoutMs = 300_000
-): Promise<T> {
-  return new Promise((resolve, reject) => {
-    let content = '';
-    let settled = false;
-
-    const cleanup = () => {
-      clearTimeout(timeoutId);
-      rustEngineEvents.removeListener('STREAM_CHUNK', chunkListener);
-      rustEngineEvents.removeListener('ENGINE_DIED', engineDiedListener);
-    };
-
-    const settleReject = (err: Error) => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      reject(err);
-    };
-
-    const timeoutId = setTimeout(() => {
-      settleReject(new Error('TIMEOUT'));
-    }, timeoutMs);
-
-    const chunkListener = (data: any) => {
-      if (data.requestId !== requestId) return;
-
-      if (data.payload.isDone) {
-        if (settled) return;
-        settled = true;
-        cleanup();
-        try {
-          resolve(onDone(content));
-        } catch (err: any) {
-          reject(err);
-        }
-      } else {
-        content += data.payload.chunk || '';
-      }
-    };
-
-    const engineDiedListener = () => {
-      settleReject(new Error('El motor local se detuvo inesperadamente durante la redacción.'));
-    };
-
-    rustEngineEvents.on('STREAM_CHUNK', chunkListener);
-    rustEngineEvents.on('ENGINE_DIED', engineDiedListener);
-  });
+  return 'No se pudo generar el documento. Revisa la conexión, la API key y las instrucciones antes de reintentar.';
 }
 
 export function registerDraftHandlers(): void {
   ipcMain.handle('ipc:draft', async (_event, rawPayload: unknown) => {
-    const startMs = Date.now();
     
     try {
       // 1. Zod input sanitation
@@ -416,171 +323,7 @@ export function registerDraftHandlers(): void {
           fallbackReason,
         };
       }
-      
-      const isPagare = activeModule === 'mercantil' && (payload.templateId === 'mercantil-pagare' || isPagareRequest(payload.requirements));
-      const isEscritoSat = activeModule === 'fiscal' && (payload.templateId === 'fiscal-escrito-sat' || isEscritoSatRequest(payload.requirements));
-      const isTemplated = isPagare || isEscritoSat;
 
-      const templateType = isPagare ? 'pagare' : (isEscritoSat ? 'escrito_sat' : null);
-
-      if (templateType) {
-        // FLUJO DETERMINISTA: GBNF + HANDLEBARS
-        const config = TEMPLATES_CONFIG[templateType];
-        const hbsSource = fs.readFileSync(resolveBundledTemplatePath(config.file), 'utf-8');
-        const template = Handlebars.compile(hbsSource);
-        const grammar = generateFlatJsonGrammar(config.keys);
-
-        const promptQuery = `Eres un extractor de datos jurídicos. Lee la petición y extrae los valores. Si falta algo pon '[DATO FALTANTE]'.
-SOLICITUD: "${payload.requirements}"`;
-
-        const requestId = crypto.randomUUID();
-        const rustPayload = {
-          command: 'LLM_QUERY',
-          requestId,
-          payload: {
-            module: "extraction",
-            workflowModule: 'drafting',
-            promptProfile,
-            query: promptQuery,
-            ragContext: "IGNORAR_RAG_PARA_EXTRACCION",
-            grammar: grammar,
-            temperature: 0.0 // Cero alucinaciones
-          }
-        };
-
-        console.info(`[IPC Draft] Extrayendo datos con GBNF dinámico para ${templateType}...`);
-
-        const resultPromise = collectRustStream(requestId, (content) => {
-          console.info(`[IPC Draft] Extracción JSON exitosa en ${Date.now() - startMs}ms`);
-
-          try {
-            // El motor generó un JSON válido garantizado por la gramática
-            const extractedData = JSON.parse(content);
-            const documentoFinal = template(extractedData);
-            logLegalExecution({
-              requestId,
-              operation: 'drafting',
-              module: activeModule,
-              primaryModel: 'gemma-2-2b-it-q4',
-              finalModelUsed: 'local-template',
-              hasFallback: Boolean(fallbackReason),
-              fallbackReason,
-              prompt: payload.requirements,
-              ragContext: 'deterministic-template-extraction',
-              output: documentoFinal,
-            });
-            return {
-              result: documentoFinal,
-              requestId,
-              ecosystem: activeModule,
-              module: 'drafting',
-              promptProfile,
-              sourceAnalysisId: payload.sourceAnalysisId,
-              templateId: payload.templateId,
-              engine: 'local-template',
-              requestedExecutionMode,
-              fallbackReason,
-            };
-          } catch (e: any) {
-            const errorResult = "Error al inyectar los datos en el machote: " + e.message;
-            logLegalExecution({
-              requestId,
-              operation: 'drafting',
-              module: activeModule,
-              primaryModel: 'gemma-2-2b-it-q4',
-              finalModelUsed: 'local-template-error',
-              hasFallback: Boolean(fallbackReason),
-              fallbackReason,
-              prompt: payload.requirements,
-              ragContext: 'deterministic-template-extraction',
-              output: errorResult,
-            });
-            return {
-              result: errorResult,
-              requestId,
-              ecosystem: activeModule,
-              module: 'drafting',
-              promptProfile,
-              sourceAnalysisId: payload.sourceAnalysisId,
-              templateId: payload.templateId,
-              engine: 'local-template',
-              requestedExecutionMode,
-              fallbackReason,
-            };
-          }
-        });
-        sendToRustEngine(rustPayload);
-        return await resultPromise;
-      } else {
-        // FLUJO TRADICIONAL RAG (Si no es una plantilla predefinida)
-        const ragContext = await getHybridLegalContext(
-          payload.requirements,
-          activeModule,
-          6,
-          true,
-          'local',
-        );
-
-        const requestId = crypto.randomUUID();
-        const promptQuery = [
-          `CONTRATO DE REDACCIÓN: ${promptProfile}`,
-          `ECOSISTEMA ACTIVO: ${activeModule}`,
-          payload.sourceAnalysisId ? `DICTAMEN VINCULADO: ${payload.sourceAnalysisId}` : 'DICTAMEN VINCULADO: no seleccionado',
-          '',
-              'PROYECCIÓN DE INSTRUMENTO:',
-              payload.requirements,
-              referenceContext ? `\nDOCUMENTO BASE: corrige o edita únicamente lo solicitado y conserva el contenido restante.\n${referenceContext}` : '',
-              '',
-          'REGLAS DE PROYECCIÓN:',
-          getDraftInstruction(activeModule),
-        ].filter(Boolean).join('\n');
-
-        const rustPayload = {
-          command: 'LLM_QUERY',
-          requestId,
-          payload: {
-            module: activeModule,
-            workflowModule: 'drafting',
-            promptProfile,
-            query: promptQuery,
-            ragContext: ragContext.context || getNoRagWarning(activeModule),
-            temperature: 0.2
-          }
-        };
-
-        console.info(`[IPC Draft] Generating custom legal draft with RAG...`);
-
-        const resultPromise = collectRustStream(requestId, (content) => {
-          console.info(`[IPC Draft] Drafting successfully finished in ${Date.now() - startMs}ms`);
-          logLegalExecution({
-            requestId,
-            operation: 'drafting',
-            module: activeModule,
-            primaryModel: requestedExecutionMode === 'byok' ? `${byok.provider}:${byok.model}` : 'gemma-2-2b-it-q4',
-            finalModelUsed: 'gemma-2-2b-it-q4',
-            hasFallback: Boolean(fallbackReason),
-            fallbackReason,
-            prompt: payload.requirements,
-            ragContext: ragContext.context,
-            output: content,
-            sources: ragContext.sources,
-          });
-          return {
-            result: content,
-            requestId,
-            ecosystem: activeModule,
-            module: 'drafting',
-            promptProfile,
-            sourceAnalysisId: payload.sourceAnalysisId,
-            templateId: payload.templateId,
-            engine: 'local-gemma',
-            requestedExecutionMode,
-            fallbackReason,
-          };
-        });
-        sendToRustEngine(rustPayload);
-        return await resultPromise;
-      }
     } catch (err: any) {
       console.error('[IPC Draft] Drafting engine failure:', err);
       throw new Error(formatDraftError(err));

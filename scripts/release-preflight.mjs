@@ -15,9 +15,9 @@ function exists(relative) {
   return fs.existsSync(path.join(root, relative));
 }
 
-check('vector-store', exists('src-rust/lance_data/legal_knowledge.lance'), 'LanceDB legal_knowledge.lance');
-check('corpus-manifest', exists('src-rust/corpus/corpus-manifest.json'), 'Manifiesto canónico del corpus');
-check('embedding-model', exists('src-rust/models/Xenova/all-MiniLM-L6-v2/onnx/model_quantized.onnx'), 'ONNX MiniLM cuantizado');
+check('vector-store', exists('legal-runtime/lance_data/legal_knowledge.lance'), 'LanceDB legal_knowledge.lance');
+check('corpus-manifest', exists('legal-runtime/corpus/corpus-manifest.json'), 'Manifiesto canónico del corpus');
+check('embedding-model', exists('legal-runtime/models/Xenova/all-MiniLM-L6-v2/onnx/model_quantized.onnx'), 'ONNX MiniLM cuantizado');
 check('templates', exists('plantillas'), 'Directorio de plantillas');
 check('app-icon', target === 'mac' ? exists('resources/icon.icns') : exists('resources/icon.png'), target === 'mac' ? 'resources/icon.icns' : 'resources/icon.png');
 

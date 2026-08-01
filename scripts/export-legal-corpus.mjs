@@ -66,7 +66,7 @@ function buildMarkdown(law, rows) {
     `> Código: ${law.code}`,
     `> Módulo: ${law.module}`,
     `> Fuente: ${law.url}`,
-    '> Generado desde src-rust/lance_data/legal_knowledge.lance para reconstrucción offline.',
+    '> Generado desde legal-runtime/lance_data/legal_knowledge.lance para reconstrucción offline.',
     '',
     entries,
     '',

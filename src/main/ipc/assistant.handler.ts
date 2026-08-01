@@ -94,7 +94,7 @@ export function registerAssistantHandlers(): void {
       throw new Error('Configura y activa una API key propia para usar el asistente.');
     } catch (err: any) {
       console.error('[IPC Assistant] Query failure:', err);
-      throw new Error(err.message || 'No se pudo obtener respuesta del asistente local.');
+      throw new Error(err.message || 'No se pudo obtener respuesta del asistente.');
     }
   });
 
@@ -108,13 +108,12 @@ export function registerAssistantHandlers(): void {
       if (!byok.enabled || !byok.apiKey) {
         throw new Error('Configura y activa una API key propia para realizar consultas fiscales.');
       }
-      const executionMode = byok.enabled && byok.apiKey ? 'byok' : 'local';
       const { context: legalContext, sources } = await getHybridLegalContext(
         payload.query,
         'fiscal',
-        executionMode === 'byok' ? 10 : 6,
+        10,
         false,
-        executionMode,
+        'byok',
       );
       const citationsAvailable = sources.length > 0;
       if (!citationsAvailable) {
@@ -148,7 +147,7 @@ export function registerAssistantHandlers(): void {
       let initialReason: string | undefined;
       let groundedClaims: GroundedClaim[] | undefined;
 
-      if (executionMode === 'byok' && byok.apiKey) {
+      {
         const structuredContract = [
           groundedContext,
           'Devuelve exclusivamente JSON conforme al esquema.',
@@ -219,8 +218,6 @@ export function registerAssistantHandlers(): void {
         initialReason = groundingOutcome.initialValidation?.reason;
         groundedClaims = groundingOutcome.output.claims;
         cleanResult = renderGroundedClaims(groundingOutcome.output, groundingSources);
-      } else {
-        throw new Error('La API key activa dejó de estar disponible durante la consulta.');
       }
 
       if (!grounding.valid) {
@@ -236,7 +233,7 @@ export function registerAssistantHandlers(): void {
           requestId,
           operation: 'consultation',
           module: 'fiscal',
-          primaryModel: executionMode === 'byok' ? `${byok.provider}:${byok.model}` : 'gemma-2-2b-it-q4',
+          primaryModel: `${byok.provider}:${byok.model}`,
           finalModelUsed: 'grounding-rejection-gate',
           hasFallback: true,
           fallbackReason: repaired ? `grounding_repair_failed:${grounding.reason}` : grounding.reason,
@@ -252,8 +249,8 @@ export function registerAssistantHandlers(): void {
         requestId,
         operation: 'consultation',
         module: 'fiscal',
-        primaryModel: executionMode === 'byok' ? `${byok.provider}:${byok.model}` : 'gemma-2-2b-it-q4',
-        finalModelUsed: executionMode === 'byok' ? `${byok.provider}:${byok.model}` : 'gemma-2-2b-it-q4',
+        primaryModel: `${byok.provider}:${byok.model}`,
+        finalModelUsed: `${byok.provider}:${byok.model}`,
         hasFallback: repaired,
         fallbackReason: repaired ? `grounding_repair:${initialReason}` : undefined,
         prompt: payload.query,
@@ -267,11 +264,11 @@ export function registerAssistantHandlers(): void {
         result: cleanResult,
         citationsAvailable,
         groundingStatus: 'grounded' as const,
-        provider: executionMode === 'byok' ? byok.provider : undefined,
+        provider: byok.provider,
       };
     } catch (err: any) {
       console.error('[IPC Fiscal Assistant] Query failure:', err);
-      throw new Error(err.message || 'No se pudo completar la consulta fiscal local.');
+      throw new Error(err.message || 'No se pudo completar la consulta fiscal.');
     }
   });
 }

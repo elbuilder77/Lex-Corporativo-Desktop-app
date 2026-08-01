@@ -1,10 +1,9 @@
 import { ipcMain } from 'electron';
 import { z } from 'zod';
-import { indexUserDocument, getDynamicLawsForChunk, cleanupUserDocumentRequest, getHybridLegalContext } from '../lib/rag';
+import { indexUserDocument, cleanupUserDocumentRequest, getHybridLegalContext } from '../lib/rag';
 import { chunkDocumentPages } from '../lib/chunking';
 import { extractTextContentAsync } from '../lib/pdf-parser';
 import { getSystemInstruction } from '../lib/prompts';
-import { sendToRustEngine, rustEngineEvents } from '../lib/local-generation-disabled';
 import { formatAnalyzeError } from '../lib/analysis-errors';
 import { lanceDbWriteMutex } from '../lib/mutex';
 import { getActiveByokConfig } from '../lib/byok-settings';
@@ -24,19 +23,6 @@ import {
   type LegalAnalysisEcosystem,
 } from '../../shared/legal-contracts';
 import * as crypto from 'crypto';
-
-function traceSourcesFromContexts(contexts: Iterable<string>) {
-  const seen = new Map<string, { id: string; type: string; title: string; subtitle: string; similarity: number }>();
-  for (const context of contexts) {
-    for (const match of context.matchAll(/^-\s+([A-Za-z0-9]+)\s+([^:\n]+):/gm)) {
-      const id = `${match[1]}:${match[2].trim()}`;
-      if (!seen.has(id)) {
-        seen.set(id, { id, type: 'statute', title: match[1], subtitle: match[2].trim(), similarity: 0 });
-      }
-    }
-  }
-  return [...seen.values()];
-}
 
 const LegalFoundationSchema = z.object({
   id: z.string(),
@@ -307,198 +293,13 @@ function extractJsonObject(rawText: string): string {
   return withoutFence;
 }
 
-function runLocalAnalysis(
-  requestId: string,
-  module: AnalysisModule,
-  promptProfile: AnalysisPromptProfile,
-  query: string,
-  ragContext: string
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let content = '';
-    const timeoutId = setTimeout(() => {
-      rustEngineEvents.removeListener('STREAM_CHUNK', chunkListener);
-      reject(new Error('TIMEOUT'));
-    }, 300_000);
-
-    const chunkListener = (data: any) => {
-      if (data.requestId !== requestId) return;
-
-      if (data.payload.isDone) {
-        clearTimeout(timeoutId);
-        rustEngineEvents.removeListener('STREAM_CHUNK', chunkListener);
-        rustEngineEvents.removeListener('ENGINE_DIED', engineDiedListener);
-        resolve(content);
-      } else {
-        content += data.payload.chunk || '';
-      }
-    };
-
-    const engineDiedListener = () => {
-      clearTimeout(timeoutId);
-      rustEngineEvents.removeListener('STREAM_CHUNK', chunkListener);
-      rustEngineEvents.removeListener('ENGINE_DIED', engineDiedListener);
-      reject(new Error('El motor de IA se detuvo inesperadamente.'));
-    };
-
-    rustEngineEvents.on('STREAM_CHUNK', chunkListener);
-    rustEngineEvents.on('ENGINE_DIED', engineDiedListener);
-    sendToRustEngine({
-      command: 'LLM_QUERY',
-      requestId,
-      payload: {
-        module,
-        workflowModule: 'analysis',
-        promptProfile,
-        currentDocumentOnly: true,
-        query,
-        ragContext: ragContext || 'Sin contexto específico',
-      },
-    });
-  });
-}
-
-function evaluateChunksBatchLocal(
-  requestId: string,
-  module: AnalysisModule,
-  promptProfile: AnalysisPromptProfile,
-  ragLaws: string,
-  chunks: { chunkIndex: number, text: string, pageNumber?: number }[]
-): Promise<any[]> {
-  return new Promise((resolve, reject) => {
-    const results: any[] = [];
-
-    const timeoutId = setTimeout(() => {
-      cleanup();
-      reject(new Error('TIMEOUT in evaluateChunksBatchLocal'));
-    }, 300_000);
-
-    const chunkResultListener = (data: any) => {
-      if (data.requestId !== requestId) return;
-      if (data.error) {
-        console.warn(`[EVALUATE_CHUNKS] Error en chunk ${data.chunkIndex}:`, data.error);
-        return; // we still wait for batch done
-      }
-      results.push({
-        chunkIndex: data.chunkIndex,
-        risk_level: data.risk,
-        reasoning: data.findings?.[0],
-        legal_basis: data.citations?.[0]
-      });
-    };
-
-    const batchDoneListener = (data: any) => {
-      if (data.requestId !== requestId) return;
-      cleanup();
-      if (data.error && results.length === 0) {
-        reject(new Error(data.error));
-      } else {
-        resolve(results);
-      }
-    };
-
-    const engineDiedListener = () => {
-      cleanup();
-      reject(new Error('El motor de IA se detuvo inesperadamente durante evaluateChunksBatchLocal.'));
-    };
-
-    const cleanup = () => {
-      clearTimeout(timeoutId);
-      rustEngineEvents.removeListener('ANALYSIS_CHUNK_RESULT', chunkResultListener);
-      rustEngineEvents.removeListener('ANALYSIS_BATCH_DONE', batchDoneListener);
-      rustEngineEvents.removeListener('ENGINE_DIED', engineDiedListener);
-    };
-
-    rustEngineEvents.on('ANALYSIS_CHUNK_RESULT', chunkResultListener);
-    rustEngineEvents.on('ANALYSIS_BATCH_DONE', batchDoneListener);
-    rustEngineEvents.on('ENGINE_DIED', engineDiedListener);
-
-    sendToRustEngine({
-      command: 'EVALUATE_CHUNKS',
-      requestId,
-      payload: {
-        module,
-        promptProfile,
-        ragLaws: ragLaws || 'Sin contexto específico',
-        chunks: chunks.map(c => ({
-          chunkIndex: c.chunkIndex,
-          pageNumber: c.pageNumber,
-          text: c.text
-        })),
-      },
-    });
-  });
-}
-
-function evaluateChunkLocal(
-  requestId: string,
-  module: AnalysisModule,
-  promptProfile: AnalysisPromptProfile,
-  ragLaws: string,
-  documentChunk: string
-): Promise<any> {
-  return new Promise((resolve, reject) => {
-    const timeoutId = setTimeout(() => {
-      rustEngineEvents.removeListener('EVALUATE_CHUNK_RESULT', resultListener);
-      rustEngineEvents.removeListener('EVALUATE_CHUNK_ERROR', errorListener);
-      reject(new Error('TIMEOUT in evaluateChunkLocal'));
-    }, 120_000);
-
-    const resultListener = (data: any) => {
-      if (data.requestId !== requestId) return;
-      clearTimeout(timeoutId);
-      rustEngineEvents.removeListener('EVALUATE_CHUNK_RESULT', resultListener);
-      rustEngineEvents.removeListener('EVALUATE_CHUNK_ERROR', errorListener);
-      rustEngineEvents.removeListener('ENGINE_DIED', engineDiedListener);
-      resolve(data.payload);
-    };
-
-    const errorListener = (data: any) => {
-      if (data.requestId !== requestId) return;
-      clearTimeout(timeoutId);
-      rustEngineEvents.removeListener('EVALUATE_CHUNK_RESULT', resultListener);
-      rustEngineEvents.removeListener('EVALUATE_CHUNK_ERROR', errorListener);
-      rustEngineEvents.removeListener('ENGINE_DIED', engineDiedListener);
-      reject(new Error(data.payload.error || 'Unknown error evaluating chunk'));
-    };
-
-    const engineDiedListener = () => {
-      clearTimeout(timeoutId);
-      rustEngineEvents.removeListener('EVALUATE_CHUNK_RESULT', resultListener);
-      rustEngineEvents.removeListener('EVALUATE_CHUNK_ERROR', errorListener);
-      rustEngineEvents.removeListener('ENGINE_DIED', engineDiedListener);
-      reject(new Error('El motor de IA se detuvo inesperadamente durante evaluateChunkLocal.'));
-    };
-
-    rustEngineEvents.on('EVALUATE_CHUNK_RESULT', resultListener);
-    rustEngineEvents.on('EVALUATE_CHUNK_ERROR', errorListener);
-    rustEngineEvents.on('ENGINE_DIED', engineDiedListener);
-    
-    sendToRustEngine({
-      command: 'EVALUATE_CHUNK',
-      requestId,
-      payload: {
-        module,
-        promptProfile,
-        ragLaws: ragLaws || 'Sin contexto específico',
-        documentChunk,
-      },
-    });
-  });
-}
-
 interface AnalyzeDependencies {
   extractTextContentAsync: typeof extractTextContentAsync;
   chunkDocumentPages: typeof chunkDocumentPages;
   indexUserDocument: typeof indexUserDocument;
-  runLocalAnalysis: typeof runLocalAnalysis;
-  getDynamicLawsForChunk: typeof getDynamicLawsForChunk;
   getHybridLegalContext: typeof getHybridLegalContext;
-  evaluateChunkLocal: typeof evaluateChunkLocal;
-  evaluateChunksBatchLocal: typeof evaluateChunksBatchLocal;
   cleanupUserDocumentRequest: typeof cleanupUserDocumentRequest;
   randomUUID: () => string;
-  now: () => number;
   logger: Pick<typeof console, 'error' | 'info' | 'warn'>;
 }
 
@@ -506,14 +307,9 @@ const defaultAnalyzeDependencies: AnalyzeDependencies = {
   extractTextContentAsync,
   chunkDocumentPages,
   indexUserDocument,
-  runLocalAnalysis,
-  getDynamicLawsForChunk,
   getHybridLegalContext,
-  evaluateChunkLocal,
-  evaluateChunksBatchLocal,
   cleanupUserDocumentRequest,
   randomUUID: crypto.randomUUID,
-  now: Date.now,
   logger: console,
 };
 
@@ -521,9 +317,8 @@ export async function processAnalyzePayload(
   rawPayload: unknown,
   eventSender: Electron.WebContents | null,
   dependencyOverrides: Partial<AnalyzeDependencies> = {}
-): Promise<{ result: string; requestId: string; ecosystem: AnalysisModule; module: 'analysis'; promptProfile: AnalysisPromptProfile; currentDocumentOnly: true; engine: 'local-gemma' | 'byok'; requestedExecutionMode: 'byok'; provider?: 'gemini' | 'openai' | 'anthropic'; fallbackReason?: string }> {
+): Promise<{ result: string; requestId: string; ecosystem: AnalysisModule; module: 'analysis'; promptProfile: AnalysisPromptProfile; currentDocumentOnly: true; engine: 'byok'; requestedExecutionMode: 'byok'; provider: 'gemini' | 'openai' | 'anthropic'; fallbackReason?: string }> {
   const deps = { ...defaultAnalyzeDependencies, ...dependencyOverrides };
-  const startMs = deps.now();
   let analysisRequestId: string | null = null;
 
   const cleanupTemporaryDocumentRag = async () => {
@@ -612,7 +407,6 @@ export async function processAnalyzePayload(
       throw new Error('Configura y activa una API key propia antes de analizar documentos.');
     }
     const requestedExecutionMode = 'byok' as const;
-    const retrievedLegalContexts = new Set<string>();
 
     {
       emitProgress(3, 'Buscando fundamentos en corpus local');
@@ -622,7 +416,6 @@ export async function processAnalyzePayload(
       if (ragContext.sources.length === 0 || !ragContext.context.trim()) {
         throw new Error('La revisión BYOK se bloqueó porque el corpus local no recuperó fundamentos verificables. No se enviaron datos al proveedor.');
       }
-      retrievedLegalContexts.add(ragContext.context);
 
       emitProgress(4, `Analizando con ${byok.provider} BYOK`);
       const documentSources = selectedChunks.map((chunk, index) => ({
@@ -767,143 +560,6 @@ export async function processAnalyzePayload(
       };
     }
 
-    emitProgress(3, 'Buscando fundamentos en corpus local');
-    const allFindings: any[] = [];
-    const batchGroups = new Map<string, { ragLaws: string, chunks: { chunkIndex: number, text: string, fileName: string, pageNumber?: number }[] }>();
-
-    for (let i = 0; i < allDocumentChunks.length; i++) {
-      const chunk = allDocumentChunks[i];
-      if (!chunk.text.trim()) continue;
-      const ragLaws = await deps.getDynamicLawsForChunk(chunk.text, activeModule, 2);
-      retrievedLegalContexts.add(ragLaws);
-      const hashKey = crypto.createHash('sha1').update(ragLaws).digest('hex');
-
-      if (!batchGroups.has(hashKey)) {
-        batchGroups.set(hashKey, { ragLaws, chunks: [] });
-      }
-      batchGroups.get(hashKey)!.chunks.push({ chunkIndex: i, text: chunk.text, fileName: chunk.fileName, pageNumber: chunk.pageNumber });
-    }
-
-    for (const [hashKey, group] of batchGroups.entries()) {
-      try {
-        const batchResults = await deps.evaluateChunksBatchLocal(currentAnalysisRequestId, activeModule, promptProfile, group.ragLaws, group.chunks);
-        for (const res of batchResults) {
-          if (res && res.risk_level && !res.risk_level.toLowerCase().includes('nulo')) {
-            const originalChunk = group.chunks.find(c => c.chunkIndex === res.chunkIndex);
-            if (originalChunk) {
-              allFindings.push({
-                archivo: originalChunk.fileName,
-                pagina: originalChunk.pageNumber,
-                nivel_de_riesgo: res.risk_level,
-                fundamento_legal: res.legal_basis,
-                razonamiento: res.reasoning
-              });
-            }
-          }
-        }
-      } catch (err: any) {
-        deps.logger.warn(`Fallback evaluateChunkLocal for context ${hashKey}`);
-        for (const chunk of group.chunks) {
-           try {
-             const auditResult = await deps.evaluateChunkLocal(currentAnalysisRequestId, activeModule, promptProfile, group.ragLaws, chunk.text);
-             if (auditResult && auditResult.risk_level && !auditResult.risk_level.toLowerCase().includes('nulo')) {
-               allFindings.push({ archivo: chunk.fileName, pagina: chunk.pageNumber, nivel_de_riesgo: auditResult.risk_level, fundamento_legal: auditResult.legal_basis, razonamiento: auditResult.reasoning });
-             }
-           } catch (e: any) {}
-        }
-      }
-    }
-
-    emitProgress(4, 'Generando análisis');
-    let findingsText = 'No se detectaron riesgos o violaciones legales.';
-    if (allFindings.length > 0) {
-      findingsText = JSON.stringify(allFindings, null, 2);
-    }
-
-    const reducePrompt = `${getSystemInstruction(activeModule)}
-El usuario instruyó: "${userPrompt}" sobre: ${filenames.join(', ')}.
-
-Auditoría preliminar encontró estos riesgos/hallazgos:
-\`\`\`json
-${findingsText}
-\`\`\`
-
-Debes generar un análisis final STRICTAMENTE en formato JSON válido que cumpla con esta interfaz TypeScript:
-type LegalFoundation = { id: string; title: string; law: string; article?: string; excerpt?: string; relevanceScore?: number; };
-type DocumentAnalysisResult = {
-  summary: string;
-  documentType: string;
-  riskScore: number; // 0 a 100
-  detectedParties: string[];
-  detectedObligations: string[];
-  missingClauses: string[];
-  missingData: string[];
-  risks: Array<{ title: string; severity: "low" | "medium" | "high"; explanation: string; relatedClauses: string[]; legalFoundations: LegalFoundation[]; }>;
-  recommendedActions: string[];
-  checklist: string[];
-  riskCategories?: {
-    materialidad?: string[];
-    deducibilidad?: string[];
-    ivaAcreditable?: string[];
-    operacionesInexistentes?: string[];
-  };
-  legalFoundations: LegalFoundation[]; // globales del documento
-  confidence: "low" | "medium" | "high";
-  engine: "hybrid";
-};
-
-Reglas específicas:
-- Identifica soporte de materialidad, CFDI, contratos, requerimientos, defensas, papeles de trabajo, documentación soporte o expedientes fiscales.
-- Detecta materialidad, CFDI, contraprestación, evidencia, entregables, proveedor, cliente, fechas y pagos.
-- Si falta información, registra el dato en missingData y usa [DATO FALTANTE] cuando corresponda.
-- checklist debe contener acciones/documentos verificables para cerrar el riesgo.
-
-Responde SOLO con el JSON, sin bloques de código ni texto adicional. No inventes fundamentos, usa solo los recuperados del ecosistema activo.`;
-
-    const resultStr = await deps.runLocalAnalysis(
-      currentAnalysisRequestId,
-      activeModule,
-      promptProfile,
-      reducePrompt,
-      'Consolidación de Auditoría en Formato JSON Estricto'
-    );
-
-    // Extraer JSON si el modelo incluyó texto antes/después o bloques de código
-    let cleanJson = resultStr.trim();
-    if (cleanJson.startsWith('\`\`\`json')) {
-      cleanJson = cleanJson.substring(7);
-      if (cleanJson.endsWith('\`\`\`')) cleanJson = cleanJson.slice(0, -3);
-    }
-
-    emitProgress(5, 'Preparando reporte');
-    deps.logger.info(`[IPC Analyze] Audit successfully completed in ${deps.now() - startMs}ms`);
-
-    logLegalExecution({
-      requestId: currentAnalysisRequestId,
-      operation: 'analysis',
-      module: activeModule,
-      primaryModel: requestedExecutionMode === 'byok' ? `${byok.provider}:${byok.model}` : 'gemma-2-2b-it-q4',
-      finalModelUsed: 'gemma-2-2b-it-q4',
-      hasFallback: Boolean(fallbackReason),
-      fallbackReason,
-      prompt: userPrompt,
-      ragContext: [...retrievedLegalContexts].join('\n\n'),
-      output: cleanJson,
-      sources: traceSourcesFromContexts(retrievedLegalContexts),
-    });
-
-    await cleanupTemporaryDocumentRag();
-    return {
-      result: cleanJson,
-      requestId: currentAnalysisRequestId,
-      ecosystem: activeModule,
-      module: 'analysis',
-      promptProfile,
-      currentDocumentOnly: true,
-      engine: 'local-gemma',
-      requestedExecutionMode,
-      fallbackReason,
-    };
   } catch (err: any) {
     await cleanupTemporaryDocumentRag();
     deps.logger.error('[IPC Analyze] Auditor engine failure:', err);

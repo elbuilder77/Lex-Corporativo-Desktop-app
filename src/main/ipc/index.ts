@@ -55,7 +55,7 @@ export function registerIpcHandlers(): void {
     const byokSettings = getByokSettings();
     const embeddingModelPath = app.isPackaged
       ? join(process.resourcesPath, 'legal-runtime', 'models', 'Xenova', 'all-MiniLM-L6-v2', 'onnx', 'model_quantized.onnx')
-      : join(app.getAppPath(), 'src-rust', 'models', 'Xenova', 'all-MiniLM-L6-v2', 'onnx', 'model_quantized.onnx');
+      : join(app.getAppPath(), 'legal-runtime', 'models', 'Xenova', 'all-MiniLM-L6-v2', 'onnx', 'model_quantized.onnx');
     const embeddingsReady = existsSync(embeddingModelPath);
     const byokGenerationReady = byokSettings.enabled && byokSettings.hasApiKey;
     const legalSearchReady = ragReady && embeddingsReady;

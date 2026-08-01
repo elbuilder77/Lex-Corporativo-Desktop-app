@@ -50,7 +50,6 @@ tmp/
 tmp-asar-extract/
 tmp-packaged-package.json
 reports/
-src-rust/target/
-src-rust/lance_data/
+legal-runtime/lance_data/
 *.gguf
-src-rust/models/*.gguf
+legal-runtime/models/*.gguf

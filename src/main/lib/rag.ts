@@ -86,7 +86,7 @@ async function getExtractor() {
       env.localModelPath = getConfiguredModelRoot() || path.join(process.resourcesPath, 'legal-runtime', 'models');
     } else {
       env.allowRemoteModels = false; // Disable remote lookup to prevent hangs when offline
-      env.localModelPath = getConfiguredModelRoot() || path.join(app.getAppPath(), 'src-rust', 'models');
+      env.localModelPath = getConfiguredModelRoot() || path.join(app.getAppPath(), 'legal-runtime', 'models');
       env.cacheDir = env.localModelPath;
     }
     
@@ -193,7 +193,7 @@ function getRagCandidatePaths(): string[] {
   const userDataPath = path.join(app.getPath('userData'), 'lance_data');
   const bundledPath = app.isPackaged
     ? path.join(process.resourcesPath, 'legal-runtime', 'lance_data')
-    : path.join(app.getAppPath(), 'src-rust', 'lance_data');
+    : path.join(app.getAppPath(), 'legal-runtime', 'lance_data');
 
   return [...new Set([userDataPath, bundledPath])];
 }
@@ -208,7 +208,7 @@ function getLocalRagPath(): string {
   const userDataPath = path.join(app.getPath('userData'), 'lance_data');
   const bundledPath = app.isPackaged
     ? path.join(process.resourcesPath, 'legal-runtime', 'lance_data')
-    : path.join(app.getAppPath(), 'src-rust', 'lance_data');
+    : path.join(app.getAppPath(), 'legal-runtime', 'lance_data');
 
   if (!app.isPackaged) return bundledPath;
 
@@ -238,7 +238,7 @@ function escapeSqlLiteral(value: string): string {
 function getCorpusManifestPath(): string {
   return app.isPackaged
     ? path.join(process.resourcesPath, 'legal-runtime', 'corpus-manifest.json')
-    : path.join(app.getAppPath(), 'src-rust', 'corpus', 'corpus-manifest.json');
+    : path.join(app.getAppPath(), 'legal-runtime', 'corpus', 'corpus-manifest.json');
 }
 
 function getVerifiedLawCodes(): Set<string> {

@@ -36,8 +36,8 @@ function escapeSqlLiteral(value) {
 
 async function main() {
   env.allowRemoteModels = false;
-  env.localModelPath = path.resolve('src-rust/models');
-  env.cacheDir = path.resolve('src-rust/models');
+  env.localModelPath = path.resolve('legal-runtime/models');
+  env.cacheDir = path.resolve('legal-runtime/models');
   const extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
   const db = await lancedb.connect(LANCEDB_DIR);
   const table = await db.openTable('legal_knowledge');
