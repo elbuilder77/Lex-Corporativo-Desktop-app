@@ -1,40 +1,17 @@
 # Lex Corporativo Desktop
 
-Aplicación Electron de trabajo jurídico local para materias mercantil, corporativa y fiscal mexicana. Laboral permanece fuera del producto hasta contar con un corpus oficial verificado.
-
-Este repositorio contiene exclusivamente el producto instalado: renderer React, procesos main/preload, backend local, motor Rust, corpus jurídico, plantillas y configuración de empaquetado. El sitio comercial debe mantenerse en un repositorio separado.
-
-## Estado real
-
-La fuente corresponde a `1.0.0-rc.12`. El shell Electron, la bóveda SQLite, el frontend, el motor Rust y el corpus fuente pueden compilarse y probarse desde este repositorio. La estación ya ofrece dos modos de procesamiento: API propia (BYOK) y local. El modo local completo depende además de tres artefactos de runtime no incluidos en Git:
-
-- `src-rust/target/release/lex-engine.exe`
-- `src-rust/models/gemma-2-2b-it-Q4_K_M.gguf`
-- `src-rust/lance_data/legal_knowledge.lance`
-
-`runtime:get-health` es la fuente de verdad para distinguir una estación lista de una instalación degradada.
-
-La interfaz no bloquea el trabajo por esos artefactos: permite preparar el asunto y solicita elegir/configurar el modo de procesamiento únicamente al ejecutar una acción generativa. El empaquetado sí conserva un gate estricto para impedir que se distribuya una edición que prometa procesamiento local sin incluirlo.
+Aplicación Electron de trabajo jurídico para materias mercantil, corporativa y fiscal mexicana. La aplicación conserva localmente el portafolio, el corpus, LanceDB, los embeddings de búsqueda y la trazabilidad; las funciones generativas utilizan exclusivamente una API key aportada por el usuario (BYOK).
 
 ## Arquitectura
 
-- Electron Main: IPC, archivos, actualizaciones, BYOK y coordinación del runtime.
-- Preload: puente único `window.lexDesktop`, con renderer aislado de Node.
+- Electron Main y Preload: IPC, archivos, actualizaciones, BYOK y controles de seguridad.
 - React: navegación, portafolios y flujos jurídicos.
-- SQLite: bóveda local de portafolios, análisis, borradores y estado.
-- LanceDB + MiniLM: recuperación normativa y documentos temporales.
-- Rust + GGUF: generación local mediante proceso hijo.
-- API propia (BYOK): Gemini, OpenAI o Anthropic con API key cifrada por el sistema operativo.
-- JSONL local: trazabilidad mediante hashes, fuentes y metadatos mínimos.
+- SQLite: bóveda local cifrada de asuntos, análisis, borradores y estado.
+- LanceDB + MiniLM: recuperación local de normativa y fragmentos documentales temporales.
+- BYOK: generación mediante Gemini, OpenAI o Anthropic con API key cifrada por el sistema operativo.
+- Validación local: citas, afirmaciones, fuentes y trazabilidad mediante hashes.
 
-## Producto
-
-- Estación de trabajo orientada a tareas, asuntos recientes y continuidad del trabajo.
-- Consultas jurídicas Mercantil y Fiscal.
-- Ingeniería Jurídica Mercantil y Corporativa.
-- Flujo Fiscal: preparación, materialidad, deducibilidad, documentación y normativa.
-- Portafolio local con autosave y exportación.
-- Privacidad explícita por modo: local o API propia.
+Sin una API key válida se mantienen disponibles el portafolio, los formularios, las evaluaciones deterministas, el corpus y la búsqueda normativa; consultas generativas, análisis y redacción permanecen bloqueados.
 
 ## Desarrollo
 
@@ -54,18 +31,13 @@ npm run manifest:legal-corpus
 npm run audit:corpus-governance:strict
 ```
 
-La ingesta y el manifiesto deben regenerarse juntos porque el hash de LanceDB forma parte del artefacto canónico de publicación.
-
 ## Empaquetado
 
 ```bash
+npm run preflight:release
 npm run build:electron
 ```
 
-El empaquetado requiere previamente el motor Rust, el GGUF, embeddings y LanceDB. No debe publicarse un instalador hasta comprobar `runtime:get-health` en una instalación limpia.
+El instalador incluye el corpus jurídico, LanceDB, MiniLM y plantillas. No incluye un LLM ni un motor generativo local. Antes de publicar se debe validar una instalación limpia, una API key de cada proveedor soportado, firma, actualización y desinstalación.
 
-La decisión de producto, los gates de salida y el estado del modelo local se mantienen en [docs/arquitectura-procesamiento-y-gate-publicacion.md](docs/arquitectura-procesamiento-y-gate-publicacion.md).
-
-## Diseño y comercialización
-
-La identidad de la aplicación y la arquitectura recomendada para el sitio de comercialización están documentadas en [docs/identidad-branding-y-sitio-comercial.md](docs/identidad-branding-y-sitio-comercial.md).
+La decisión de producto y sus gates están en [docs/arquitectura-procesamiento-y-gate-publicacion.md](docs/arquitectura-procesamiento-y-gate-publicacion.md).

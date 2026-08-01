@@ -22,7 +22,7 @@ export const LegalSettingsPanel: React.FC<LegalSettingsPanelProps> = ({ onOpenTe
       <ul className="space-y-3 text-xs font-medium leading-relaxed text-slate-600">
         <li className="flex gap-2"><span className="text-legal-gold">•</span> Lex Corporativo es un sistema de soporte documental asistido, no constituye asesoría legal vinculante.</li>
         <li className="flex gap-2"><span className="text-legal-gold">•</span> Toda resolución generada por el sistema debe ser validada por un profesional del derecho.</li>
-        <li className="flex gap-2"><span className="text-legal-gold">•</span> En modo local, el procesamiento permanece en este equipo. Con BYOK, la selección mostrada en IA y API se transmite al proveedor elegido bajo sus políticas.</li>
+        <li className="flex gap-2"><span className="text-legal-gold">•</span> El corpus, la búsqueda y la bóveda permanecen locales. En funciones generativas, la selección mostrada en IA y API se transmite al proveedor elegido bajo sus políticas.</li>
       </ul>
     </div>
   </div>

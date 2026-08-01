@@ -21,6 +21,10 @@ export interface QueryTrace {
   sourcesCount: number;
   sourcesCitations: Array<{ id: string | number; type: string; title: string; subtitle?: string; similarity: number }>;
   groundingClaims: Array<{ claimId: string; claimHash: string; sourceIds: string[] }>;
+  executionBoundary: 'local-only' | 'external-provider';
+  externalProvider?: 'gemini' | 'openai' | 'anthropic';
+  originalFilesTransmitted: false;
+  vaultTransmitted: false;
 }
 
 interface LegalExecutionTraceInput {
@@ -101,6 +105,8 @@ export function logTrace(trace: QueryTrace): void {
 
 export function logLegalExecution(input: LegalExecutionTraceInput): void {
   const sources = input.sources || [];
+  const providerMatch = /^(gemini|openai|anthropic):/i.exec(input.finalModelUsed);
+  const externalProvider = providerMatch?.[1]?.toLowerCase() as QueryTrace['externalProvider'];
   logTrace({
     requestId: input.requestId,
     operation: input.operation,
@@ -127,5 +133,9 @@ export function logLegalExecution(input: LegalExecutionTraceInput): void {
       claimHash: generateHash(claim.text),
       sourceIds: [...new Set(claim.sourceIds)],
     })),
+    executionBoundary: externalProvider ? 'external-provider' : 'local-only',
+    externalProvider,
+    originalFilesTransmitted: false,
+    vaultTransmitted: false,
   });
 }

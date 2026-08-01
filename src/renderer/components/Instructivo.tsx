@@ -64,9 +64,8 @@ export const Instructivo: React.FC = () => {
 
   const vaultReady = runtimeHealth?.capabilities.vault.ready ?? false;
   const corpusReady = runtimeHealth?.capabilities.legalSearch.ready ?? false;
-  const localReady = runtimeHealth?.capabilities.localAssistant.ready ?? false;
   const byokActive = Boolean(byokSettings?.enabled && byokSettings.hasApiKey);
-  const guideReady = localReady || byokActive;
+  const guideReady = byokActive;
   const providerLabel = byokSettings?.provider === 'openai'
     ? 'OpenAI'
     : byokSettings?.provider === 'anthropic'
@@ -74,14 +73,10 @@ export const Instructivo: React.FC = () => {
       : 'Gemini';
   const processingLabel = byokActive
     ? `${providerLabel} conectado`
-    : localReady
-      ? 'Procesamiento local'
-      : 'Elegir procesamiento';
+    : 'Conectar API';
   const processingDetail = byokActive
     ? 'La generación compatible usa tu propia API.'
-    : localReady
-      ? 'La generación permanece en este equipo.'
-      : 'Conecta una API propia o completa el motor local antes de generar.';
+    : 'Conecta una API propia antes de generar.';
 
   const openWorkspace = (path: string, tab?: ModuleTab, module?: 'engineering' | 'fiscal') => {
     if (tab) setActiveTab(tab);
@@ -161,7 +156,7 @@ export const Instructivo: React.FC = () => {
             </div>
           </div>
           <button type="button" onClick={() => navigate('/settings?tab=ia')} className="inline-flex w-fit items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm hover:border-slate-400 hover:text-slate-950">
-            <CircleDot size={14} className={byokActive ? 'text-blue-600' : localReady ? 'text-emerald-700' : 'text-amber-700'} />
+            <CircleDot size={14} className={byokActive ? 'text-blue-600' : 'text-amber-700'} />
             {processingLabel}
             <Settings2 size={14} className="text-slate-400" />
           </button>
@@ -245,7 +240,7 @@ export const Instructivo: React.FC = () => {
               </button>
               {helpOpen && (
                 <div className="border-t border-slate-200 p-4">
-                  {!guideReady && <div className="mb-3 flex gap-2 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900"><AlertTriangle size={15} className="mt-0.5 shrink-0" /> Conecta una API propia o completa el motor local para conversar con la guía.</div>}
+                  {!guideReady && <div className="mb-3 flex gap-2 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900"><AlertTriangle size={15} className="mt-0.5 shrink-0" /> Conecta una API propia para conversar con la guía.</div>}
                   <div className="max-h-64 space-y-2 overflow-y-auto">
                     <AnimatePresence initial={false}>
                       {messages.map((message, index) => (

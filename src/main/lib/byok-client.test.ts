@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { composeLimitedByokPrompt, generateByokText } from './byok-client';
+import { composeLimitedByokPrompt, composeLimitedByokPromptWithDisclosure, generateByokText } from './byok-client';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -88,5 +88,27 @@ describe('BYOK provider client', () => {
     expect(prompt).toContain('FUNDAMENTO-CONSERVADO');
     expect(prompt).toContain('CONTRATO-CONSERVADO');
     expect(prompt).toContain('EVIDENCIA DOCUMENTAL RECORTADA');
+  });
+
+  it('describes exactly which categories are included without claiming files or vault are sent', () => {
+    const { prompt, disclosure } = composeLimitedByokPromptWithDisclosure({
+      instruction: 'Analiza la operación',
+      evidence: 'Extracto seleccionado',
+      legalContext: 'CFF Artículo 69-B',
+      outputContract: 'Devuelve JSON',
+      maxChars: 10_000,
+    });
+
+    expect(prompt).toContain('CFF Artículo 69-B');
+    expect(disclosure).toMatchObject({
+      destination: 'external-provider',
+      sendsInstruction: true,
+      sendsDocumentEvidence: true,
+      sendsLegalFragments: true,
+      sendsOutputContract: true,
+      sendsOriginalFiles: false,
+      sendsVault: false,
+    });
+    expect(disclosure.characterCounts.composedPrompt).toBe(prompt.length);
   });
 });

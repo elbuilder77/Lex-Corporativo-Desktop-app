@@ -120,7 +120,7 @@ export type DocumentAnalysisResult = {
   }>;
   evidenceMatrix?: FiscalEvidenceRecord[];
   confidence: "low" | "medium" | "high";
-  engine: "rules" | "local-embeddings" | "gemma-local" | "local-gemma" | "byok" | "hybrid";
+  engine: "rules" | "local-embeddings" | "byok";
 };
 
 export interface AnalyzedFile {
@@ -142,7 +142,7 @@ export interface AnalyzedDocumentHistory {
   currentDocumentOnly?: true;
   customInstruction: string;
   executionMode?: 'local' | 'byok';
-  engine?: 'local-gemma' | 'byok' | 'rules';
+  engine?: 'byok' | 'rules';
   provider?: 'gemini' | 'openai' | 'anthropic';
 }
 
@@ -160,7 +160,7 @@ export interface DraftingHistory {
   referenceFileName?: string;
   generatedDoc?: string;
   executionMode?: 'local' | 'byok';
-  engine?: 'local-gemma' | 'local-template' | 'byok';
+  engine?: 'byok';
   provider?: 'gemini' | 'openai' | 'anthropic';
 }
 

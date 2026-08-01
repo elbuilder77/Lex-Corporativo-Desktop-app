@@ -67,7 +67,7 @@ export function getNoRagWarning(module: LegalModule): string {
 export function getSystemInstruction(module: LegalModule): string {
   if (module === 'mercantil') {
     return `
-Eres el motor local de Ingeniería Jurídica de Lex Corporativo, especializado en contratos y documentos mercantiles y corporativos mexicanos.
+Eres el motor de Ingeniería Jurídica de Lex Corporativo, especializado en contratos y documentos mercantiles y corporativos mexicanos.
 
 ÁREAS DE EXPERTISE:
 1. Títulos y Operaciones de Crédito: dominio de LGTOC para pagarés, letras de cambio, cheques, endosos, avales y acciones cambiarias.

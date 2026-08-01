@@ -46,9 +46,26 @@ describe('local traceability ledger', () => {
       claimHash: expect.stringMatching(/^[a-f0-9]{64}$/),
       sourceIds: ['CFF:69-B'],
     }]);
+    expect(entry.executionBoundary).toBe('local-only');
+    expect(entry.originalFilesTransmitted).toBe(false);
+    expect(entry.vaultTransmitted).toBe(false);
     expect(line).not.toContain('pregunta sensible');
     expect(line).not.toContain('contenido reservado');
     expect(line).not.toContain('respuesta sensible');
     expect(line).not.toContain('afirmación sensible');
+  });
+
+  it('records the external processing boundary without persisting transmitted text', async () => {
+    const { getTraceLedgerPath, logLegalExecution } = await import('./traceability');
+    logLegalExecution({
+      requestId: 'trace-byok', operation: 'consultation', module: 'fiscal',
+      primaryModel: 'openai:gpt-test', finalModelUsed: 'openai:gpt-test',
+      prompt: 'dato confidencial', ragContext: 'fundamento reservado', output: 'salida',
+    });
+    const entry = JSON.parse(fs.readFileSync(getTraceLedgerPath(), 'utf8').trim());
+    expect(entry.executionBoundary).toBe('external-provider');
+    expect(entry.externalProvider).toBe('openai');
+    expect(entry.originalFilesTransmitted).toBe(false);
+    expect(JSON.stringify(entry)).not.toContain('dato confidencial');
   });
 });

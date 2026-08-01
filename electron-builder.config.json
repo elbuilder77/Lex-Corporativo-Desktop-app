@@ -19,29 +19,20 @@
   ],
   "extraResources": [
     {
-      "filter": [
-        "lex-engine",
-        "lex-engine.exe"
-      ],
-      "from": "src-rust/target/release",
-      "to": "lex-engine"
-    },
-    {
       "from": "src-rust/models",
-      "to": "lex-engine/models",
+      "to": "legal-runtime/models",
       "filter": [
-        "**/*.gguf",
         "**/*.onnx",
         "**/*.json"
       ]
     },
     {
       "from": "src-rust/lance_data",
-      "to": "lex-engine/lance_data"
+      "to": "legal-runtime/lance_data"
     },
     {
       "from": "src-rust/corpus/corpus-manifest.json",
-      "to": "lex-engine/corpus-manifest.json"
+      "to": "legal-runtime/corpus-manifest.json"
     },
     {
       "from": "plantillas",

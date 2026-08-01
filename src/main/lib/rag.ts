@@ -12,7 +12,7 @@ function resolveRuntimeOverride(value: string): string {
 }
 
 function getConfiguredModelRoot(): string | null {
-  const configuredModelPath = process.env.LEX_ENGINE_MODEL_PATH?.trim();
+  const configuredModelPath = process.env.LEX_EMBEDDING_MODEL_PATH?.trim();
   return configuredModelPath ? path.dirname(resolveRuntimeOverride(configuredModelPath)) : null;
 }
 
@@ -83,7 +83,7 @@ async function getExtractor() {
   if (!extractorModel) {
     if (app.isPackaged) {
       env.allowRemoteModels = false;
-      env.localModelPath = getConfiguredModelRoot() || path.join(process.resourcesPath, 'lex-engine', 'models');
+      env.localModelPath = getConfiguredModelRoot() || path.join(process.resourcesPath, 'legal-runtime', 'models');
     } else {
       env.allowRemoteModels = false; // Disable remote lookup to prevent hangs when offline
       env.localModelPath = getConfiguredModelRoot() || path.join(app.getAppPath(), 'src-rust', 'models');
@@ -192,7 +192,7 @@ function getRagCandidatePaths(): string[] {
   if (configuredPath) return [configuredPath];
   const userDataPath = path.join(app.getPath('userData'), 'lance_data');
   const bundledPath = app.isPackaged
-    ? path.join(process.resourcesPath, 'lex-engine', 'lance_data')
+    ? path.join(process.resourcesPath, 'legal-runtime', 'lance_data')
     : path.join(app.getAppPath(), 'src-rust', 'lance_data');
 
   return [...new Set([userDataPath, bundledPath])];
@@ -207,7 +207,7 @@ function getLocalRagPath(): string {
   if (configuredPath) return configuredPath;
   const userDataPath = path.join(app.getPath('userData'), 'lance_data');
   const bundledPath = app.isPackaged
-    ? path.join(process.resourcesPath, 'lex-engine', 'lance_data')
+    ? path.join(process.resourcesPath, 'legal-runtime', 'lance_data')
     : path.join(app.getAppPath(), 'src-rust', 'lance_data');
 
   if (!app.isPackaged) return bundledPath;
@@ -237,7 +237,7 @@ function escapeSqlLiteral(value: string): string {
 
 function getCorpusManifestPath(): string {
   return app.isPackaged
-    ? path.join(process.resourcesPath, 'lex-engine', 'corpus-manifest.json')
+    ? path.join(process.resourcesPath, 'legal-runtime', 'corpus-manifest.json')
     : path.join(app.getAppPath(), 'src-rust', 'corpus', 'corpus-manifest.json');
 }
 
@@ -426,7 +426,8 @@ export async function getHybridLegalContext(
   query: string,
   module: LegalModule,
   limit = 6,
-  isDrafting = false
+  isDrafting = false,
+  executionMode: 'local' | 'byok' | 'balanced' = 'balanced',
 ): Promise<{ context: string; sources: RAGMatch[] }> {
   const startMs = Date.now();
 
@@ -436,12 +437,55 @@ export async function getHybridLegalContext(
 
     console.info(`[RAG Local] Vector search resolved ${matches.length} ${module} sources in ${Date.now() - startMs}ms from ${dbPath}`);
 
-    const context = formatRAGContext(matches, module, isDrafting);
-    return { context, sources: matches };
+    const preparedSources = prepareLegalSourcesForEngine(matches, executionMode);
+    const context = formatRAGContext(preparedSources, module, isDrafting);
+    return { context, sources: preparedSources };
   } catch (err: any) {
     console.warn('[RAG Local] Search failed — Operating without verified RAG database context:', err.message || err);
     return { context: '', sources: [] };
   }
+}
+
+/**
+ * Keeps the same authoritative retrieval lane for every engine while adapting
+ * context density to the engine that must consume it. Explicit/high-scoring
+ * provisions remain first and a second pass adds cross-law coverage.
+ */
+export function prepareLegalSourcesForEngine(
+  matches: RAGMatch[],
+  executionMode: 'local' | 'byok' | 'balanced',
+): RAGMatch[] {
+  const policy = executionMode === 'local'
+    ? { maxSources: 4, maxCharsPerSource: 1_400 }
+    : executionMode === 'byok'
+      ? { maxSources: 8, maxCharsPerSource: 3_200 }
+      : { maxSources: 6, maxCharsPerSource: 2_200 };
+  const selected: RAGMatch[] = [];
+  const selectedIds = new Set<string>();
+  const selectedLaws = new Set<string>();
+
+  const add = (source: RAGMatch) => {
+    const id = String(source.id);
+    if (selectedIds.has(id) || selected.length >= policy.maxSources) return;
+    selectedIds.add(id);
+    selectedLaws.add(String(source.law_code || source.title).toUpperCase());
+    selected.push({
+      ...source,
+      content: source.content.length > policy.maxCharsPerSource
+        ? `${source.content.slice(0, policy.maxCharsPerSource)}\n[FRAGMENTO RECORTADO]`
+        : source.content,
+    });
+  };
+
+  // Preserve the strongest source, then favor one source per law before
+  // filling remaining capacity by relevance.
+  if (matches[0]) add(matches[0]);
+  for (const source of matches) {
+    const law = String(source.law_code || source.title).toUpperCase();
+    if (!selectedLaws.has(law)) add(source);
+  }
+  for (const source of matches) add(source);
+  return selected;
 }
 
 export async function getAnalysisContext(

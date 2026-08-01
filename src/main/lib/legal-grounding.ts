@@ -221,7 +221,7 @@ function getUnsupportedCitedClaims(output: string, sources: GroundingSource[]): 
 }
 
 /**
- * Compatibility gate for the local GGUF output. It validates exact provision
+ * Compatibility gate for grounded model output. It validates exact provision
  * identifiers and then applies a conservative lexical/numeric support check
  * to each cited factual sentence. Structured BYOK output uses exact source IDs
  * through the contract below.

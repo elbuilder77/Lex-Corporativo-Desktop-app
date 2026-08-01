@@ -17,13 +17,13 @@ export interface UserReferenceFile {
   base64: string;
 }
 
-const IPC_TIMEOUT_MS = 60000; // 60 segundos de timeout para el backend Rust
+const IPC_TIMEOUT_MS = 60000; // Timeout de red y procesamiento del proveedor BYOK
 
 const withTimeout = <T>(promise: Promise<T>, ms: number = IPC_TIMEOUT_MS): Promise<T> => {
   let timeoutId: any;
   const timeoutPromise = new Promise<T>((_, reject) => {
     timeoutId = setTimeout(() => {
-      reject(new Error('Tiempo de espera agotado. El motor local no respondió a tiempo.'));
+      reject(new Error('Tiempo de espera agotado. El proveedor de IA no respondió a tiempo.'));
     }, ms);
   });
   return Promise.race([

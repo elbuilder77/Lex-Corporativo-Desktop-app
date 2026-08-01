@@ -4,7 +4,6 @@ import { electronApp, optimizer } from '@electron-toolkit/utils';
 import { createAppMenu } from './menu';
 import { registerIpcHandlers } from './ipc';
 import { registerProtocol, handleDeepLink } from './protocol';
-import { killRustEngine } from './lib/rust-engine';
 import { getByokSettings } from './lib/byok-settings';
 import { purgeExpiredUserDocuments } from './lib/rag';
 import { purgeExpiredCases } from './lib/case-vault';
@@ -185,12 +184,7 @@ app.on('open-url', (event, url) => {
 
 // Quit when all windows are closed, except on macOS.
 app.on('window-all-closed', () => {
-  killRustEngine();
   if (process.platform !== 'darwin') {
     app.quit();
   }
-});
-
-app.on('before-quit', () => {
-  killRustEngine();
 });

@@ -7,7 +7,7 @@
 
 ## 1. Misión y Modelo de Negocio
 
-El objetivo principal de **Lex Corporativo Web Lite** es servir como un **Lead Magnet (Gancho de Conversión)** ultrarrápido y de baja fricción para promocionar y vender la **Estación de Trabajo Desktop de Lex Corporativo** (versión local, ilimitada, con inferencia local en Rust y privacidad 100% Zero-Cloud).
+El objetivo principal de **Lex Corporativo Web Lite** es servir como un **Lead Magnet (Gancho de Conversión)** ultrarrápido y de baja fricción para promocionar y vender la **Estación de Trabajo Desktop de Lex Corporativo** (corpus y portafolio locales, con generación mediante la API propia del usuario).
 
 ### Reglas Comerciales Obligatorias:
 1. **Cero Configuración de Usuario (Sin BYOK)**: El usuario NO debe ingresar llaves de API (API Keys). La aplicación web debe ofrecer una experiencia "llave en mano".

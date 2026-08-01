@@ -1,12 +1,13 @@
 import { ipcMain, app, dialog } from 'electron';
 import { copyFileSync } from 'fs';
+import { existsSync } from 'fs';
+import { join } from 'path';
 import { registerAnalyzeHandlers } from './analyze.handler';
 import { registerDraftHandlers } from './draft.handler';
 import { registerRagHandlers } from './rag.handler';
 import { registerVaultHandlers } from './vault.handler';
 import { registerAssistantHandlers } from './assistant.handler';
 import { registerByokHandlers } from './byok.handler';
-import { getRustRuntimeHealth } from '../lib/rust-engine';
 import { getLegalKnowledgeRuntimePath, isLocalRagAvailable } from '../lib/rag';
 import { getVaultProtectionStatus, listCases } from '../lib/case-vault';
 import { getByokSettings } from '../lib/byok-settings';
@@ -28,7 +29,6 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('app:version', () => app.getVersion());
   ipcMain.handle('app:platform', () => process.platform);
   ipcMain.handle('runtime:get-health', async () => {
-    const rust = getRustRuntimeHealth();
     let vaultReady = false;
     let vaultDetail = 'No se pudo abrir la bóveda local.';
     let ragReady = false;
@@ -53,22 +53,22 @@ export function registerIpcHandlers(): void {
     }
 
     const byokSettings = getByokSettings();
-    const embeddingsReady = rust.embeddingModelExists;
-    const localGenerationReady = rust.binaryExists && rust.expectedGgufModelExists;
+    const embeddingModelPath = app.isPackaged
+      ? join(process.resourcesPath, 'legal-runtime', 'models', 'Xenova', 'all-MiniLM-L6-v2', 'onnx', 'model_quantized.onnx')
+      : join(app.getAppPath(), 'src-rust', 'models', 'Xenova', 'all-MiniLM-L6-v2', 'onnx', 'model_quantized.onnx');
+    const embeddingsReady = existsSync(embeddingModelPath);
     const byokGenerationReady = byokSettings.enabled && byokSettings.hasApiKey;
     const legalSearchReady = ragReady && embeddingsReady;
-    const legalGenerationReady = vaultReady && legalSearchReady && (localGenerationReady || byokGenerationReady);
+    const legalGenerationReady = vaultReady && legalSearchReady && byokGenerationReady;
     const checks = [
       { id: 'vault', label: 'Bóveda SQLite cifrada', ok: vaultReady, detail: vaultDetail },
       { id: 'rag', label: 'Base legal LanceDB', ok: ragReady, detail: getLegalKnowledgeRuntimePath() },
-      { id: 'rust', label: 'Motor Rust', ok: rust.binaryExists, detail: rust.binaryPath },
-      { id: 'gguf', label: 'Gemma 2B local', ok: rust.expectedGgufModelExists, detail: rust.expectedGgufModelPath },
-      { id: 'embeddings', label: 'Modelo de embeddings', ok: rust.embeddingModelExists },
-      { id: 'byok', label: 'Proveedor BYOK', ok: !byokSettings.enabled || byokSettings.hasApiKey, detail: byokSettings.enabled ? `${byokSettings.provider}:${byokSettings.model}` : 'Desactivado' },
+      { id: 'embeddings', label: 'Modelo local de búsqueda', ok: embeddingsReady, detail: embeddingModelPath },
+      { id: 'byok', label: 'API propia del usuario', ok: byokGenerationReady, detail: byokGenerationReady ? `${byokSettings.provider}:${byokSettings.model}` : 'Agrega y activa una API key' },
       { id: 'privacy', label: 'Privacidad estricta', ok: byokSettings.strictPrivacy || !byokSettings.automaticUpdatesEnabled },
     ];
 
-    const blocking = checks.filter((check) => !check.ok && (check.id === 'vault' || check.id === 'privacy'));
+    const blocking = checks.filter((check) => !check.ok && (check.id === 'vault' || check.id === 'privacy' || check.id === 'byok'));
     const status = checks.every((check) => check.ok)
       ? 'ready'
       : blocking.length > 0
@@ -78,7 +78,6 @@ export function registerIpcHandlers(): void {
     return {
       status,
       checks,
-      rust,
       capabilities: {
         vault: {
           ready: vaultReady,
@@ -89,15 +88,15 @@ export function registerIpcHandlers(): void {
           ready: legalSearchReady,
           label: 'Consulta de corpus',
           detail: legalSearchReady
-            ? 'LanceDB y el modelo local de embeddings están disponibles.'
-            : 'Requiere la base LanceDB verificada y el modelo local de embeddings.',
+            ? 'LanceDB y el modelo de embeddings local están disponibles.'
+            : 'Requiere la base LanceDB verificada y el modelo de embeddings local.',
         },
         legalGeneration: {
           ready: legalGenerationReady,
           label: 'Análisis y generación jurídica',
           detail: legalGenerationReady
-            ? `Disponible mediante ${byokGenerationReady ? `${byokSettings.provider} BYOK` : 'Gemma local'}.`
-            : 'Requiere bóveda cifrada, corpus local y un motor de generación local o BYOK activo.',
+            ? `Disponible mediante ${byokSettings.provider} con la API key del usuario.`
+            : 'Requiere bóveda cifrada, corpus local y una API key activa.',
         },
         rulesAssessment: {
           ready: vaultReady,
@@ -107,11 +106,11 @@ export function registerIpcHandlers(): void {
             : 'Requiere la bóveda cifrada para conservar el resultado.',
         },
         localAssistant: {
-          ready: localGenerationReady,
-          label: 'Instructivo interactivo local',
-          detail: localGenerationReady
-            ? 'Motor Rust y modelo Gemma disponibles.'
-            : 'Requiere el motor Rust y el modelo Gemma local.',
+          ready: byokGenerationReady,
+          label: 'Instructivo interactivo',
+          detail: byokGenerationReady
+            ? `Disponible mediante ${byokSettings.provider}.`
+            : 'Requiere una API key activa.',
         },
       },
     };

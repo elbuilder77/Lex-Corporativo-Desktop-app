@@ -25,9 +25,9 @@ export const CapabilityGate: React.FC<CapabilityGateProps> = ({ capability, chil
   const contextualMessage: Record<RuntimeCapability, string> = {
     vault: 'Puedes explorar el portafolio. Para guardar cambios, esta estación necesita acceso al cifrado seguro del sistema.',
     legalSearch: 'Puedes preparar tu consulta. La búsqueda se ejecutará cuando estén listos el corpus y su índice local.',
-    legalGeneration: 'Puedes completar el flujo. Antes de generar, elige procesamiento local o conecta una API propia.',
+    legalGeneration: 'Puedes completar el flujo. Antes de generar, conecta una API propia.',
     rulesAssessment: 'La evaluación funciona sin IA; el cifrado local solo es necesario para conservar el resultado.',
-    localAssistant: 'La guía interactiva necesita el motor local o una API propia activa.',
+    localAssistant: 'La guía interactiva necesita una API propia activa.',
   };
 
   return (

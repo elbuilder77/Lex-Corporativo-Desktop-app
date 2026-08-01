@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Wifi, CloudOff, CheckCircle2, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Wifi, CheckCircle2, RefreshCw } from 'lucide-react';
 import { ByokProvider, DEFAULT_BYOK_MODELS } from '../../../shared/byok-models';
 
 const BYOK_PROVIDER_LABELS: Record<ByokProvider, string> = {
@@ -9,9 +9,7 @@ const BYOK_PROVIDER_LABELS: Record<ByokProvider, string> = {
 };
 
 export interface IaSettingsPanelProps {
-  localGenerationReady: boolean;
   byokEnabled: boolean;
-  setByokEnabled: (enabled: boolean) => void;
   strictPrivacy: boolean;
   setStrictPrivacy: (strict: boolean) => void;
   automaticUpdatesEnabled: boolean;
@@ -38,9 +36,7 @@ export interface IaSettingsPanelProps {
 }
 
 export const IaSettingsPanel: React.FC<IaSettingsPanelProps> = ({
-  localGenerationReady,
   byokEnabled,
-  setByokEnabled,
   strictPrivacy,
   setStrictPrivacy,
   automaticUpdatesEnabled,
@@ -70,25 +66,12 @@ export const IaSettingsPanel: React.FC<IaSettingsPanelProps> = ({
       <div>
         <h2 className="text-lg font-bold text-slate-900 mb-2">Modo de procesamiento</h2>
         <p className="text-xs text-slate-500 leading-relaxed max-w-2xl">
-          Lex Corporativo puede operar localmente o usar Gemini, OpenAI y Anthropic Claude con una API key de tu propia cuenta.
+          Lex Corporativo usa Gemini, OpenAI o Anthropic Claude con una API key de tu propia cuenta. El corpus, la búsqueda RAG y la bóveda permanecen locales.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className={`p-5 rounded-2xl border ${!byokEnabled ? (localGenerationReady ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-200') : 'bg-slate-50 border-slate-200'}`}>
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-white border border-emerald-100 flex items-center justify-center">
-              <CloudOff size={17} className="text-emerald-600" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">En este equipo</h3>
-              <p className="mt-0.5 text-xs text-slate-500">{localGenerationReady ? 'Motor y modelo instalados en este equipo.' : 'Seleccionable, pero la inferencia no está instalada.'}</p>
-            </div>
-          </div>
-          <p className={`mt-3 text-xs font-bold uppercase tracking-wider ${localGenerationReady ? 'text-emerald-700' : 'text-amber-800'}`}>{localGenerationReady ? 'Generación disponible' : 'Motor o GGUF pendiente'}</p>
-        </div>
-
-        <div className={`p-5 rounded-2xl border ${byokEnabled ? 'bg-blue-50 border-blue-100' : 'bg-slate-50 border-slate-200'}`}>
+      <div>
+        <div className={`p-5 rounded-2xl border ${byokEnabled ? 'bg-blue-50 border-blue-100' : 'bg-amber-50 border-amber-200'}`}>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-white border border-blue-100 flex items-center justify-center">
               <Wifi size={17} className="text-blue-600" />
@@ -183,20 +166,8 @@ export const IaSettingsPanel: React.FC<IaSettingsPanelProps> = ({
           <p className="mt-2 text-xs text-slate-500">Cada proveedor conserva por separado su modelo y su key cifrada por el sistema operativo.</p>
         </div>
 
-        <label className="flex items-start gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={byokEnabled}
-            onChange={(e) => setByokEnabled(e.target.checked)}
-            className="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-legal-gold"
-          />
-          <span>
-            <span className="block text-sm font-bold text-slate-900">Usar {BYOK_PROVIDER_LABELS[byokProvider]} como modo de procesamiento</span>
-            <span className="block text-xs text-slate-500 leading-relaxed mt-1">
-              Al guardar y activar, las consultas, análisis y redacciones compatibles usarán este proveedor hasta que desactives BYOK.
-            </span>
-          </span>
-        </label>
+        <p className="text-sm font-bold text-slate-900">Proveedor de procesamiento: {BYOK_PROVIDER_LABELS[byokProvider]}</p>
+        <p className="text-xs text-slate-500 leading-relaxed">Al guardar, las consultas, análisis y redacciones usarán este proveedor. Elimina la key para desactivar la generación.</p>
 
         <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-5 text-blue-900">
           <strong>Qué sale del equipo:</strong> al ejecutar un flujo BYOK se envían por HTTPS la instrucción, una selección limitada del texto extraído y los fundamentos locales recuperados. El archivo original y la bóveda completa no se transmiten. El proveedor puede tratar o conservar lo enviado conforme a tu cuenta y sus propias políticas.
@@ -265,7 +236,7 @@ export const IaSettingsPanel: React.FC<IaSettingsPanelProps> = ({
           <div className="flex items-center gap-2 text-xs text-slate-500">
             {byokStatus === 'ok' && <CheckCircle2 size={15} className="text-emerald-600" />}
             {byokStatus === 'error' && <AlertTriangle size={15} className="text-red-500" />}
-            <span>{byokMessage || (byokEnabled ? `${BYOK_PROVIDER_LABELS[byokProvider]} procesará automáticamente los flujos compatibles.` : localGenerationReady ? 'Modo local seleccionado y disponible.' : 'Modo local seleccionado; la generación requiere instalar el motor y el modelo GGUF.')}</span>
+            <span>{byokMessage || (byokEnabled ? `${BYOK_PROVIDER_LABELS[byokProvider]} procesará los flujos generativos.` : 'Agrega una API key para activar la generación.')}</span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {hasApiKey && (
@@ -298,7 +269,7 @@ export const IaSettingsPanel: React.FC<IaSettingsPanelProps> = ({
       <div className="p-5 bg-amber-50 border border-amber-100 rounded-2xl flex gap-3">
         <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
         <p className="text-xs text-amber-800 leading-relaxed font-medium">
-          Importante: el modo local mantiene los documentos en la computadora. Mientras BYOK permanezca activado, cada operación compatible enviará instrucciones, texto extraído y fundamentos seleccionados a {BYOK_PROVIDER_LABELS[byokProvider]}; el archivo original no se transmite. Para información confidencial utiliza un proyecto de API y políticas aprobadas por tu organización.
+          Importante: cada operación generativa enviará instrucciones, texto extraído y fundamentos seleccionados a {BYOK_PROVIDER_LABELS[byokProvider]}; el archivo original y la bóveda completa no se transmiten. Para información confidencial utiliza un proyecto de API y políticas aprobadas por tu organización.
         </p>
       </div>
     </div>

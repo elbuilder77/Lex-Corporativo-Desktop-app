@@ -43,8 +43,8 @@ export interface LexDesktopAPI {
       module: 'analysis';
       promptProfile: 'fiscal_analysis';
       currentDocumentOnly: true;
-      engine: 'local-gemma' | 'byok';
-      requestedExecutionMode: 'local' | 'byok';
+      engine: 'byok';
+      requestedExecutionMode: 'byok';
       provider?: 'gemini' | 'openai' | 'anthropic';
       fallbackReason?: string;
     }>;
@@ -73,8 +73,8 @@ export interface LexDesktopAPI {
       promptProfile: 'mercantil_drafting' | 'fiscal_drafting';
       sourceAnalysisId?: string;
       templateId?: string;
-      engine: 'local-gemma' | 'local-template' | 'byok';
-      requestedExecutionMode: 'local' | 'byok';
+      engine: 'byok';
+      requestedExecutionMode: 'byok';
       provider?: 'gemini' | 'openai' | 'anthropic';
       fallbackReason?: string;
     }>;
@@ -86,18 +86,6 @@ export interface LexDesktopAPI {
     getHealth: () => Promise<{
       status: 'ready' | 'degraded' | 'blocked';
       checks: Array<{ id: string; label: string; ok: boolean; detail?: string }>;
-      rust: {
-        binaryPath: string;
-        binaryExists: boolean;
-        modelsPath: string;
-        expectedGgufModel: string;
-        expectedGgufModelPath: string;
-        expectedGgufModelExists: boolean;
-        ggufModels: string[];
-        embeddingModelExists: boolean;
-        canUseDevelopmentMock: boolean;
-        modelPathSource: 'default' | 'environment';
-      };
       capabilities: Record<
         'vault' | 'legalSearch' | 'legalGeneration' | 'rulesAssessment' | 'localAssistant',
         { ready: boolean; label: string; detail: string }

@@ -137,7 +137,7 @@ Preferir:
 
 - “Revisa la operación con fundamentos recuperados del corpus local.”
 - “BYOK enviará al proveedor los fragmentos seleccionados para esta operación.”
-- “El motor local no está instalado; esta función no puede ejecutarse todavía.”
+- “Conecta una API propia para ejecutar esta función.”
 
 Evitar:
 
@@ -229,7 +229,7 @@ Visual: captura real de la pantalla más representativa, preferentemente Portafo
 
 Cuatro afirmaciones demostrables:
 
-- Procesamiento local disponible.
+- Corpus, portafolio y recuperación normativa locales.
 - Corpus jurídico gobernado.
 - BYOK opcional y visible.
 - Trazabilidad de fuentes y ejecución.
@@ -255,7 +255,7 @@ Agrupar por resultado, no por tecnología:
 - Portafolio local y continuidad.
 - Exportación y trazabilidad.
 
-RAG, embeddings, Rust y GGUF pertenecen a páginas técnicas o de seguridad; no deben dominar el primer mensaje comercial.
+RAG y embeddings pertenecen a páginas técnicas o de seguridad; no deben dominar el primer mensaje comercial.
 
 ### 6. Soluciones por equipo
 
@@ -347,7 +347,7 @@ Contenido mínimo:
 
 - Consulta jurídica Mercantil y Fiscal.
 - Análisis documental fundamentado.
-- Redacción local con modelo GGUF.
+- Redacción mediante la API propia configurada por el usuario.
 - Plantillas con extracción estructurada.
 - Asistente del Instructivo.
 

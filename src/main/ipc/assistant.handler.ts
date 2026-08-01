@@ -1,7 +1,6 @@
 import { ipcMain } from 'electron';
 import * as crypto from 'crypto';
 import { z } from 'zod';
-import { sendToRustEngine, rustEngineEvents } from '../lib/rust-engine';
 import { getHybridLegalContext } from '../lib/rag';
 import { getSystemInstruction } from '../lib/prompts';
 import { logLegalExecution } from '../lib/traceability';
@@ -19,20 +18,20 @@ import { composeLimitedByokPrompt, generateByokText } from '../lib/byok-client';
 
 const APP_GUIDE = `Lex Corporativo Desktop - Guia de Funcionamiento:
 
-1. Privacidad y funcionamiento local/BYOK:
-   - Por defecto, la aplicación funciona sin conexión usando Rust, Llama.cpp y el modelo local instalado. En este modo ningún documento, consulta o dato se envía a un proveedor de modelos.
-   - Si el usuario activa BYOK en Configuración > IA y API, la app usa Gemini, OpenAI o Anthropic Claude con la API key del usuario en los flujos compatibles, sin volver a preguntar en cada operación.
+1. Privacidad y funcionamiento BYOK:
+   - La aplicación usa Gemini, OpenAI o Anthropic Claude con una API key aportada por el usuario. Sin una key válida, las funciones generativas permanecen desactivadas.
+   - El corpus, LanceDB, los embeddings de búsqueda, la bóveda y la validación de citas permanecen en el equipo.
    - En BYOK se envían instrucciones, una selección del texto extraído y fundamentos recuperados. El archivo original no se transmite y aplican los costos, límites y políticas del proveedor.
    - La privacidad estricta está activa por defecto: no se revisan actualizaciones automáticamente y un proveedor externo solo se usa mientras BYOK permanece activado en Configuración.
    - La app limita el texto enviado, recupera fundamentos del corpus local y valida la salida de la API. Si falla, permite una corrección restringida y bloquea el resultado cuando continúa sin sustento.
    - El historial de actividades se guarda localmente en una base de datos SQLite segura y protegida.
 
 2. Módulos de la Aplicación:
-   - Inicio: Sección introductoria que contiene este instructivo interactivo y el asistente local.
+   - Inicio: Sección introductoria que contiene este instructivo interactivo.
    - Portafolio: Panel de control donde se muestran las actividades previas organizadas cronológicamente. Permite reanudar casos anteriores o destruirlos de forma segura y permanente.
    - Ingeniería Jurídica: Genera contratos y documentos jurídicos mercantiles y corporativos. El usuario puede partir de una plantilla precargada o proporcionar su propio machote en PDF, TXT o Markdown. Laboral permanece fuera del producto hasta contar con corpus verificado.
-   - Fiscal: Centro preventivo con seis herramientas: Consulta, Preparación de Operación, Materialidad, Deducibilidad/IVA, Documentación y Biblioteca Normativa. Usa el motor local y el corpus fiscal instalado.
-   - Configuración: Permite validar la salud del runtime local, configurar BYOK multiproveedor, revisar actualizaciones manualmente y controlar privacidad estricta.
+   - Fiscal: Centro preventivo con seis herramientas: Consulta, Preparación de Operación, Materialidad, Deducibilidad/IVA, Documentación y Biblioteca Normativa. Usa el corpus fiscal local y la API configurada para generar.
+   - Configuración: Permite validar el corpus local, configurar BYOK multiproveedor, revisar actualizaciones manualmente y controlar privacidad estricta.
 
 3. Flujos de Trabajo:
    - Ingeniería Jurídica: El usuario elige la materia, selecciona una plantilla precargada o carga un machote propio, completa los datos e instrucciones y genera el documento. El resultado se guarda localmente y puede copiarse o exportarse en PDF.
@@ -47,60 +46,6 @@ const APP_GUIDE = `Lex Corporativo Desktop - Guia de Funcionamiento:
    - El asistente solo responde a dudas sobre el uso de la aplicación, sus secciones, su funcionamiento técnico, su privacidad y flujos de trabajo.
    - El asistente tiene prohibido dar asesoramiento legal, mercantil, laboral, societario o fiscal. Tampoco analiza documentos del usuario ni cita leyes para responder casos jurídicos.
    - Si el usuario pregunta por temas de derecho o leyes externas a esta guía, el asistente debe declinar amablemente y explicar que solo está capacitado para guiar sobre el uso de Lex Corporativo Desktop.`;
-
-function runAssistantQuery(
-  requestId: string,
-  query: string,
-  history: Array<{ role: string; content: string }>,
-  ragContext: string = APP_GUIDE,
-  promptProfile: string = 'instructivo',
-  module: 'mercantil' | 'fiscal' = 'mercantil',
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let content = '';
-    const timeoutId = setTimeout(() => {
-      rustEngineEvents.removeListener('STREAM_CHUNK', chunkListener);
-      reject(new Error('TIMEOUT'));
-    }, 120_000);
-
-    const chunkListener = (data: any) => {
-      if (data.requestId !== requestId) return;
-
-      if (data.payload.isDone) {
-        clearTimeout(timeoutId);
-        rustEngineEvents.removeListener('STREAM_CHUNK', chunkListener);
-        rustEngineEvents.removeListener('ENGINE_DIED', engineDiedListener);
-        resolve(content);
-      } else {
-        content += data.payload.chunk || '';
-      }
-    };
-
-    const engineDiedListener = () => {
-      clearTimeout(timeoutId);
-      rustEngineEvents.removeListener('STREAM_CHUNK', chunkListener);
-      rustEngineEvents.removeListener('ENGINE_DIED', engineDiedListener);
-      reject(new Error('El motor de IA se detuvo inesperadamente.'));
-    };
-
-    rustEngineEvents.on('STREAM_CHUNK', chunkListener);
-    rustEngineEvents.on('ENGINE_DIED', engineDiedListener);
-
-    sendToRustEngine({
-      command: 'LLM_QUERY',
-      requestId,
-      payload: {
-        module,
-        workflowModule: module === 'fiscal' ? 'analysis' : undefined,
-        query,
-        ragContext,
-        promptProfile,
-        history: history.length > 0 ? history : undefined,
-        temperature: 0.10
-      },
-    });
-  });
-}
 
 const LegalQuestionSchema = z.object({
   query: z.string().trim().min(3).max(8_000),
@@ -146,13 +91,7 @@ export function registerAssistantHandlers(): void {
         });
         return { result: result.trim() };
       }
-
-      const responseText = await runAssistantQuery(requestId, parsed.query, mappedHistory);
-      
-      // Clean up system messages / prefix if Gemma repeats it
-      let cleanText = responseText.replace(/^Generando respuesta local\.\.\.\n/, '').trim();
-      
-      return { result: cleanText };
+      throw new Error('Configura y activa una API key propia para usar el asistente.');
     } catch (err: any) {
       console.error('[IPC Assistant] Query failure:', err);
       throw new Error(err.message || 'No se pudo obtener respuesta del asistente local.');
@@ -165,7 +104,18 @@ export function registerAssistantHandlers(): void {
     const mappedHistory = mapHistory(payload.history);
 
     try {
-      const { context: legalContext, sources } = await getHybridLegalContext(payload.query, 'fiscal', 6);
+      const byok = getActiveByokConfig();
+      if (!byok.enabled || !byok.apiKey) {
+        throw new Error('Configura y activa una API key propia para realizar consultas fiscales.');
+      }
+      const executionMode = byok.enabled && byok.apiKey ? 'byok' : 'local';
+      const { context: legalContext, sources } = await getHybridLegalContext(
+        payload.query,
+        'fiscal',
+        executionMode === 'byok' ? 10 : 6,
+        false,
+        executionMode,
+      );
       const citationsAvailable = sources.length > 0;
       if (!citationsAvailable) {
         const result = 'No puedo emitir una respuesta fiscal sustentada porque el corpus verificado no recuperó un fundamento aplicable. Reformula la consulta o restaura/actualiza las fuentes oficiales; no se generó una respuesta por inferencia.';
@@ -191,8 +141,6 @@ export function registerAssistantHandlers(): void {
         'Responde como consulta preventiva. Distingue respuesta ejecutiva, análisis, fundamento recuperado y próximos pasos.',
         'Toda afirmación jurídica debe derivarse literalmente de los fragmentos anteriores. Cita al menos una de las fuentes recuperadas con código y artículo exactos. No menciones disposiciones que no aparezcan en el contexto. Si el contexto no basta, abstente.',
       ].join('\n\n');
-      const byok = getActiveByokConfig();
-      const executionMode = byok.enabled && byok.apiKey ? 'byok' : 'local';
       const groundingSources = sources.map(source => ({ ...source, kind: 'legal' as const }));
       let cleanResult = '';
       let grounding: GroundingValidation;
@@ -272,18 +220,7 @@ export function registerAssistantHandlers(): void {
         groundedClaims = groundingOutcome.output.claims;
         cleanResult = renderGroundedClaims(groundingOutcome.output, groundingSources);
       } else {
-        const responseText = await runAssistantQuery(
-          requestId,
-          payload.query,
-          mappedHistory,
-          groundedContext,
-          'fiscal_analysis',
-          'fiscal',
-        );
-        const initialCleanResult = responseText.replace(/^Generando respuesta local\.\.\.\n/, '').trim();
-        const groundingOutcome = await validateOrRepairGroundedOutput(initialCleanResult, groundingSources);
-        cleanResult = groundingOutcome.output;
-        grounding = groundingOutcome.validation;
+        throw new Error('La API key activa dejó de estar disponible durante la consulta.');
       }
 
       if (!grounding.valid) {

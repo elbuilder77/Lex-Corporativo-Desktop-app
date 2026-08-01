@@ -60,7 +60,7 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
             <p className="text-sm text-slate-600 leading-relaxed mb-3"><strong>Finalidades primarias (necesarias):</strong></p>
             <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1">
               <li>Operar la estación jurídica instalada en el equipo del usuario.</li>
-              <li>Procesar consultas, análisis y documentos mediante el motor local.</li>
+              <li>Preparar localmente el contexto y procesar consultas, análisis y documentos mediante la API elegida por el usuario.</li>
               <li>Guardar portafolios y bitácoras en el almacenamiento local del dispositivo.</li>
               <li>Permitir exportación y recuperación de trabajo sin conexión a internet.</li>
             </ul>
@@ -73,7 +73,7 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
 
           <section>
             <h2 className="text-lg font-serif font-bold text-legal-950 mb-3">IV. Transferencias de Datos</h2>
-            <p className="text-sm text-slate-600 leading-relaxed mb-3">En modo local, la aplicación no transfiere portafolios, documentos, consultas ni resultados a proveedores de modelos. El tratamiento cambia únicamente cuando el usuario activa BYOK y ejecuta una operación compatible.</p>
+            <p className="text-sm text-slate-600 leading-relaxed mb-3">Las funciones generativas requieren BYOK. Al ejecutarlas, la aplicación transmite al proveedor elegido la instrucción y los extractos necesarios; la bóveda completa no se transmite.</p>
             <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1">
               <li>En BYOK se envían por HTTPS al proveedor elegido la instrucción, una selección limitada del texto extraído y los fundamentos locales recuperados.</li>
               <li>El archivo original, la bóveda completa y los historiales no seleccionados no se transmiten al proveedor.</li>
@@ -103,7 +103,7 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
           <section>
             <h2 className="text-lg font-serif font-bold text-legal-950 mb-3">VII. Tratamiento de Documentos</h2>
             <p className="text-sm text-slate-600 leading-relaxed">
-              Los archivos se extraen y organizan primero en el equipo local. En modo local no salen del dispositivo. Si BYOK está activo, la operación compatible puede enviar al proveedor configurado una selección limitada del texto extraído y los fundamentos recuperados; el archivo binario original no se transmite. Los respaldos exportados quedan sin cifrar en el destino elegido por el usuario.
+              Los archivos se extraen y organizan primero en el equipo. Las operaciones generativas envían al proveedor configurado una selección limitada del texto extraído y los fundamentos recuperados; el archivo binario original y la bóveda completa no se transmiten. Los respaldos exportados quedan sin cifrar en el destino elegido por el usuario.
             </p>
           </section>
 

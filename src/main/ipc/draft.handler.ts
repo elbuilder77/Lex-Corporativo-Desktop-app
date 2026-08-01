@@ -2,7 +2,7 @@ import { app, ipcMain } from 'electron';
 import { z } from 'zod';
 import { getHybridLegalContext } from '../lib/rag';
 import { getDraftInstruction, getNoRagWarning } from '../lib/prompts';
-import { sendToRustEngine, rustEngineEvents } from '../lib/rust-engine';
+import { sendToRustEngine, rustEngineEvents } from '../lib/local-generation-disabled';
 import {
   getDraftingPromptProfile,
   isPromptProfileForEcosystem,
@@ -246,15 +246,18 @@ export function registerDraftHandlers(): void {
       const activeModule = payload.module;
       const promptProfile = payload.promptProfile;
       const byok = getActiveByokConfig();
-      const requestedExecutionMode = byok.enabled && byok.apiKey ? 'byok' : 'local';
+      if (!byok.enabled || !byok.apiKey) {
+        throw new Error('Configura y activa una API key propia antes de generar documentos.');
+      }
+      const requestedExecutionMode = 'byok' as const;
       let fallbackReason: string | undefined;
       const referenceText = await extractReferenceFile(payload);
       const referenceContext = referenceText
         ? `DOCUMENTO DEL USUARIO PARA CORREGIR O EDITAR (${payload.referenceFile?.name}):\n${referenceText}`
         : '';
 
-      if (requestedExecutionMode === 'byok' && byok.apiKey) {
-        const ragContext = await getHybridLegalContext(payload.requirements, activeModule, 8, true);
+      {
+        const ragContext = await getHybridLegalContext(payload.requirements, activeModule, 10, true, 'byok');
         const hasLegalContext = ragContext.sources.length > 0 && ragContext.context.trim().length > 0;
 
         const templateContext = payload.template
@@ -514,7 +517,8 @@ SOLICITUD: "${payload.requirements}"`;
           payload.requirements,
           activeModule,
           6,
-          true
+          true,
+          'local',
         );
 
         const requestId = crypto.randomUUID();

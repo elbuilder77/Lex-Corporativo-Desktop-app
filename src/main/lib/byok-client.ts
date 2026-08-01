@@ -26,6 +26,24 @@ export interface ByokPromptSections {
   maxChars: number;
 }
 
+export interface ByokDataDisclosure {
+  destination: 'external-provider';
+  sendsInstruction: boolean;
+  sendsDocumentEvidence: boolean;
+  sendsLegalFragments: boolean;
+  sendsOutputContract: boolean;
+  sendsOriginalFiles: false;
+  sendsVault: false;
+  characterCounts: {
+    instruction: number;
+    documentEvidence: number;
+    legalContext: number;
+    outputContract: number;
+    composedPrompt: number;
+  };
+  truncated: boolean;
+}
+
 function truncateSection(value: string, maxChars: number, label: string): string {
   if (value.length <= maxChars) return value;
   const omitted = value.length - maxChars;
@@ -39,7 +57,9 @@ function truncateSection(value: string, maxChars: number, label: string): string
  * very large. The previous implementation sliced the whole prompt from the
  * start and could remove the RAG evidence and JSON contract at the end.
  */
-export function composeLimitedByokPrompt(sections: ByokPromptSections): string {
+export function composeLimitedByokPromptWithDisclosure(
+  sections: ByokPromptSections,
+): { prompt: string; disclosure: ByokDataDisclosure } {
   const instruction = sections.instruction.trim();
   const legalContext = sections.legalContext?.trim() || '';
   const outputContract = sections.outputContract?.trim() || '';
@@ -69,12 +89,39 @@ export function composeLimitedByokPrompt(sections: ByokPromptSections): string {
     ? truncateSection(evidence, evidenceBudget, 'EVIDENCIA DOCUMENTAL RECORTADA')
     : '';
 
-  return [
+  const prompt = [
     preservedInstruction,
     preservedEvidence ? `${evidenceHeader}${preservedEvidence}` : '',
     preservedLegal ? `FUNDAMENTOS LOCALES VERIFICADOS:\n${preservedLegal}` : '',
     preservedOutput,
   ].filter(Boolean).join(separator);
+  return {
+    prompt,
+    disclosure: {
+      destination: 'external-provider',
+      sendsInstruction: Boolean(preservedInstruction),
+      sendsDocumentEvidence: Boolean(preservedEvidence),
+      sendsLegalFragments: Boolean(preservedLegal),
+      sendsOutputContract: Boolean(preservedOutput),
+      sendsOriginalFiles: false,
+      sendsVault: false,
+      characterCounts: {
+        instruction: preservedInstruction.length,
+        documentEvidence: preservedEvidence.length,
+        legalContext: preservedLegal.length,
+        outputContract: preservedOutput.length,
+        composedPrompt: prompt.length,
+      },
+      truncated: preservedInstruction.length < instruction.length
+        || preservedEvidence.length < evidence.length
+        || preservedLegal.length < legalContext.length
+        || preservedOutput.length < outputContract.length,
+    },
+  };
+}
+
+export function composeLimitedByokPrompt(sections: ByokPromptSections): string {
+  return composeLimitedByokPromptWithDisclosure(sections).prompt;
 }
 
 function sanitizedApiError(provider: ByokProvider, status: number, body: string): Error {

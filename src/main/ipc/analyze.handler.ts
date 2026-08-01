@@ -4,7 +4,7 @@ import { indexUserDocument, getDynamicLawsForChunk, cleanupUserDocumentRequest, 
 import { chunkDocumentPages } from '../lib/chunking';
 import { extractTextContentAsync } from '../lib/pdf-parser';
 import { getSystemInstruction } from '../lib/prompts';
-import { sendToRustEngine, rustEngineEvents } from '../lib/rust-engine';
+import { sendToRustEngine, rustEngineEvents } from '../lib/local-generation-disabled';
 import { formatAnalyzeError } from '../lib/analysis-errors';
 import { lanceDbWriteMutex } from '../lib/mutex';
 import { getActiveByokConfig } from '../lib/byok-settings';
@@ -521,7 +521,7 @@ export async function processAnalyzePayload(
   rawPayload: unknown,
   eventSender: Electron.WebContents | null,
   dependencyOverrides: Partial<AnalyzeDependencies> = {}
-): Promise<{ result: string; requestId: string; ecosystem: AnalysisModule; module: 'analysis'; promptProfile: AnalysisPromptProfile; currentDocumentOnly: true; engine: 'local-gemma' | 'byok'; requestedExecutionMode: 'local' | 'byok'; provider?: 'gemini' | 'openai' | 'anthropic'; fallbackReason?: string }> {
+): Promise<{ result: string; requestId: string; ecosystem: AnalysisModule; module: 'analysis'; promptProfile: AnalysisPromptProfile; currentDocumentOnly: true; engine: 'local-gemma' | 'byok'; requestedExecutionMode: 'byok'; provider?: 'gemini' | 'openai' | 'anthropic'; fallbackReason?: string }> {
   const deps = { ...defaultAnalyzeDependencies, ...dependencyOverrides };
   const startMs = deps.now();
   let analysisRequestId: string | null = null;
@@ -608,14 +608,17 @@ export async function processAnalyzePayload(
     const filenames = payload.files.map((f: any) => f.name || 'documento');
     const userPrompt = payload.focusedInstruction || 'Análisis de riesgos y cumplimiento.';
     const byok = getActiveByokConfig();
-    const requestedExecutionMode = byok.enabled && byok.apiKey ? 'byok' : 'local';
+    if (!byok.enabled || !byok.apiKey) {
+      throw new Error('Configura y activa una API key propia antes de analizar documentos.');
+    }
+    const requestedExecutionMode = 'byok' as const;
     const retrievedLegalContexts = new Set<string>();
 
-    if (requestedExecutionMode === 'byok' && byok.apiKey) {
+    {
       emitProgress(3, 'Buscando fundamentos en corpus local');
       const selectedChunks = allDocumentChunks.slice(0, 24);
       const retrievalQuery = `${userPrompt}\n\n${selectedChunks.slice(0, 12).map(chunk => chunk.text.slice(0, 2_000)).join('\n')}`;
-      const ragContext = await deps.getHybridLegalContext(retrievalQuery, activeModule, 10, true);
+      const ragContext = await deps.getHybridLegalContext(retrievalQuery, activeModule, 12, true, 'byok');
       if (ragContext.sources.length === 0 || !ragContext.context.trim()) {
         throw new Error('La revisión BYOK se bloqueó porque el corpus local no recuperó fundamentos verificables. No se enviaron datos al proveedor.');
       }

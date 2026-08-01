@@ -14,7 +14,7 @@ const sources = [
 ];
 
 describe('legal response grounding gate', () => {
-  it('keeps exact provision allow-list validation for local GGUF output', () => {
+  it('keeps exact provision allow-list validation for grounded output', () => {
     const result = validateGroundedLegalOutput(
       'El CFF, Artículo 69-B establece un procedimiento aplicable a comprobantes de operaciones inexistentes.',
       sources,

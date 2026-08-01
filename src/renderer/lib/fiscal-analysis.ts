@@ -11,8 +11,8 @@ export interface FiscalAnalysisResponse {
   result: DocumentAnalysisResult;
   requestId: string;
   promptProfile: 'fiscal_analysis';
-  requestedExecutionMode: AiExecutionMode;
-  engine: 'local-gemma' | 'byok';
+  requestedExecutionMode: 'byok';
+  engine: 'byok';
   provider?: 'gemini' | 'openai' | 'anthropic';
   fallbackReason?: string;
 }
@@ -31,7 +31,7 @@ const FALLBACK_RESULT: DocumentAnalysisResult = {
   riskCategories: {},
   legalFoundations: [],
   confidence: 'low',
-  engine: 'hybrid',
+  engine: 'byok',
 };
 
 function extractJson(raw: string): string {
@@ -124,6 +124,6 @@ export async function runFiscalAnalysis(input: {
   });
 
   const result = parseFiscalAnalysisResult(response.result);
-  result.engine = response.engine === 'byok' ? 'byok' : 'gemma-local';
+  result.engine = 'byok';
   return { ...response, result } as FiscalAnalysisResponse;
 }

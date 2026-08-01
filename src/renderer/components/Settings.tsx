@@ -127,7 +127,7 @@ export const Settings: React.FC = () => {
     setByokMessage('');
     try {
       const settings = await window.lexDesktop.byok.saveSettings({
-        enabled: byokEnabled,
+        enabled: true,
         provider: byokProvider,
         model: byokModel,
         apiKey: byokApiKey.trim() || undefined,
@@ -138,7 +138,7 @@ export const Settings: React.FC = () => {
       applyByokSettings(settings);
       setByokApiKey('');
       setByokStatus('ok');
-      setByokMessage(settings.enabled ? `${BYOK_PROVIDER_LABELS[settings.provider]} BYOK quedó activo.` : 'Modo local seleccionado.');
+      setByokMessage(`${BYOK_PROVIDER_LABELS[settings.provider]} BYOK quedó activo.`);
     } catch (err: any) {
       setByokStatus('error');
       setByokMessage(err?.message || 'No se pudo guardar la configuración.');
@@ -170,7 +170,7 @@ export const Settings: React.FC = () => {
       applyByokSettings(settings);
       setByokApiKey('');
       setByokStatus('ok');
-      setByokMessage('API key eliminada. La app selecciona el modo local.');
+      setByokMessage('API key eliminada. Las funciones generativas quedan desactivadas.');
     } catch (err: any) {
       setByokStatus('error');
       setByokMessage(err?.message || 'No se pudo eliminar la API key.');
@@ -261,8 +261,6 @@ export const Settings: React.FC = () => {
     }
   };
 
-  const localGenerationReady = Boolean(runtimeHealth?.rust.binaryExists && runtimeHealth.rust.expectedGgufModelExists);
-
   return (
     <div className="h-full overflow-y-auto bg-slate-50 text-slate-700 scrollbar-hide flex flex-col font-sans">
       <header className="pl-16 pr-4 md:px-8 py-5 border-b border-slate-200 bg-white/80 backdrop-blur-md flex items-center justify-between sticky top-0 z-20 shrink-0 shadow-sm">
@@ -316,9 +314,7 @@ export const Settings: React.FC = () => {
             )}
             {activeTab === 'ia' && (
               <IaSettingsPanel
-                localGenerationReady={localGenerationReady}
                 byokEnabled={byokEnabled}
-                setByokEnabled={setByokEnabled}
                 strictPrivacy={strictPrivacy}
                 setStrictPrivacy={setStrictPrivacy}
                 automaticUpdatesEnabled={automaticUpdatesEnabled}

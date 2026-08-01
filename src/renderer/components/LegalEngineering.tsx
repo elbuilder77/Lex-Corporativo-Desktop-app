@@ -208,7 +208,7 @@ export const LegalEngineering: React.FC = () => {
         engine: response.engine,
       });
       const providerLabel = response.provider === 'openai' ? 'OpenAI' : response.provider === 'anthropic' ? 'Claude' : 'Gemini';
-      notify(`Documento preparado con ${response.engine === 'byok' ? `${providerLabel} BYOK` : 'el motor local'}.`, 'success', 'Ingeniería Jurídica');
+      notify(`Documento preparado con ${providerLabel} BYOK.`, 'success', 'Ingeniería Jurídica');
     } catch (error: any) {
       notify(error?.message || 'No se pudo generar el documento.', 'error', 'Ingeniería Jurídica');
     } finally {
