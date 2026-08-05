@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AlertTriangle,
   Check,
   Clipboard,
   Download,
@@ -8,10 +9,12 @@ import {
   Loader2,
   RefreshCw,
   Scale,
+  SearchCheck,
   Upload,
   X,
 } from 'lucide-react';
-import { draftLegalDocument, type LegalDraftingArea, type UserReferenceFile } from '../services/ai';
+import { analyzeEngineeringDocument, draftLegalDocument, type LegalDraftingArea, type UserReferenceFile } from '../services/ai';
+import type { DocumentAnalysisResult } from '../types';
 import {
   LEGAL_ENGINEERING_TEMPLATES,
   type DraftingTemplate,
@@ -26,7 +29,7 @@ import { useUiStore } from '../store/useUiStore';
 import { cn } from '../lib/utils';
 import { useProcessingGuard } from '../hooks/useProcessingGuard';
 
-type SourceMode = 'template' | 'reference';
+type SourceMode = 'template' | 'reference' | 'analysis';
 
 const ENGINEERING_AREAS: LegalEngineeringArea[] = ['mercantil'];
 
@@ -78,7 +81,10 @@ export const LegalEngineering: React.FC = () => {
     engineeringDraftState,
     setEngineeringDraftState,
     engineeringDraftingHistory,
+    engineeringAnalysisHistory,
     addEngineeringDrafting,
+    addEngineeringAnalysis,
+    saveEngineeringWork,
   } = useCaseStore();
 
   const canRestoreEngineeringDraft = engineeringDraftState.area !== 'fiscal';
@@ -86,21 +92,33 @@ export const LegalEngineering: React.FC = () => {
   const initialTemplate = canRestoreEngineeringDraft && LEGAL_ENGINEERING_TEMPLATES[initialArea].some((template) => template.id === engineeringDraftState.template?.id)
     ? engineeringDraftState.template
     : null;
-  const [sourceMode, setSourceMode] = useState<SourceMode>(canRestoreEngineeringDraft ? engineeringDraftState.mode : 'template');
+  const initialMode = canRestoreEngineeringDraft && engineeringDraftState.mode === 'analysis' ? 'analysis' : (canRestoreEngineeringDraft ? engineeringDraftState.mode : 'template');
+  const [sourceMode, setSourceMode] = useState<SourceMode | 'analysis'>(initialMode);
   const [area, setArea] = useState<LegalEngineeringArea>(initialArea);
   const [prompt, setPrompt] = useState(canRestoreEngineeringDraft ? engineeringDraftState.prompt : '');
   const [selectedTemplate, setSelectedTemplate] = useState<DraftingTemplate | null>(initialTemplate);
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
+  const [analysisFile, setAnalysisFile] = useState<File | null>(null);
   const [generatedDoc, setGeneratedDoc] = useState(canRestoreEngineeringDraft ? engineeringDraftState.generatedDoc : '');
+  const [analysisPrompt, setAnalysisPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState('');
+  const [analysisResult, setAnalysisResult] = useState<DocumentAnalysisResult | null>(null);
+  const [analysisId, setAnalysisId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const analysisInputRef = useRef<HTMLInputElement>(null);
 
   const templates = useMemo(() => LEGAL_ENGINEERING_TEMPLATES[area], [area]);
   const visibleHistory = useMemo(
     () => engineeringDraftingHistory.filter((item) => (!item.area || item.area === 'mercantil') && item.ecosystem !== 'fiscal' && item.promptProfile !== 'fiscal_drafting'),
     [engineeringDraftingHistory],
+  );
+  const visibleAnalysisHistory = useMemo(
+    () => engineeringAnalysisHistory.filter((item) => item.ecosystem === 'mercantil'),
+    [engineeringAnalysisHistory],
   );
   const areaContent = AREA_CONTENT[area];
   const areaTheme = {
@@ -119,15 +137,28 @@ export const LegalEngineering: React.FC = () => {
       template: selectedTemplate,
       area,
       referenceFileName: referenceFile?.name,
+      sourceAnalysisId: analysisId || undefined,
     });
-  }, [area, generatedDoc, prompt, referenceFile?.name, selectedTemplate, setEngineeringDraftState, sourceMode]);
+  }, [area, generatedDoc, prompt, referenceFile?.name, selectedTemplate, setEngineeringDraftState, sourceMode, analysisId]);
 
   const changeArea = (nextArea: LegalEngineeringArea) => {
     setArea(nextArea);
     setSelectedTemplate(null);
     setReferenceFile(null);
+    setAnalysisFile(null);
+    setAnalysisResult(null);
+    setAnalysisId(null);
+    setAnalysisPrompt('');
     setPrompt('');
     setGeneratedDoc('');
+  };
+
+  const resetAnalysis = () => {
+    setAnalysisFile(null);
+    setAnalysisResult(null);
+    setAnalysisId(null);
+    setAnalysisPrompt('');
+    setAnalysisProgress('');
   };
 
   const selectTemplate = (template: DraftingTemplate) => {
@@ -148,6 +179,79 @@ export const LegalEngineering: React.FC = () => {
     }
     setReferenceFile(file);
     setSelectedTemplate(null);
+    setAnalysisFile(null);
+    setAnalysisResult(null);
+    setAnalysisId(null);
+  };
+
+  const applyAnalysisFile = (file?: File) => {
+    if (!file) return;
+    const normalizedMime = file.name.toLowerCase().endsWith('.md') ? 'text/markdown' : file.type;
+    if (!ACCEPTED_REFERENCE_TYPES.includes(normalizedMime)) {
+      notify('El archivo debe ser PDF, TXT o Markdown.', 'warning', 'Formato no compatible');
+      return;
+    }
+    if (file.size > MAX_REFERENCE_BYTES) {
+      notify('El archivo debe pesar 15 MB o menos.', 'warning', 'Archivo demasiado grande');
+      return;
+    }
+    setAnalysisFile(file);
+    setReferenceFile(null);
+    setSelectedTemplate(null);
+    setAnalysisResult(null);
+    setAnalysisId(null);
+  };
+
+  const handleAnalyzeDocument = async () => {
+    if (!analysisFile) {
+      notify('Sube el documento que quieres analizar.', 'warning', 'Falta el archivo');
+      return;
+    }
+    if (!canGenerate()) return;
+    setIsAnalyzing(true);
+    setAnalysisProgress('Preparando análisis…');
+    try {
+      window.lexDesktop.analysis.onProgress((state) => setAnalysisProgress(state.label));
+      const targetCaseId = await ensureModuleActivity('engineering', currentCaseId);
+      setCurrentCaseId(targetCaseId);
+
+      const mimeType = analysisFile.name.toLowerCase().endsWith('.md')
+        ? 'text/markdown'
+        : analysisFile.type as UserReferenceFile['mimeType'];
+      const filePayload = {
+        name: analysisFile.name,
+        mimeType,
+        base64: await readFileAsBase64(analysisFile),
+      };
+      const instruction = analysisPrompt.trim() || 'Analiza el documento, identifica riesgos, obligaciones, partes, cláusulas faltantes y datos clave.';
+      const response = await analyzeEngineeringDocument([filePayload], instruction);
+      const result = typeof response.result === 'string' ? JSON.parse(response.result) : response.result;
+      setAnalysisResult(result);
+      setAnalysisId(response.requestId);
+      addEngineeringAnalysis({
+        id: response.requestId,
+        requestId: response.requestId,
+        timestamp: new Date().toISOString(),
+        files: [{ name: analysisFile.name, type: mimeType }],
+        result,
+        module: 'engineering',
+        ecosystem: 'mercantil',
+        promptProfile: response.promptProfile as 'mercantil_analysis',
+        currentDocumentOnly: true,
+        customInstruction: instruction,
+        executionMode: response.requestedExecutionMode,
+        engine: response.engine,
+        provider: response.provider,
+      });
+      await saveEngineeringWork();
+      const providerLabel = response.provider === 'openai' ? 'OpenAI' : response.provider === 'anthropic' ? 'Claude' : 'Gemini';
+      notify(`Análisis documental listo con ${providerLabel} BYOK.`, 'success', 'Ingeniería Jurídica');
+    } catch (error: any) {
+      notify(error?.message || 'No se pudo analizar el documento.', 'error', 'Ingeniería Jurídica');
+    } finally {
+      setIsAnalyzing(false);
+      setAnalysisProgress('');
+    }
   };
 
   const handleGenerate = async () => {
@@ -189,7 +293,7 @@ export const LegalEngineering: React.FC = () => {
         output: selectedTemplate.output,
       } : undefined;
 
-      const response = await draftLegalDocument(prompt, area, templatePayload, undefined, userReference);
+      const response = await draftLegalDocument(prompt, area, templatePayload, analysisId || undefined, userReference);
       setGeneratedDoc(response.result);
       setEngineeringDraftState({ executionMode: response.requestedExecutionMode });
       addEngineeringDrafting({
@@ -203,10 +307,13 @@ export const LegalEngineering: React.FC = () => {
         templateId: selectedTemplate?.id,
         templateTitle: selectedTemplate?.title,
         referenceFileName: referenceFile?.name,
+        sourceAnalysisId: analysisId || undefined,
+        sourceDocumentAnalysis: analysisResult || undefined,
         generatedDoc: response.result,
         executionMode: response.requestedExecutionMode,
         engine: response.engine,
       });
+      await saveEngineeringWork();
       const providerLabel = response.provider === 'openai' ? 'OpenAI' : response.provider === 'anthropic' ? 'Claude' : 'Gemini';
       notify(`Documento preparado con ${providerLabel} BYOK.`, 'success', 'Ingeniería Jurídica');
     } catch (error: any) {
@@ -239,6 +346,10 @@ export const LegalEngineering: React.FC = () => {
     setPrompt('');
     setSelectedTemplate(null);
     setReferenceFile(null);
+    setAnalysisFile(null);
+    setAnalysisResult(null);
+    setAnalysisId(null);
+    setAnalysisPrompt('');
   };
 
   return (
@@ -256,13 +367,15 @@ export const LegalEngineering: React.FC = () => {
               Redacta contratos e instrumentos mercantiles desde una plantilla o un archivo existente, con fundamento local verificable.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowHistory((value) => !value)}
-            className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-          >
-            <History size={16} /> Historial ({visibleHistory.length})
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setShowHistory((value) => !value)}
+              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+            >
+              <History size={16} /> Documentos ({visibleHistory.length})
+            </button>
+          </div>
         </header>
 
         {showHistory && (
@@ -332,20 +445,24 @@ export const LegalEngineering: React.FC = () => {
                 <h2 className="text-sm font-bold text-slate-950">Punto de partida</h2>
                 <p className="mt-0.5 text-xs text-slate-500">Selecciona una estructura o carga un documento para editarlo.</p>
               </div>
-              <div className="mb-4 grid gap-2 sm:grid-cols-2">
-                <button type="button" onClick={() => { setSourceMode('template'); setReferenceFile(null); }} className={cn('flex min-h-11 items-center gap-2 rounded-lg border px-3 text-left text-sm font-bold transition', sourceMode === 'template' ? `${areaTheme.border} ${areaTheme.button} text-white` : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50')}>
+              <div className="mb-4 grid gap-2 sm:grid-cols-3">
+                <button type="button" onClick={() => { setSourceMode('template'); setReferenceFile(null); setAnalysisFile(null); }} className={cn('flex min-h-11 items-center gap-2 rounded-lg border px-3 text-left text-sm font-bold transition', sourceMode === 'template' ? `${areaTheme.border} ${areaTheme.button} text-white` : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50')}>
                   <FileText size={17} />
                   Plantilla
                 </button>
-                <button type="button" onClick={() => { setSourceMode('reference'); setSelectedTemplate(null); setPrompt(''); }} className={cn('flex min-h-11 items-center gap-2 rounded-lg border px-3 text-left text-sm font-bold transition', sourceMode === 'reference' ? `${areaTheme.border} ${areaTheme.button} text-white` : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50')}>
+                <button type="button" onClick={() => { setSourceMode('reference'); setSelectedTemplate(null); setAnalysisFile(null); setPrompt(''); }} className={cn('flex min-h-11 items-center gap-2 rounded-lg border px-3 text-left text-sm font-bold transition', sourceMode === 'reference' ? `${areaTheme.border} ${areaTheme.button} text-white` : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50')}>
                   <Upload size={17} />
                   Documento propio
+                </button>
+                <button type="button" onClick={() => { setSourceMode('analysis'); setSelectedTemplate(null); setReferenceFile(null); setPrompt(''); }} className={cn('flex min-h-11 items-center gap-2 rounded-lg border px-3 text-left text-sm font-bold transition', sourceMode === 'analysis' ? `${areaTheme.border} ${areaTheme.button} text-white` : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50')}>
+                  <SearchCheck size={17} />
+                  Analizar primero
                 </button>
               </div>
 
               {sourceMode === 'template' ? (
                 <DraftingTemplatePicker templates={templates} selectedTemplate={selectedTemplate} tone={areaContent.tone} onSelect={selectTemplate} onClear={() => { setSelectedTemplate(null); setPrompt(''); }} />
-              ) : (
+              ) : sourceMode === 'reference' ? (
                 <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5">
                   <input ref={fileInputRef} type="file" accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown" className="hidden" onChange={(event) => { applyReferenceFile(event.target.files?.[0]); event.target.value = ''; }} />
                   {referenceFile ? (
@@ -367,13 +484,94 @@ export const LegalEngineering: React.FC = () => {
                     </div>
                   )}
                 </div>
+              ) : (
+                <div className="space-y-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5">
+                  <input ref={analysisInputRef} type="file" accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown" className="hidden" onChange={(event) => { applyAnalysisFile(event.target.files?.[0]); event.target.value = ''; }} />
+                  {analysisFile ? (
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="rounded-lg bg-slate-100 p-2 text-slate-600"><FileText size={20} /></span>
+                        <span className="min-w-0"><span className="block truncate text-sm font-semibold">{analysisFile.name}</span><span className="text-xs text-slate-500">{(analysisFile.size / 1024 / 1024).toFixed(1)} MB · listo para análisis</span></span>
+                      </div>
+                      <button type="button" onClick={() => setAnalysisFile(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Quitar archivo"><X size={18} /></button>
+                    </div>
+                  ) : (
+                    <div className="flex min-h-40 w-full flex-col items-center justify-center rounded-lg px-4 text-center text-slate-600">
+                      <SearchCheck size={28} className="mb-3 text-slate-400" />
+                      <span className="text-sm font-bold text-slate-900">Sube el documento para analizar antes de redactar</span>
+                      <span className="mt-1 text-sm text-slate-500">PDF, TXT o Markdown · máximo 15 MB</span>
+                      <button type="button" onClick={() => analysisInputRef.current?.click()} className={cn('mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg px-5 text-sm font-bold text-white transition', areaTheme.button)}>
+                        <Upload size={16} /> Subir archivo
+                      </button>
+                    </div>
+                  )}
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-slate-700">Enfoque del análisis (opcional)</label>
+                    <textarea
+                      value={analysisPrompt}
+                      onChange={(event) => setAnalysisPrompt(event.target.value)}
+                      rows={4}
+                      placeholder="Ej: identifica riesgos de representación, obligaciones pendientes y cláusulas de terminación."
+                      className={cn('w-full resize-y rounded-xl border border-slate-300 bg-white p-3 text-sm leading-5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:ring-2', areaTheme.ring)}
+                    />
+                  </div>
+                  <button type="button" onClick={handleAnalyzeDocument} disabled={isAnalyzing || !analysisFile} className={cn('inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-6 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50', areaTheme.button)}>
+                    {isAnalyzing ? <><Loader2 size={17} className="animate-spin" /> {analysisProgress || 'Analizando documento'}</> : <><SearchCheck size={17} /> Analizar documento</>}
+                  </button>
+                  {analysisResult && (
+                    <div className="rounded-lg border border-slate-200 bg-white p-4">
+                      <div className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-900">
+                        <SearchCheck size={16} className="text-mercantil" />
+                        Resultado del análisis
+                      </div>
+                      <div className="space-y-3 text-sm text-slate-700">
+                        <p><span className="font-semibold">Tipo:</span> {analysisResult.documentType}</p>
+                        <p>{analysisResult.summary}</p>
+                        {analysisResult.detectedParties.length > 0 && (
+                          <div>
+                            <p className="font-semibold">Partes detectadas</p>
+                            <ul className="ml-4 list-disc">{analysisResult.detectedParties.map((party, index) => <li key={index}>{party}</li>)}</ul>
+                          </div>
+                        )}
+                        {analysisResult.detectedObligations.length > 0 && (
+                          <div>
+                            <p className="font-semibold">Obligaciones</p>
+                            <ul className="ml-4 list-disc">{analysisResult.detectedObligations.map((obligation, index) => <li key={index}>{obligation}</li>)}</ul>
+                          </div>
+                        )}
+                        {(analysisResult.missingClauses.length > 0 || (analysisResult.missingData?.length ?? 0) > 0) && (
+                          <div className="rounded-md bg-amber-50 p-3 text-amber-900">
+                            <p className="mb-1 flex items-center gap-1.5 font-semibold"><AlertTriangle size={14} /> Faltantes detectados</p>
+                            <ul className="ml-4 list-disc">
+                              {analysisResult.missingClauses.map((clause, index) => <li key={`c-${index}`}>{clause}</li>)}
+                              {analysisResult.missingData?.map((data, index) => <li key={`d-${index}`}>{data}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {analysisResult.risks.length > 0 && (
+                          <div>
+                            <p className="font-semibold">Riesgos</p>
+                            <ul className="ml-4 list-disc">{analysisResult.risks.map((risk, index) => <li key={index}><span className="font-medium">{risk.title}</span> ({risk.severity}): {risk.explanation}</li>)}</ul>
+                          </div>
+                        )}
+                        {analysisResult.recommendedActions.length > 0 && (
+                          <div>
+                            <p className="font-semibold">Acciones recomendadas</p>
+                            <ul className="ml-4 list-disc">{analysisResult.recommendedActions.map((action, index) => <li key={index}>{action}</li>)}</ul>
+                          </div>
+                        )}
+                      </div>
+                      <button type="button" onClick={resetAnalysis} className="mt-4 text-xs font-semibold text-slate-500 hover:text-slate-700">Reiniciar análisis</button>
+                    </div>
+                  )}
+                </div>
               )}
             </section>
 
             <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:sticky lg:top-5">
               <div className="mb-3">
-                <h2 className="text-sm font-bold text-slate-950">{sourceMode === 'reference' ? 'Cambios solicitados' : 'Datos e instrucciones'}</h2>
-                <p className="mt-0.5 text-xs text-slate-500">Incluye la información necesaria para producir un documento revisable.</p>
+                <h2 className="text-sm font-bold text-slate-950">{sourceMode === 'reference' ? 'Cambios solicitados' : sourceMode === 'analysis' ? 'Instrucciones de redacción' : 'Datos e instrucciones'}</h2>
+                <p className="mt-0.5 text-xs text-slate-500">{sourceMode === 'analysis' ? 'Confirma o ajusta las correcciones/acciones derivadas del análisis para generar el documento.' : 'Incluye la información necesaria para producir un documento revisable.'}</p>
               </div>
               <textarea
                 value={prompt}
@@ -381,15 +579,20 @@ export const LegalEngineering: React.FC = () => {
                 rows={13}
                 placeholder={sourceMode === 'reference'
                   ? 'Indica las correcciones de redacción, ortografía, estructura, cláusulas o formato que necesitas. Señala también qué contenido debe conservarse sin cambios.'
+                  : sourceMode === 'analysis'
+                  ? 'Describe cómo quieres que se redacte el documento a partir del análisis: tipo de instrumento, ajustes, cláusulas a incluir, partes, montos, vigencia, etc.'
                   : selectedTemplate
                   ? `Completa los datos para ${selectedTemplate.title}: ${selectedTemplate.requiredFields.join(', ')}.`
                   : areaContent.focusPlaceholder}
                 className={cn('w-full resize-y rounded-xl border border-slate-300 bg-slate-50 p-4 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:bg-white focus:ring-2', areaTheme.ring)}
               />
               <div className="mt-3">
-                <button type="button" onClick={handleGenerate} disabled={isGenerating} className={cn('inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-6 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50', areaTheme.button)}>
-                  {isGenerating ? <><Loader2 size={17} className="animate-spin" /> {sourceMode === 'reference' ? 'Corrigiendo documento' : 'Preparando documento'}</> : <><FileText size={17} /> {sourceMode === 'reference' ? 'Corregir documento' : 'Generar documento'}</>}
+                <button type="button" onClick={handleGenerate} disabled={isGenerating || (sourceMode === 'analysis' && !analysisResult)} className={cn('inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-6 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50', areaTheme.button)}>
+                  {isGenerating ? <><Loader2 size={17} className="animate-spin" /> {sourceMode === 'reference' ? 'Corrigiendo documento' : 'Preparando documento'}</> : <><FileText size={17} /> {sourceMode === 'reference' ? 'Corregir documento' : sourceMode === 'analysis' ? 'Generar desde análisis' : 'Generar documento'}</>}
                 </button>
+                {sourceMode === 'analysis' && !analysisResult && (
+                  <p className="mt-2 text-xs text-amber-700">Primero analiza el documento para habilitar la redacción.</p>
+                )}
               </div>
             </section>
             </div>
