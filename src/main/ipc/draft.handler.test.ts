@@ -98,6 +98,17 @@ describe('draft payload validation', () => {
     })).toThrow('no pertenece a la materia mercantil');
   });
 
+  it('accepts a source analysis id to link drafting to a prior analysis', () => {
+    const payload = parseDraftPayload({
+      requirements: 'Redactar contrato de arrendamiento mercantil.',
+      ecosystem: 'mercantil',
+      sourceAnalysisId: 'analysis-123',
+    });
+
+    expect(payload.sourceAnalysisId).toBe('analysis-123');
+    expect(payload.ecosystem).toBe('mercantil');
+  });
+
   it('rejects mismatched templateId and template payload', () => {
     expect(() => parseDraftPayload({
       requirements: 'Preparar escrito SAT.',

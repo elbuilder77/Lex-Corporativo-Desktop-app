@@ -68,12 +68,19 @@ describe('analysis payload contract', () => {
     })).toThrow();
   });
 
-  it('rejects mercantile analysis because it is no longer a product workflow', () => {
-    expect(() => parseAnalyzePayload({
+  it('accepts mercantile analysis for engineering document review', () => {
+    const payload = parseAnalyzePayload({
       ...basePayload,
       ecosystem: 'mercantil',
+      module: 'analysis',
+      currentDocumentOnly: true,
+      focusedInstruction: 'Revisa riesgos contractuales.',
       promptProfile: 'mercantil_analysis',
-    })).toThrow();
+    });
+
+    expect(payload.ecosystem).toBe('mercantil');
+    expect(payload.module).toBe('analysis');
+    expect(payload.promptProfile).toBe('mercantil_analysis');
   });
 
   it('accepts CFDI XML as local text evidence', () => {
