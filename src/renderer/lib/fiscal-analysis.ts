@@ -10,7 +10,7 @@ export interface FiscalEvidenceUpload {
 export interface FiscalAnalysisResponse {
   result: DocumentAnalysisResult;
   requestId: string;
-  promptProfile: 'fiscal_analysis';
+  promptProfile: 'fiscal_analysis' | 'mercantil_analysis';
   requestedExecutionMode: 'byok';
   engine: 'byok';
   provider?: 'gemini' | 'openai' | 'anthropic';

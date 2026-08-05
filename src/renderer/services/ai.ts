@@ -3,6 +3,19 @@ import { getAnalysisPromptProfile, getDraftingPromptProfile, type LegalAnalysisE
 const isElectron = typeof window !== 'undefined' && 'lexDesktop' in window;
 export type LegalDraftingArea = 'mercantil' | 'fiscal';
 
+export interface AnalysisResponse {
+  result: any;
+  requestId: string;
+  ecosystem: 'fiscal' | 'mercantil';
+  module: 'analysis';
+  promptProfile: 'fiscal_analysis' | 'mercantil_analysis';
+  currentDocumentOnly: true;
+  engine: 'byok';
+  requestedExecutionMode: 'byok';
+  provider?: 'gemini' | 'openai' | 'anthropic';
+  fallbackReason?: string;
+}
+
 export interface DraftTemplateContext {
   id: string;
   title: string;
@@ -38,7 +51,7 @@ const withTimeout = <T>(promise: Promise<T>, ms: number = IPC_TIMEOUT_MS): Promi
 export const analyzeFiscalDocument = async (
   files: { base64: string; mimeType: string; name: string }[],
   prompt: string
-) => {
+): Promise<AnalysisResponse> => {
   return analyzeDocument(files, prompt, 'fiscal');
 };
 
@@ -46,7 +59,7 @@ export const analyzeDocument = async (
   files: { base64: string; mimeType: string; name: string }[],
   prompt: string,
   ecosystem: LegalAnalysisEcosystem = 'fiscal'
-) => {
+): Promise<AnalysisResponse> => {
   if (!isElectron) {
     throw new Error('Lex Corporativo requiere el runtime de escritorio local.');
   }
@@ -58,7 +71,7 @@ export const analyzeDocument = async (
     module: 'analysis',
     currentDocumentOnly: true,
     promptProfile: getAnalysisPromptProfile(ecosystem),
-  }));
+  })) as Promise<AnalysisResponse>;
 };
 
 export const draftLegalDocument = async (
@@ -86,6 +99,6 @@ export const draftLegalDocument = async (
 export const analyzeEngineeringDocument = async (
   files: { base64: string; mimeType: string; name: string }[],
   prompt: string
-) => {
+): Promise<AnalysisResponse> => {
   return analyzeDocument(files, prompt, 'mercantil');
 };

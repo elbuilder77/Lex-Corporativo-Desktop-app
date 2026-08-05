@@ -31,17 +31,17 @@ export interface LexDesktopAPI {
       files: any[];
       prompt?: string;
       focusedInstruction?: string;
-      rules?: 'fiscal';
-      ecosystem?: 'fiscal';
+      rules?: 'fiscal' | 'mercantil';
+      ecosystem?: 'fiscal' | 'mercantil';
       module?: 'analysis';
       currentDocumentOnly?: true;
-      promptProfile?: 'fiscal_analysis';
+      promptProfile?: 'fiscal_analysis' | 'mercantil_analysis';
     }) => Promise<{
       result: any;
       requestId: string;
-      ecosystem: 'fiscal';
+      ecosystem: 'fiscal' | 'mercantil';
       module: 'analysis';
-      promptProfile: 'fiscal_analysis';
+      promptProfile: 'fiscal_analysis' | 'mercantil_analysis';
       currentDocumentOnly: true;
       engine: 'byok';
       requestedExecutionMode: 'byok';

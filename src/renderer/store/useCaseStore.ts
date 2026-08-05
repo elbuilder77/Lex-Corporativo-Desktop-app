@@ -23,6 +23,7 @@ interface CaseState {
   completeFiscalOperationStep: (step: FiscalOperationStep) => void;
   toggleFiscalEvidenceResolved: (evidenceId: string) => void;
   saveFiscalWork: (name?: string) => Promise<string>;
+  saveEngineeringWork: (name?: string) => Promise<string>;
   
   setCurrentCaseId: (id: string | null) => void;
   switchModule: (module: 'engineering' | 'fiscal') => void;
@@ -31,6 +32,7 @@ interface CaseState {
   addEngineeringDrafting: (item: DraftingHistory) => void;
   addFiscalDrafting: (item: DraftingHistory) => void;
   removeGeneratedArtifact: (artifactId: string, activityType: 'analysis' | 'drafting', module: 'engineering' | 'fiscal', generatedDoc?: string) => void;
+  removeEngineeringAnalysis: (artifactId: string) => void;
   fetchRecentCases: () => Promise<void>;
   removeRecentCase: (caseId: string) => void;
   
@@ -288,6 +290,14 @@ export const useCaseStore = create<CaseState>((set, get) => ({
   }),
   removeGeneratedArtifact: (artifactId, activityType, module, generatedDoc) => set((state) => {
     if (activityType === 'analysis') {
+      if (module === 'engineering') {
+        return {
+          engineeringAnalysisHistory: state.engineeringAnalysisHistory.filter((item) => item.id !== artifactId),
+          engineeringDraftState: state.engineeringDraftState.sourceAnalysisId === artifactId
+            ? { ...state.engineeringDraftState, sourceAnalysisId: undefined }
+            : state.engineeringDraftState,
+        };
+      }
       return {
         fiscalAnalysisHistory: state.fiscalAnalysisHistory.filter((item) => item.id !== artifactId),
         fiscalOperationState: {
@@ -315,6 +325,12 @@ export const useCaseStore = create<CaseState>((set, get) => ({
         : state.engineeringDraftState,
     };
   }),
+  removeEngineeringAnalysis: (artifactId) => set((state) => ({
+    engineeringAnalysisHistory: state.engineeringAnalysisHistory.filter((item) => item.id !== artifactId),
+    engineeringDraftState: state.engineeringDraftState.sourceAnalysisId === artifactId
+      ? { ...state.engineeringDraftState, sourceAnalysisId: undefined }
+      : state.engineeringDraftState,
+  })),
   
   fetchRecentCases: async () => {
     set({ isLoadingCases: true });
