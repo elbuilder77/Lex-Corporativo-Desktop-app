@@ -1,4 +1,4 @@
-import { getAnalysisPromptProfile, getDraftingPromptProfile } from "../../shared/legal-contracts";
+import { getAnalysisPromptProfile, getDraftingPromptProfile, type LegalAnalysisEcosystem } from "../../shared/legal-contracts";
 
 const isElectron = typeof window !== 'undefined' && 'lexDesktop' in window;
 export type LegalDraftingArea = 'mercantil' | 'fiscal';
@@ -39,6 +39,14 @@ export const analyzeFiscalDocument = async (
   files: { base64: string; mimeType: string; name: string }[],
   prompt: string
 ) => {
+  return analyzeDocument(files, prompt, 'fiscal');
+};
+
+export const analyzeDocument = async (
+  files: { base64: string; mimeType: string; name: string }[],
+  prompt: string,
+  ecosystem: LegalAnalysisEcosystem = 'fiscal'
+) => {
   if (!isElectron) {
     throw new Error('Lex Corporativo requiere el runtime de escritorio local.');
   }
@@ -46,10 +54,10 @@ export const analyzeFiscalDocument = async (
     caseId: 'temp',
     files,
     focusedInstruction: prompt,
-    ecosystem: 'fiscal',
+    ecosystem,
     module: 'analysis',
     currentDocumentOnly: true,
-    promptProfile: getAnalysisPromptProfile('fiscal'),
+    promptProfile: getAnalysisPromptProfile(ecosystem),
   }));
 };
 
@@ -73,4 +81,11 @@ export const draftLegalDocument = async (
     template,
     referenceFile,
   }));
+};
+
+export const analyzeEngineeringDocument = async (
+  files: { base64: string; mimeType: string; name: string }[],
+  prompt: string
+) => {
+  return analyzeDocument(files, prompt, 'mercantil');
 };

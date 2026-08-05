@@ -1,15 +1,16 @@
-export type LegalAnalysisEcosystem = 'fiscal';
+export type LegalAnalysisEcosystem = 'fiscal' | 'mercantil';
 export type LegalDraftingArea = 'mercantil' | 'fiscal';
 export type LegalEcosystem = LegalDraftingArea;
 export type LegalWorkflowModule = 'analysis' | 'drafting';
 export type AiExecutionMode = 'local' | 'byok';
 
-export type AnalysisPromptProfile = 'fiscal_analysis';
+export type AnalysisPromptProfile = 'fiscal_analysis' | 'mercantil_analysis';
 export type DraftingPromptProfile = 'mercantil_drafting' | 'fiscal_drafting';
 export type LegalPromptProfile = AnalysisPromptProfile | DraftingPromptProfile;
 
 export const ANALYSIS_PROMPT_PROFILES: Record<LegalAnalysisEcosystem, AnalysisPromptProfile> = {
   fiscal: 'fiscal_analysis',
+  mercantil: 'mercantil_analysis',
 };
 
 export const DRAFTING_PROMPT_PROFILES: Record<LegalDraftingArea, DraftingPromptProfile> = {

@@ -136,9 +136,9 @@ export interface AnalyzedDocumentHistory {
   timestamp: string;
   files: { name: string; type: string }[];
   result: DocumentAnalysisResult;
-  module: 'fiscal';
-  ecosystem?: 'fiscal';
-  promptProfile?: 'fiscal_analysis';
+  module: 'fiscal' | 'engineering';
+  ecosystem?: 'fiscal' | 'mercantil';
+  promptProfile?: 'fiscal_analysis' | 'mercantil_analysis';
   currentDocumentOnly?: true;
   customInstruction: string;
   executionMode?: 'local' | 'byok';
@@ -152,6 +152,7 @@ export interface DraftingHistory {
   prompt: string;
   requestId?: string;
   sourceAnalysisId?: string;
+  sourceDocumentAnalysis?: DocumentAnalysisResult;
   area?: 'mercantil' | 'fiscal';
   ecosystem?: 'mercantil' | 'fiscal';
   promptProfile?: 'mercantil_drafting' | 'fiscal_drafting';
