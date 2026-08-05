@@ -357,11 +357,22 @@ function removeArtifactFromSavedState(
   }
 }
 
+export async function getAnalysis(caseId: string, analysisId: string, expectedModule?: CaseModule): Promise<unknown | null> {
+  assertCaseModule(caseId, expectedModule);
+  const row = getDb().prepare('SELECT payload FROM analyses WHERE caseId = ? AND analysisId = ?').get(caseId, analysisId) as { payload: string } | undefined;
+  if (!row) return null;
+  try {
+    return JSON.parse(decryptPayload(row.payload));
+  } catch {
+    return null;
+  }
+}
+
 export async function deleteAnalysis(caseId: string, analysisId: string, expectedModule?: CaseModule): Promise<boolean> {
   assertCaseModule(caseId, expectedModule);
   const result = getDb().prepare('DELETE FROM analyses WHERE caseId = ? AND analysisId = ?').run(caseId, analysisId);
   if (result.changes > 0) {
-    removeArtifactFromSavedState(caseId, analysisId, ['fiscalAnalysisHistory']);
+    removeArtifactFromSavedState(caseId, analysisId, ['fiscalAnalysisHistory', 'engineeringAnalysisHistory']);
     updateCaseTimestamp(caseId);
     console.info(`[Vault] Analysis deleted locally (SQLite) for activity ${getSafeCaseLabel(caseId)}.`);
   }
