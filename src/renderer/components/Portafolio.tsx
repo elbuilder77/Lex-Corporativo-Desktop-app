@@ -1,5 +1,28 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, BriefcaseBusiness, Clock, Download, FileSearch, FileSignature, FolderOpen, Layers3, Loader2, Plus, ShieldAlert, Trash2, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowRight,
+  BookOpen,
+  BriefcaseBusiness,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  Clipboard,
+  Clock,
+  Download,
+  Eye,
+  FileSearch,
+  FileSignature,
+  FileText,
+  FolderOpen,
+  Layers3,
+  Loader2,
+  Scale,
+  ShieldAlert,
+  ShieldCheck,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { useNavigate } from 'react-router-dom';
@@ -10,41 +33,44 @@ import { BRAND_CONTENT } from '../lib/product-content';
 import { cn } from '../lib/utils';
 import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import { ConfirmDialog } from './ui/ConfirmDialog';
-import { useFocusTrap } from '../hooks/useFocusTrap';
-import { buildFiscalEvidenceMatrix } from '../lib/fiscal-evidence';
 
-type ActivityFilter = 'all' | 'drafting' | 'analysis';
+type ActivityTypeFilter = 'all' | 'drafting' | 'analysis';
+type LegalAreaFilter = 'all' | 'mercantil' | 'laboral' | 'comercio_exterior' | 'aduanal' | 'fiscal';
 
-function normalizeModule(module?: string): 'engineering' | 'fiscal' {
-  return module === 'fiscal' ? 'fiscal' : 'engineering';
-}
+const AREA_BADGES: Record<string, { label: string; class: string }> = {
+  mercantil: { label: 'Mercantil', class: 'border-blue-200 bg-blue-50 text-blue-800' },
+  laboral: { label: 'Laboral', class: 'border-amber-200 bg-amber-50 text-amber-800' },
+  comercio_exterior: { label: 'Comercio Ext.', class: 'border-emerald-200 bg-emerald-50 text-emerald-800' },
+  aduanal: { label: 'Aduanal', class: 'border-purple-200 bg-purple-50 text-purple-800' },
+  fiscal: { label: 'Fiscal', class: 'border-teal-200 bg-teal-50 text-teal-800' },
+};
 
 export const Portafolio: React.FC = () => {
   const navigate = useNavigate();
-  const { notify, setActiveTab, setFiscalGuided } = useUiStore();
+  const { notify } = useUiStore();
   const {
     engineeringDraftingHistory,
     engineeringAnalysisHistory,
-    fiscalAnalysisHistory,
-    fiscalDraftingHistory,
-    fiscalOperationState,
     currentCaseId,
     removeGeneratedArtifact,
     recentCases,
     fetchRecentCases,
-    isLoadingCases,
     loadCase,
+    setEngineeringDraftState,
   } = useCaseStore();
+
   const [persistedActivity, setPersistedActivity] = useState<any[]>([]);
-  const [filter, setFilter] = useState<ActivityFilter>('all');
+  const [typeFilter, setTypeFilter] = useState<ActivityTypeFilter>('all');
+  const [areaFilter, setAreaFilter] = useState<LegalAreaFilter>('all');
   const [selectedActivity, setSelectedActivity] = useState<any>(null);
-  const [isLoadingActivity, setIsLoadingActivity] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [dialogState, confirm] = useConfirmDialog();
-  const detailDialogRef = useFocusTrap<HTMLDivElement>(Boolean(selectedActivity));
 
-  useEffect(() => { fetchRecentCases(); }, [fetchRecentCases]);
+  useEffect(() => {
+    void fetchRecentCases();
+  }, [fetchRecentCases]);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,52 +79,49 @@ export const Portafolio: React.FC = () => {
         setPersistedActivity([]);
         return;
       }
-      setIsLoadingActivity(true);
-      const groups = await Promise.all(recentCases.map(async (item) => {
-        try {
-          const fullData = await window.lexDesktop.cases.getCase(item.id);
-          const module = normalizeModule(fullData.metadata?.module || item.module);
-          const resolvedEvidenceIds = fullData.state?.fiscalOperationState?.resolvedEvidenceIds || [];
-          const drafts = (fullData.drafts || []).map((draft: any) => ({
-            ...draft,
-            caseId: item.id,
-            module,
-            activityType: 'drafting',
-          }));
-          const analyses = (fullData.analyses || []).map((analysis: any) => ({
-            ...analysis,
-            caseId: item.id,
-            module,
-            activityType: 'analysis',
-            resolvedEvidenceIds: module === 'fiscal' ? resolvedEvidenceIds : undefined,
-          }));
-          return [...drafts, ...analyses];
-        } catch {
-          return [];
-        }
-      }));
+      const groups = await Promise.all(
+        recentCases.map(async (item) => {
+          try {
+            const fullData = await window.lexDesktop.cases.getCase(item.id);
+            const drafts = (fullData.drafts || []).map((draft: any) => ({
+              ...draft,
+              caseId: item.id,
+              activityType: 'drafting',
+            }));
+            const analyses = (fullData.analyses || []).map((analysis: any) => ({
+              ...analysis,
+              caseId: item.id,
+              activityType: 'analysis',
+            }));
+            return [...drafts, ...analyses];
+          } catch {
+            return [];
+          }
+        }),
+      );
       if (!cancelled) {
         setPersistedActivity(groups.flat());
-        setIsLoadingActivity(false);
       }
     };
     void load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [recentCases]);
 
   useEffect(() => {
     if (!selectedActivity) return;
-    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setSelectedActivity(null); };
+    const close = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSelectedActivity(null);
+    };
     window.addEventListener('keydown', close);
     return () => window.removeEventListener('keydown', close);
   }, [selectedActivity]);
 
   const allActivity = useMemo(() => {
     const live = [
-      ...engineeringDraftingHistory.map((item) => ({ ...item, caseId: currentCaseId, module: 'engineering', activityType: 'drafting' })),
-      ...engineeringAnalysisHistory.map((item) => ({ ...item, caseId: currentCaseId, module: 'engineering', activityType: 'analysis' })),
-      ...fiscalDraftingHistory.map((item) => ({ ...item, caseId: currentCaseId, module: 'fiscal', activityType: 'drafting' })),
-      ...fiscalAnalysisHistory.map((item) => ({ ...item, caseId: currentCaseId, module: 'fiscal', activityType: 'analysis', resolvedEvidenceIds: fiscalOperationState.resolvedEvidenceIds })),
+      ...engineeringDraftingHistory.map((item) => ({ ...item, caseId: currentCaseId, activityType: 'drafting' })),
+      ...engineeringAnalysisHistory.map((item) => ({ ...item, caseId: currentCaseId, activityType: 'analysis' })),
     ];
     const seen = new Set<string>();
     return [...live, ...persistedActivity]
@@ -109,121 +132,139 @@ export const Portafolio: React.FC = () => {
         return true;
       })
       .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
-  }, [currentCaseId, engineeringDraftingHistory, engineeringAnalysisHistory, fiscalAnalysisHistory, fiscalDraftingHistory, fiscalOperationState.resolvedEvidenceIds, persistedActivity]);
+  }, [currentCaseId, engineeringDraftingHistory, engineeringAnalysisHistory, persistedActivity]);
 
-  const filtered = allActivity.filter((item) => filter === 'all' || item.activityType === filter);
+  const filtered = useMemo(() => {
+    return allActivity.filter((item) => {
+      const matchType = typeFilter === 'all' || item.activityType === typeFilter;
+      const itemArea = item.area || item.ecosystem || 'mercantil';
+      const matchArea = areaFilter === 'all' || itemArea === areaFilter;
+      return matchType && matchArea;
+    });
+  }, [allActivity, typeFilter, areaFilter]);
+
   const documentCount = allActivity.filter((item) => item.activityType === 'drafting').length;
-  const reviewCount = allActivity.filter((item) => item.activityType === 'analysis').length;
+  const analysisCount = allActivity.filter((item) => item.activityType === 'analysis').length;
 
-  const resumeCase = async (savedCase: typeof recentCases[number]) => {
-    await loadCase(savedCase);
-    navigate('/ingenieria-juridica');
-  };
+  const activityKey = (item: any) => `${item.caseId || 'memory'}:${item.activityType}:${item.id || item.requestId || item.timestamp}`;
 
   const titleFor = (item: any) => {
     if (item.activityType === 'drafting') {
-      return item.templateTitle || item.referenceFileName || 'Documento jurídico';
+      return item.templateTitle || item.referenceFileName || 'Documento redactado';
     }
-    const areaLabel = item.module === 'fiscal' ? 'Revisión fiscal' : 'Análisis jurídico';
-    return item.files?.[0]?.name ? `${areaLabel} · ${item.files[0].name}` : item.result?.documentType || areaLabel;
+    return item.files?.[0]?.name ? `Auditoría · ${item.files[0].name}` : item.result?.documentType || 'Auditoría de riesgos';
   };
 
-  const bodyFor = (item: any) => {
-    if (item.activityType === 'drafting') return item.generatedDoc || 'Sin contenido disponible.';
+  const areaFor = (item: any): string => {
+    return item.area || item.ecosystem || 'mercantil';
+  };
+
+  const bodyFor = (item: any): string => {
+    if (item.activityType === 'drafting') {
+      return item.generatedDoc || 'Sin contenido registrado.';
+    }
     const result = item.result;
     if (!result) return 'Sin resultados disponibles.';
-    const bullets = (entries?: string[]) => entries?.filter(Boolean).map((entry) => `- ${entry}`).join('\n') || '';
-    const risks = result.risks?.map((risk: any) => `- **${risk.title || 'Hallazgo'}:** ${risk.explanation || 'Sin detalle.'}`).join('\n') || '';
-    const foundations = result.legalFoundations?.map((foundation: any) => `- ${foundation.law || foundation.title || 'Normativa'}${foundation.article ? ` · ${foundation.article}` : ''}${foundation.source ? ` · ${foundation.source}` : ''}`).join('\n') || '';
-    const resolvedEvidenceIds = new Set<string>(item.resolvedEvidenceIds || []);
-    const normalizedEvidence = result.evidenceMatrix?.length
-      ? result.evidenceMatrix
-      : buildFiscalEvidenceMatrix(result, item.files || [], item.id);
-    const evidenceMatrix = normalizedEvidence.map((evidence: any) => {
-      const status = resolvedEvidenceIds.has(evidence.id)
-        ? 'Atendido'
-        : evidence.status === 'supported'
-          ? 'Disponible'
-          : evidence.status === 'missing'
-            ? 'Falta documentación'
-            : 'Requiere atención';
-      return `- **${status}:** ${evidence.title}${evidence.action && !resolvedEvidenceIds.has(evidence.id) ? ` — ${evidence.action}` : ''}`;
-    }).join('\n') || '';
-    const openEvidence = normalizedEvidence.filter((evidence: any) => evidence.status !== 'supported' && !resolvedEvidenceIds.has(evidence.id));
-    const reviewStatus = !normalizedEvidence.length
-      ? 'Revisión incompleta'
-      : openEvidence.some((evidence: any) => evidence.status === 'missing')
-        ? 'Falta documentación'
-        : openEvidence.length
-          ? 'Requiere atención'
-          : 'Sin pendientes identificados';
-    const categories = result.riskCategories
-      ? Object.entries(result.riskCategories).filter(([, entries]) => Array.isArray(entries) && entries.length).map(([category, entries]) => `### ${category.replace(/([A-Z])/g, ' $1')}\n${bullets(entries as string[])}`).join('\n\n')
-      : '';
-    return [
-      `## Resumen\n${result.summary || 'Sin resumen.'}`,
-      `**Tipo:** ${result.documentType || (item.module === 'fiscal' ? 'Revisión fiscal' : 'Análisis jurídico')}  \n**Estado:** ${reviewStatus}  \n**Motor:** ${result.engine || 'No indicado'}`,
-      result.detectedParties?.length ? `## Participantes\n${bullets(result.detectedParties)}` : '',
-      result.detectedObligations?.length ? `## Requisitos identificados\n${bullets(result.detectedObligations)}` : '',
-      risks ? `## Hallazgos y riesgos\n${risks}` : '',
-      [...(result.missingClauses || []), ...(result.missingData || [])].length ? `## Información o cláusulas pendientes\n${bullets([...(result.missingClauses || []), ...(result.missingData || [])])}` : '',
-      result.checklist?.length ? `## Lista de revisión\n${bullets(result.checklist)}` : '',
-      categories ? `## Pilares\n${categories}` : '',
-      evidenceMatrix ? `## Evidencia y pendientes\n${evidenceMatrix}` : '',
-      foundations ? `## Referencias normativas\n${foundations}` : '',
-      result.recommendedActions?.length ? `## Siguientes acciones recomendadas\n${bullets(result.recommendedActions)}` : '',
-    ].filter(Boolean).join('\n\n');
+
+    const highRisks = result.risks?.filter((r: any) => r.severity === 'high') || [];
+    const medRisks = result.risks?.filter((r: any) => r.severity === 'medium') || [];
+    const lowRisks = result.risks?.filter((r: any) => r.severity === 'low') || [];
+
+    const lines = [
+      `# Informe de Auditoría Jurídica`,
+      `**Tipo de documento:** ${result.documentType || 'Contrato'}`,
+      `**Evaluación:** ${result.risks?.length || 0} observaciones detectadas`,
+      '',
+      '## Semáforo de Riesgos',
+      highRisks.length ? `### Riesgos Altos / Críticos\n${highRisks.map((r: any) => `- **${r.title}:** ${r.explanation}`).join('\n')}` : '',
+      medRisks.length ? `### Riesgos Medios\n${medRisks.map((r: any) => `- **${r.title}:** ${r.explanation}`).join('\n')}` : '',
+      lowRisks.length ? `### Mejoras y Recomendaciones\n${lowRisks.map((r: any) => `- **${r.title}:** ${r.explanation}`).join('\n')}` : '',
+      '',
+      (result.missingClauses?.length || result.missingData?.length)
+        ? `## Cláusulas y Requisitos Faltantes\n${[...(result.missingClauses || []), ...(result.missingData || [])].map((m: any) => `- ${m}`).join('\n')}`
+        : '',
+      '',
+      result.legalFoundations?.length
+        ? `## Referencias Normativas\n${result.legalFoundations.map((f: any) => `- **${f.law}** ${f.article ? `· ${f.article}` : ''}: ${f.excerpt || ''}`).join('\n')}`
+        : '',
+    ];
+    return lines.filter(Boolean).join('\n');
   };
 
-  const exportSelected = async () => {
-    if (!selectedActivity) return;
+  const copyItemText = async (item: any) => {
+    const text = bodyFor(item);
+    try {
+      await navigator.clipboard.writeText(text);
+      const key = activityKey(item);
+      setCopiedKey(key);
+      notify('Texto copiado al portapapeles.', 'success');
+      setTimeout(() => setCopiedKey(null), 2000);
+    } catch {
+      notify('No se pudo copiar el texto.', 'error');
+    }
+  };
+
+  const exportItemPdf = async (item: any) => {
     setIsExportingPdf(true);
     try {
-      if (selectedActivity.activityType === 'drafting') {
-        const area = selectedActivity.area || 'mercantil';
-        const result = await generateDocumentPDF(bodyFor(selectedActivity), BRAND_CONTENT.name, `Ingeniería Jurídica · ${area}`, `Documento_${area}`);
+      const area = areaFor(item);
+      if (item.activityType === 'drafting') {
+        const result = await generateDocumentPDF(
+          item.generatedDoc || '',
+          BRAND_CONTENT.name,
+          `Ingeniería Jurídica · ${AREA_BADGES[area]?.label || area}`,
+          `Documento_${area}`,
+        );
         if (result.success) notify('Documento exportado en PDF.', 'success');
       } else {
-        const result = selectedActivity.result || {};
-        const isFiscal = selectedActivity.module === 'fiscal';
-        const moduleName = isFiscal ? 'Lex Corporativo · Estrategia Fiscal & SAT' : 'Lex Corporativo · Ingeniería Jurídica';
-        const subtitle = isFiscal ? 'Estrategia Fiscal & SAT' : 'Ingeniería Jurídica';
-        const prefix = isFiscal ? 'Revision_Fiscal' : 'Analisis_Juridico';
+        const result = item.result || {};
         await generateAnalysisPDF({
-          title: titleFor(selectedActivity),
-          subtitle,
+          title: titleFor(item),
+          subtitle: `Auditoría Jurídica · ${AREA_BADGES[area]?.label || area}`,
           riskScore: Number(result.riskScore) || 0,
-          summary: result.summary || 'Sin resumen.',
+          summary: result.summary || 'Auditoría documental.',
           pillars: [
-            { title: 'REQUISITOS', content: result.detectedObligations?.join('\n') || 'Sin requisitos registrados.' },
-            { title: 'PENDIENTES', content: [...(result.missingClauses || []), ...(result.missingData || [])].join('\n') || 'Sin pendientes registrados.' },
-            { title: 'REFERENCIAS', content: result.legalFoundations?.map((foundation: any) => `${foundation.law || foundation.title}${foundation.article ? ` · ${foundation.article}` : ''}`).join('\n') || 'Sin referencias registradas.' },
+            { title: 'FALTANTES', content: (result.missingClauses || []).join('\n') || 'Sin omisiones registradas.' },
+            { title: 'REFERENCIAS', content: result.legalFoundations?.map((f: any) => `${f.law} ${f.article || ''}`).join('\n') || 'Sin referencias.' },
           ],
-          risks: result.risks?.map((risk: any) => `${risk.title}: ${risk.explanation}`) || [],
-          recommendation: result.recommendedActions?.join('\n') || 'Sin acciones registradas.',
-          moduleName,
-          filenamePrefix: prefix,
+          risks: result.risks?.map((r: any) => `${r.title}: ${r.explanation}`) || [],
+          recommendation: result.recommendedActions?.join('\n') || 'Revisar observaciones.',
+          moduleName: 'Lex Corporativo · Ingeniería Jurídica',
+          filenamePrefix: 'Auditoria_Juridica',
         });
-        notify('Análisis exportado en PDF.', 'success');
+        notify('Informe de auditoría exportado en PDF.', 'success');
       }
     } catch (error: any) {
-      notify(error?.message || 'No se pudo exportar el documento.', 'error');
+      notify(error?.message || 'Error al exportar en PDF.', 'error');
     } finally {
       setIsExportingPdf(false);
     }
   };
 
-  const activityKey = (item: any) => `${item.caseId || 'memory'}:${item.activityType}:${item.id || item.requestId || item.timestamp}`;
-
-  const deleteActivity = async (item: any) => {
-    const artifactId = String(item.id || item.requestId || '');
-    if (!artifactId) {
-      notify('No se pudo identificar el archivo generado.', 'error');
-      return;
+  const openInDrafting = (item: any) => {
+    const area = areaFor(item);
+    if (item.activityType === 'drafting') {
+      setEngineeringDraftState({
+        prompt: item.prompt || '',
+        generatedDoc: item.generatedDoc || '',
+        area: area as any,
+      });
+    } else {
+      const textToCarry = bodyFor(item);
+      setEngineeringDraftState({
+        prompt: `Instrucciones derivadas del informe de auditoría:\n\n${textToCarry}`,
+        area: area as any,
+      });
     }
-    const label = item.activityType === 'analysis' ? 'este análisis' : 'este documento generado';
+    navigate('/ingenieria-juridica?tab=drafting');
+    notify('Documento abierto en el Redactor Contractual.', 'info');
+  };
+
+  const deleteItem = async (item: any) => {
+    const artifactId = String(item.id || item.requestId || '');
+    const label = item.activityType === 'analysis' ? 'esta auditoría' : 'este documento';
     const accepted = await confirm({
-      title: `Eliminar ${item.activityType === 'analysis' ? 'análisis' : 'documento'}`,
+      title: `Eliminar ${item.activityType === 'analysis' ? 'auditoría' : 'documento'}`,
       message: `¿Eliminar ${label}? Se quitará permanentemente del Portafolio local.`,
       confirmLabel: 'Eliminar',
       cancelLabel: 'Cancelar',
@@ -239,22 +280,22 @@ export const Portafolio: React.FC = () => {
           await window.lexDesktop.cases.deleteAnalysis({
             caseId: item.caseId,
             analysisId: artifactId,
-            expectedModule: item.module === 'fiscal' ? 'fiscal' : 'engineering',
+            expectedModule: 'engineering',
           });
         } else {
           await window.lexDesktop.cases.deleteDraft({
             caseId: item.caseId,
             draftId: artifactId,
-            expectedModule: item.module === 'fiscal' ? 'fiscal' : 'engineering',
+            expectedModule: 'engineering',
           });
         }
       }
-      removeGeneratedArtifact(artifactId, item.activityType, item.module === 'fiscal' ? 'fiscal' : 'engineering', item.generatedDoc);
+      removeGeneratedArtifact(artifactId, item.activityType, 'engineering', item.generatedDoc);
       setPersistedActivity((current) => current.filter((entry) => activityKey(entry) !== key));
       if (selectedActivity && activityKey(selectedActivity) === key) setSelectedActivity(null);
-      notify(item.activityType === 'analysis' ? 'Análisis eliminado del Portafolio.' : 'Documento eliminado del Portafolio.', 'success');
+      notify('Elemento eliminado del Portafolio local.', 'success');
     } catch (error: any) {
-      notify(error?.message || 'No se pudo eliminar el archivo generado.', 'error');
+      notify(error?.message || 'No se pudo eliminar el elemento.', 'error');
     } finally {
       setDeletingKey(null);
     }
@@ -262,93 +303,283 @@ export const Portafolio: React.FC = () => {
 
   return (
     <div className="h-full overflow-y-auto bg-slate-50 text-slate-800">
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-6 py-5 backdrop-blur md:px-8">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4">
+      <div className="mx-auto w-full max-w-7xl px-5 pb-12 pt-6 md:px-8 space-y-6">
+        
+        {/* Header con Contadores */}
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-white p-5 rounded-2xl shadow-xs">
           <div className="flex items-center gap-3">
-            <span className="rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-amber-700"><FolderOpen size={22} /></span>
-            <div><h1 className="font-serif text-2xl font-bold text-slate-950">Actividad local</h1><p className="mt-0.5 text-sm text-slate-500">Trabajos, documentos y revisiones guardados en este equipo.</p></div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-slate-800">
+              <FolderOpen size={22} />
+            </div>
+            <div>
+              <h1 className="text-base font-bold text-slate-950">Portafolio de Entregables</h1>
+              <p className="text-xs text-slate-500">
+                Contratos, borradores e informes de auditoría guardados localmente en tu equipo
+              </p>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => { setActiveTab('drafting'); navigate('/ingenieria-juridica?tab=drafting'); }} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white hover:bg-slate-800 shadow-xs"><FileSignature size={15} /> Redactar documento</button>
-            <button type="button" onClick={() => { setActiveTab('analysis'); navigate('/ingenieria-juridica?tab=analysis'); }} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-xs"><ShieldAlert size={15} /> Auditar contrato</button>
+
+          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+            <span className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-slate-700">
+              <strong className="text-slate-950">{allActivity.length}</strong> entregables
+            </span>
+            <span className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-blue-800">
+              <strong className="text-blue-950">{documentCount}</strong> contratos
+            </span>
+            <span className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-rose-800">
+              <strong className="text-rose-950">{analysisCount}</strong> auditorías
+            </span>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="mx-auto max-w-6xl px-6 py-8 md:px-8">
-        <section className="grid gap-3 sm:grid-cols-3" aria-label="Resumen del portafolio">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-700"><Layers3 size={17} /></span><strong className="mt-3 block text-2xl font-black text-slate-950">{recentCases.length}</strong><span className="text-xs font-semibold text-slate-500">Trabajos guardados</span></div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-700"><FileSignature size={17} /></span><strong className="mt-3 block text-2xl font-black text-slate-950">{documentCount}</strong><span className="text-xs font-semibold text-slate-500">Documentos generados</span></div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-700"><FileSearch size={17} /></span><strong className="mt-3 block text-2xl font-black text-slate-950">{reviewCount}</strong><span className="text-xs font-semibold text-slate-500">Revisiones corporativas</span></div>
-        </section>
+        {/* Barra de Filtros Segmentados */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            
+            {/* Filtro por Tipo */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs font-bold text-slate-400 mr-1">Tipo:</span>
+              <button
+                type="button"
+                onClick={() => setTypeFilter('all')}
+                className={cn(
+                  'rounded-xl px-3 py-1.5 text-xs font-bold transition',
+                  typeFilter === 'all'
+                    ? 'bg-slate-950 text-white shadow-xs'
+                    : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                )}
+              >
+                Todos ({allActivity.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setTypeFilter('drafting')}
+                className={cn(
+                  'rounded-xl px-3 py-1.5 text-xs font-bold transition',
+                  typeFilter === 'drafting'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                )}
+              >
+                Contratos ({documentCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setTypeFilter('analysis')}
+                className={cn(
+                  'rounded-xl px-3 py-1.5 text-xs font-bold transition',
+                  typeFilter === 'analysis'
+                    ? 'bg-rose-600 text-white shadow-xs'
+                    : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                )}
+              >
+                Auditorías ({analysisCount})
+              </button>
+            </div>
 
-        {recentCases.length > 0 && (
-          <section className="mt-8" aria-labelledby="portfolio-cases-title">
-            <div className="flex items-end justify-between gap-4"><div><h2 id="portfolio-cases-title" className="text-sm font-bold text-slate-900">Guardados recientes</h2><p className="mt-1 text-xs text-slate-500">Abre un trabajo para continuar.</p></div></div>
-            <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {recentCases.slice(0, 6).map((savedCase) => {
-                const itemCount = allActivity.filter((item) => item.caseId === savedCase.id).length;
-                const fiscal = savedCase.module === 'fiscal';
+            {/* Filtro por Materia */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs font-bold text-slate-400 mr-1">Materia:</span>
+              {(['all', 'mercantil', 'laboral', 'comercio_exterior', 'aduanal', 'fiscal'] as const).map((area) => {
+                const active = areaFilter === area;
                 return (
-                  <button key={savedCase.id} type="button" onClick={() => void resumeCase(savedCase)} className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-slate-300 hover:shadow-md">
-                    <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', fiscal ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700')}>{fiscal ? <BriefcaseBusiness size={19} /> : <FileSignature size={19} />}</span>
-                    <span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-slate-900">{savedCase.name}</span><span className="mt-1 block text-xs text-slate-500">{fiscal ? 'Corporativo' : 'Ingeniería Jurídica'} · {itemCount} {itemCount === 1 ? 'entregable' : 'entregables'}</span></span>
-                    <ArrowRight size={16} className="text-slate-400 transition group-hover:translate-x-1" />
+                  <button
+                    key={area}
+                    type="button"
+                    onClick={() => setAreaFilter(area)}
+                    className={cn(
+                      'rounded-xl px-2.5 py-1 text-xs font-bold transition',
+                      active
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    )}
+                  >
+                    {area === 'all' ? 'Todas' : AREA_BADGES[area]?.label || area}
                   </button>
                 );
               })}
             </div>
-          </section>
-        )}
 
-        <section className="mt-8" aria-labelledby="portfolio-activity-title">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div><h2 id="portfolio-activity-title" className="text-sm font-bold text-slate-900">Entregables y revisiones</h2><div className="mt-3 inline-flex rounded-lg border border-slate-200 bg-white p-1">
-            {([['all', 'Todo'], ['drafting', 'Documentos'], ['analysis', 'Revisiones corporativas']] as const).map(([value, label]) => (
-              <button key={value} type="button" onClick={() => setFilter(value)} className={cn('rounded-md px-3 py-2 text-sm font-semibold transition', filter === value ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100')}>{label}</button>
-            ))}
-          </div></div>
-          <p className="text-sm text-slate-500">{filtered.length} {filtered.length === 1 ? 'actividad' : 'actividades'}</p>
-        </div>
+          </div>
+        </section>
 
-        {(isLoadingCases || isLoadingActivity) && allActivity.length === 0 ? (
-          <div className="flex min-h-64 flex-col items-center justify-center gap-3 text-slate-500" role="status"><Loader2 size={24} className="animate-spin" /><p className="text-sm font-semibold">Cargando portafolio...</p></div>
-        ) : filtered.length === 0 ? (
-          <div className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-6 text-center">
-            <FolderOpen size={32} className="text-slate-300" />
-            <h2 className="mt-4 text-lg font-bold text-slate-950">{allActivity.length ? 'No hay resultados en este filtro' : 'Tu portafolio está vacío'}</h2>
-            <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">{allActivity.length ? 'Selecciona otro tipo de actividad.' : 'Abre Corporativo o Documentos y contratos para comenzar.'}</p>
+        {/* Grid de Entregables */}
+        {filtered.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-xs space-y-2">
+            <FolderOpen size={32} className="mx-auto text-slate-400" />
+            <h2 className="text-sm font-bold text-slate-900">No hay entregables que coincidan con los filtros</h2>
+            <p className="text-xs text-slate-500">
+              Prueba cambiando los filtros o genera un nuevo contrato desde Ingeniería Jurídica.
+            </p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
-            {filtered.map((item, index) => (
-              <motion.div key={`${item.caseId || 'memory'}:${item.activityType}:${item.id || index}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center transition hover:bg-slate-50">
-                <button type="button" onClick={() => setSelectedActivity(item)} className="flex min-w-0 flex-1 items-center gap-4 px-5 py-4 text-left">
-                  <span className={cn('rounded-lg p-2.5', item.activityType === 'drafting' ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700')}>{item.activityType === 'drafting' ? <FileSignature size={20} /> : <FileSearch size={20} />}</span>
-                  <span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-slate-900">{titleFor(item)}</span><span className="mt-1 flex items-center gap-1.5 text-xs text-slate-500"><Clock size={12} />{item.timestamp ? new Date(item.timestamp).toLocaleString() : 'Sin fecha'}</span></span>
-                  <span className="text-xs font-semibold text-slate-500">{item.activityType === 'drafting' ? (item.area || 'Documento') : 'Corporativo'}</span>
-                </button>
-                <button type="button" onClick={() => void deleteActivity(item)} disabled={deletingKey === activityKey(item)} className="mr-4 rounded-lg p-2.5 text-slate-400 transition hover:bg-red-50 hover:text-red-700 disabled:opacity-40" aria-label={`Eliminar ${titleFor(item)}`} title="Eliminar del Portafolio">
-                  {deletingKey === activityKey(item) ? <Loader2 size={17} className="animate-spin" /> : <Trash2 size={17} />}
-                </button>
-              </motion.div>
-            ))}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((item) => {
+              const key = activityKey(item);
+              const isDraft = item.activityType === 'drafting';
+              const area = areaFor(item);
+              const badge = AREA_BADGES[area] || AREA_BADGES.mercantil;
+              const isCopied = copiedKey === key;
+              const isDeleting = deletingKey === key;
+
+              return (
+                <motion.article
+                  key={key}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-xs hover:border-slate-300 transition"
+                >
+                  <div className="space-y-3">
+                    {/* Header de Tarjeta */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-xl', isDraft ? 'bg-blue-50 text-blue-700' : 'bg-rose-50 text-rose-700')}>
+                          {isDraft ? <FileSignature size={16} /> : <ShieldAlert size={16} />}
+                        </span>
+                        <span className={cn('rounded-lg border px-2 py-0.5 text-[10px] font-bold', badge.class)}>
+                          {badge.label}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-400 font-medium">
+                        {item.timestamp ? new Date(item.timestamp).toLocaleDateString() : 'Guardado'}
+                      </span>
+                    </div>
+
+                    {/* Título y Snippet */}
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-950 line-clamp-1">
+                        {titleFor(item)}
+                      </h3>
+                      <p className="mt-1 text-[11px] leading-relaxed text-slate-500 line-clamp-3">
+                        {isDraft
+                          ? (item.generatedDoc || 'Documento formal redactado.')
+                          : (item.result?.summary || 'Auditoría de riesgos y cotejo normativo.')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Acciones de Tarjeta */}
+                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-1">
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedActivity(item)}
+                        title="Ver documento completo"
+                        className="flex h-8 items-center gap-1 rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                      >
+                        <Eye size={13} />
+                        <span>Ver</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => copyItemText(item)}
+                        title="Copiar texto"
+                        className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition"
+                        aria-label="Copiar texto"
+                      >
+                        {isCopied ? <Check size={13} className="text-emerald-600" /> : <Clipboard size={13} />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => exportItemPdf(item)}
+                        disabled={isExportingPdf}
+                        title="Exportar a PDF"
+                        className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition disabled:opacity-50"
+                        aria-label="Exportar a PDF"
+                      >
+                        <Download size={13} />
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => deleteItem(item)}
+                      disabled={isDeleting}
+                      title="Eliminar del portafolio"
+                      className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition disabled:opacity-50"
+                      aria-label="Eliminar elemento"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </motion.article>
+              );
+            })}
           </div>
         )}
-        </section>
-      </main>
 
+      </div>
+
+      {/* Modal Lector de Detalle Completo */}
       <AnimatePresence>
         {selectedActivity && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4" onClick={() => setSelectedActivity(null)}>
-            <motion.div ref={detailDialogRef} initial={{ y: 15, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 15, opacity: 0 }} role="dialog" aria-modal="true" aria-labelledby="portfolio-detail-title" onClick={(event) => event.stopPropagation()} className="flex h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
-              <header className="flex items-center justify-between border-b border-slate-200 px-6 py-5"><div><h2 id="portfolio-detail-title" className="text-lg font-bold text-slate-950">{titleFor(selectedActivity)}</h2><p className="mt-1 text-xs text-slate-500">{selectedActivity.caseId ? 'Guardado localmente' : 'En esta sesión'}</p></div><button type="button" onClick={() => setSelectedActivity(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Cerrar"><X size={18} /></button></header>
-              <div className="flex-1 overflow-y-auto px-7 py-6"><div className="prose prose-slate max-w-none prose-sm"><ReactMarkdown>{bodyFor(selectedActivity)}</ReactMarkdown></div></div>
-              <footer className="flex justify-end gap-2 border-t border-slate-200 bg-slate-50 px-6 py-4"><button type="button" onClick={() => void deleteActivity(selectedActivity)} disabled={deletingKey === activityKey(selectedActivity)} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-red-200 bg-white px-4 text-sm font-bold text-red-700 hover:bg-red-50 disabled:opacity-50">{deletingKey === activityKey(selectedActivity) ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />} Eliminar</button><button type="button" onClick={exportSelected} disabled={isExportingPdf} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold hover:bg-slate-100 disabled:opacity-50">{isExportingPdf ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} Exportar PDF</button><button type="button" onClick={() => setSelectedActivity(null)} className="min-h-10 rounded-lg bg-slate-900 px-5 text-sm font-bold text-white">Cerrar</button></footer>
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-xs p-4"
+            role="dialog"
+            aria-modal="true"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              className="flex h-[88vh] w-full max-w-4xl flex-col rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden"
+            >
+              {/* Header Modal */}
+              <div className="flex items-center justify-between border-b border-slate-200 p-4 bg-slate-50/50">
+                <div className="flex items-center gap-2.5">
+                  <span className={cn('rounded-lg border px-2 py-0.5 text-[10px] font-bold', AREA_BADGES[areaFor(selectedActivity)]?.class || 'bg-slate-100')}>
+                    {AREA_BADGES[areaFor(selectedActivity)]?.label || 'General'}
+                  </span>
+                  <h2 className="text-sm font-bold text-slate-950 truncate max-w-md">
+                    {titleFor(selectedActivity)}
+                  </h2>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => copyItemText(selectedActivity)}
+                    className="inline-flex min-h-8 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                  >
+                    <Clipboard size={13} /> Copiar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => exportItemPdf(selectedActivity)}
+                    disabled={isExportingPdf}
+                    className="inline-flex min-h-8 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition disabled:opacity-50"
+                  >
+                    <Download size={13} /> PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openInDrafting(selectedActivity)}
+                    className="inline-flex min-h-8 items-center gap-1.5 rounded-xl bg-slate-950 px-3 text-xs font-bold text-white hover:bg-slate-800 transition shadow-xs"
+                  >
+                    <FileSignature size={13} /> Abrir en Redactor
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedActivity(null)}
+                    className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-200/60 hover:text-slate-700 transition"
+                    aria-label="Cerrar vista previa"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Contenido del Documento */}
+              <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-white">
+                <article className="prose prose-xs max-w-none text-slate-800">
+                  <ReactMarkdown>{bodyFor(selectedActivity)}</ReactMarkdown>
+                </article>
+              </div>
             </motion.div>
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
+
       <ConfirmDialog {...dialogState} />
     </div>
   );
