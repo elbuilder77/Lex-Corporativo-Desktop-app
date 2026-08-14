@@ -168,6 +168,38 @@ function describeEmptyGeminiResponse(payload: any): string {
   return `Gemini no devolvió contenido utilizable${reason ? ` (${reason})` : ''}.`;
 }
 
+export function normalizeModelName(provider: ByokProvider, model: string): string {
+  const m = (model || '').trim();
+  if (provider === 'gemini') {
+    if (m === 'gemini-3.5-flash' || !m) return 'gemini-2.5-flash';
+    return m;
+  }
+  if (provider === 'openai') {
+    if (m === 'gpt-5.6-terra' || !m) return 'gpt-4o-mini';
+    return m;
+  }
+  if (provider === 'anthropic') {
+    if (m === 'claude-sonnet-5' || !m) return 'claude-3-5-sonnet-20241022';
+    return m;
+  }
+  return m;
+}
+
+const GEMINI_UNSUPPORTED_KEYWORDS = new Set([
+  'pattern',
+  'minLength',
+  'maxLength',
+  'minItems',
+  'maxItems',
+  'minimum',
+  'maximum',
+  'additionalProperties',
+  '$defs',
+  'definitions',
+  '$schema',
+  'default',
+]);
+
 function cleanGeminiSchema(rawSchema: any): any {
   if (!rawSchema || typeof rawSchema !== 'object') return rawSchema;
   const defs = rawSchema.$defs || rawSchema.definitions || {};
@@ -185,7 +217,7 @@ function cleanGeminiSchema(rawSchema: any): any {
 
     const clean: Record<string, any> = {};
     for (const [key, val] of Object.entries(obj)) {
-      if (key === '$defs' || key === 'definitions') continue;
+      if (GEMINI_UNSUPPORTED_KEYWORDS.has(key)) continue;
       clean[key] = resolve(val);
     }
     return clean;
@@ -195,6 +227,7 @@ function cleanGeminiSchema(rawSchema: any): any {
 }
 
 async function generateGemini(input: ByokGenerateInput): Promise<string> {
+  const modelToUse = normalizeModelName('gemini', input.model);
   const generationConfig: Record<string, unknown> = {
     temperature: input.temperature ?? 0.15,
     maxOutputTokens: input.maxOutputTokens ?? 12_000,
@@ -206,7 +239,7 @@ async function generateGemini(input: ByokGenerateInput): Promise<string> {
 
   const payload = await fetchJson(
     'gemini',
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(input.model)}:generateContent`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelToUse)}:generateContent`,
     {
       method: 'POST',
       headers: {

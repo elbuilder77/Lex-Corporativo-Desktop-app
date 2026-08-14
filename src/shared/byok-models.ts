@@ -1,7 +1,7 @@
 export const DEFAULT_BYOK_MODELS = {
-  gemini: 'gemini-3.5-flash',
-  openai: 'gpt-5.6-terra',
-  anthropic: 'claude-sonnet-5',
+  gemini: 'gemini-2.5-flash',
+  openai: 'gpt-4o-mini',
+  anthropic: 'claude-3-5-sonnet-20241022',
 } as const;
 
 export type ByokProvider = keyof typeof DEFAULT_BYOK_MODELS;
