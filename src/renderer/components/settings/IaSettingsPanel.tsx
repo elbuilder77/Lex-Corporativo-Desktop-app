@@ -10,7 +10,7 @@ const BYOK_PROVIDER_LABELS: Record<ByokProvider, string> = {
 };
 
 const PROVIDER_DESCRIPTIONS: Record<ByokProvider, string> = {
-  gemini: 'Recomendado para redacción rápida y análisis contextual extenso con Gemini 2.5 Flash.',
+  gemini: 'Recomendado para redacción rápida y análisis contextual extenso con Gemini 1.5 Flash.',
   openai: 'Modelos GPT-4o y GPT-4o-mini para estructuración precisa de cláusulas.',
   anthropic: 'Modelos Claude 3.5 Sonnet con alta precisión en razonamiento jurídico.',
 };

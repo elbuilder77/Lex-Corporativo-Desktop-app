@@ -171,7 +171,9 @@ function describeEmptyGeminiResponse(payload: any): string {
 export function normalizeModelName(provider: ByokProvider, model: string): string {
   const m = (model || '').trim();
   if (provider === 'gemini') {
-    if (m === 'gemini-3.5-flash' || !m) return 'gemini-2.5-flash';
+    if (m === 'gemini-3.5-flash' || m === 'gemini-2.5-flash' || m === 'gemini-3-flash' || !m) {
+      return 'gemini-1.5-flash';
+    }
     return m;
   }
   if (provider === 'openai') {
