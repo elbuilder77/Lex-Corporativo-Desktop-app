@@ -155,11 +155,10 @@ async function fetchJson(
 }
 
 function extractGeminiText(payload: any): string {
-  return (payload?.candidates || [])
-    .flatMap((candidate: any) => candidate?.content?.parts || [])
-    .map((part: any) => part?.text || '')
-    .join('')
-    .trim();
+  const parts = (payload?.candidates || []).flatMap((candidate: any) => candidate?.content?.parts || []);
+  const textParts = parts.filter((part: any) => !part?.thought).map((part: any) => part?.text || '').join('').trim();
+  if (textParts) return textParts;
+  return parts.map((part: any) => part?.text || '').join('').trim();
 }
 
 function describeEmptyGeminiResponse(payload: any): string {
@@ -168,23 +167,11 @@ function describeEmptyGeminiResponse(payload: any): string {
   return `Gemini no devolvió contenido utilizable${reason ? ` (${reason})` : ''}.`;
 }
 
-export function normalizeModelName(provider: ByokProvider, model: string): string {
-  const m = (model || '').trim();
-  if (provider === 'gemini') {
-    if (m === 'gemini-3.5-flash' || m === 'gemini-2.5-flash' || m === 'gemini-3-flash' || !m) {
-      return 'gemini-1.5-flash';
-    }
-    return m;
-  }
-  if (provider === 'openai') {
-    if (m === 'gpt-5.6-terra' || !m) return 'gpt-4o-mini';
-    return m;
-  }
-  if (provider === 'anthropic') {
-    if (m === 'claude-sonnet-5' || !m) return 'claude-3-5-sonnet-20241022';
-    return m;
-  }
-  return m;
+export function normalizeModelName(provider: ByokProvider, model?: string): string {
+  if (provider === 'gemini') return 'gemini-3.7-flash';
+  if (provider === 'openai') return 'gpt-4o-mini';
+  if (provider === 'anthropic') return 'claude-3-5-sonnet-20241022';
+  return (model || '').trim() || 'gemini-3.7-flash';
 }
 
 const GEMINI_UNSUPPORTED_KEYWORDS = new Set([
@@ -379,16 +366,18 @@ export async function testByokConnection(input: Pick<ByokGenerateInput, 'provide
   provider: ByokProvider;
   model: string;
 }> {
+  const model = normalizeModelName(input.provider, input.model);
   const response = await generateByokText({
     ...input,
-    systemInstruction: 'Sigue exactamente la instrucción del usuario.',
-    prompt: 'Responde solamente con la palabra OK.',
+    model,
+    systemInstruction: 'Sigue la instrucción.',
+    prompt: 'Responde con la palabra OK.',
     temperature: 0,
-    maxOutputTokens: 64,
+    maxOutputTokens: 1024,
     timeoutMs: 30_000,
   });
-  if (response.trim().toUpperCase() !== 'OK') {
-    throw new Error(`${input.provider} respondió, pero no cumplió la prueba exacta de instrucciones.`);
+  if (!response.toUpperCase().includes('OK')) {
+    throw new Error(`${input.provider} respondió, pero no cumplió la prueba de conexión.`);
   }
-  return { ok: true, provider: input.provider, model: input.model };
+  return { ok: true, provider: input.provider, model };
 }

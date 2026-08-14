@@ -10,9 +10,9 @@ const BYOK_PROVIDER_LABELS: Record<ByokProvider, string> = {
 };
 
 const PROVIDER_DESCRIPTIONS: Record<ByokProvider, string> = {
-  gemini: 'Recomendado para redacción rápida y análisis contextual extenso con Gemini 1.5 Flash.',
-  openai: 'Modelos GPT-4o y GPT-4o-mini para estructuración precisa de cláusulas.',
-  anthropic: 'Modelos Claude 3.5 Sonnet con alta precisión en razonamiento jurídico.',
+  gemini: 'El mejor modelo de Google: Gemini 3.7 Flash con ultra-baja latencia y 1M de contexto.',
+  openai: 'Modelo GPT-4o mini con alta velocidad y precisión estructurada.',
+  anthropic: 'Modelo Claude 3.5 Sonnet con máxima profundidad en razonamiento jurídico.',
 };
 
 export interface IaSettingsPanelProps {
@@ -151,15 +151,16 @@ export const IaSettingsPanel: React.FC<IaSettingsPanelProps> = ({
 
           <div>
             <label className="mb-1.5 block text-xs font-bold text-slate-700">
-              Modelo a utilizar
+              Modelo Optimizado
             </label>
-            <input
-              type="text"
-              value={byokModel}
-              onChange={(e) => setByokModel(e.target.value)}
-              placeholder={DEFAULT_BYOK_MODELS[byokProvider]}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs text-slate-900 outline-hidden transition focus:border-blue-600 focus:ring-2 focus:ring-blue-600/10 font-mono"
-            />
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-800 font-mono font-semibold">
+              <Sparkles size={14} className="text-blue-600 shrink-0" />
+              <span>
+                {byokProvider === 'gemini' && 'Gemini 3.7 Flash'}
+                {byokProvider === 'openai' && 'GPT-4o mini'}
+                {byokProvider === 'anthropic' && 'Claude 3.5 Sonnet'}
+              </span>
+            </div>
           </div>
         </div>
 
