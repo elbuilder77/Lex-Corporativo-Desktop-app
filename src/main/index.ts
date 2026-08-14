@@ -64,8 +64,9 @@ function createWindow(): void {
     } : undefined,
     title: 'Lex Corporativo',
     backgroundColor: '#0f172a', // Avoids white flash before React mounts
-    autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon: join(__dirname, '../../resources/icon.png') } : {}),
+    icon: process.platform === 'win32'
+      ? join(__dirname, '../../resources/icon.ico')
+      : join(__dirname, '../../resources/icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
       sandbox: true,
