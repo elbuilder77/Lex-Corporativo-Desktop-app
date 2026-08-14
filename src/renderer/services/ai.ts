@@ -85,11 +85,13 @@ export const draftLegalDocument = async (
   template?: DraftTemplateContext,
   sourceAnalysisId?: string,
   referenceFile?: UserReferenceFile,
+  caseId?: string,
 ) => {
   if (!isElectron) {
     throw new Error('Lex Corporativo requiere el runtime de escritorio local.');
   }
   return withTimeout(window.lexDesktop.drafts.generateDraft({
+    caseId,
     requirements,
     ecosystem: module,
     workflowModule: 'drafting',

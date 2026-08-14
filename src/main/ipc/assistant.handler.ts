@@ -234,7 +234,7 @@ export function registerAssistantHandlers(): void {
         logLegalExecution({
           requestId,
           operation: 'consultation',
-          module: 'mercantil',
+          module: targetModule,
           primaryModel: `${byok.provider}:${byok.model}`,
           finalModelUsed: 'grounding-rejection-gate',
           hasFallback: true,
@@ -250,7 +250,7 @@ export function registerAssistantHandlers(): void {
       logLegalExecution({
         requestId,
         operation: 'consultation',
-        module: 'mercantil',
+        module: targetModule,
         primaryModel: `${byok.provider}:${byok.model}`,
         finalModelUsed: `${byok.provider}:${byok.model}`,
         hasFallback: repaired,

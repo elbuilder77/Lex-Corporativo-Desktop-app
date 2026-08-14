@@ -521,7 +521,7 @@ export const LegalEngineering: React.FC = () => {
         output: selectedTemplate.output,
       } : undefined;
 
-      const response = await draftLegalDocument(prompt, area, templatePayload, analysisId || undefined, userReference);
+      const response = await draftLegalDocument(prompt, area, templatePayload, analysisId || undefined, userReference, targetCaseId);
       setGeneratedDoc(response.result);
       setEngineeringDraftState({ executionMode: response.requestedExecutionMode });
       addEngineeringDrafting({

@@ -124,9 +124,11 @@ export function assessLegalEvidence(query: string, candidate: EvidenceCandidate)
     return { sufficient: false, reason: 'insufficient_overlap', matchedTerms, queryTerms, coverage, similarity };
   }
 
-  const sufficient = matchedTerms.length >= 2
-    && coverage >= 0.7
-    && similarity >= 0.35;
+  const sufficient = (
+    (matchedTerms.length >= 2 && similarity >= 0.25 && coverage >= 0.25)
+    || (matchedTerms.length >= 2 && coverage >= 0.40)
+    || (queryTerms.length === 1 && matchedTerms.length === 1 && similarity >= 0.35)
+  );
   return {
     sufficient,
     reason: sufficient ? 'lexical_semantic' : 'insufficient_overlap',

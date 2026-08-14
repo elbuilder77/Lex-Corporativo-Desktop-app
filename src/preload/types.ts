@@ -52,6 +52,7 @@ export interface LexDesktopAPI {
   };
   drafts: {
     generateDraft: (payload: {
+      caseId?: string;
       requirements: string;
       module?: 'mercantil' | 'fiscal' | 'laboral' | 'comercio_exterior' | 'aduanal';
       ecosystem?: 'mercantil' | 'fiscal' | 'laboral' | 'comercio_exterior' | 'aduanal';

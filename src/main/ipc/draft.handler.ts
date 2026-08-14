@@ -24,6 +24,7 @@ import {
 
 // Zod validation for drafting
 export const DraftPayloadSchema = z.object({
+  caseId: z.string().min(1).optional(),
   requirements: z.string().min(1),
   module: z.enum(LEGAL_ECOSYSTEMS).optional(),
   ecosystem: z.enum(LEGAL_ECOSYSTEMS).optional(),
@@ -178,7 +179,7 @@ async function resolveSourceAnalysis(payload: DraftPayload): Promise<{ text: str
   if (!payload.sourceAnalysisId) return { text: '', data: null };
 
   // Try vault by caseId inference. The activity case ID is stable per module.
-  const candidateCaseIds = [`activity_engineering`, `activity_mercantil`, `activity_fiscal`];
+  const candidateCaseIds = [payload.caseId, `activity_engineering`, `activity_mercantil`, `activity_fiscal`].filter(Boolean) as string[];
   for (const caseId of candidateCaseIds) {
     try {
       const analysis = await getAnalysis(caseId, payload.sourceAnalysisId);

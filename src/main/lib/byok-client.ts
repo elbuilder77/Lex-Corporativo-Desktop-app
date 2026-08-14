@@ -168,15 +168,40 @@ function describeEmptyGeminiResponse(payload: any): string {
   return `Gemini no devolvió contenido utilizable${reason ? ` (${reason})` : ''}.`;
 }
 
+function cleanGeminiSchema(rawSchema: any): any {
+  if (!rawSchema || typeof rawSchema !== 'object') return rawSchema;
+  const defs = rawSchema.$defs || rawSchema.definitions || {};
+
+  function resolve(obj: any): any {
+    if (!obj || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(resolve);
+
+    if (typeof obj.$ref === 'string') {
+      const match = obj.$ref.match(/#\/(?:\$defs|definitions)\/([A-Za-z0-9_-]+)/);
+      if (match && defs[match[1]]) {
+        return resolve(defs[match[1]]);
+      }
+    }
+
+    const clean: Record<string, any> = {};
+    for (const [key, val] of Object.entries(obj)) {
+      if (key === '$defs' || key === 'definitions') continue;
+      clean[key] = resolve(val);
+    }
+    return clean;
+  }
+
+  return resolve(rawSchema);
+}
+
 async function generateGemini(input: ByokGenerateInput): Promise<string> {
   const generationConfig: Record<string, unknown> = {
     temperature: input.temperature ?? 0.15,
     maxOutputTokens: input.maxOutputTokens ?? 12_000,
-    thinkingConfig: { thinkingLevel: 'low' },
   };
   if (input.jsonSchema) {
     generationConfig.responseMimeType = 'application/json';
-    generationConfig.responseJsonSchema = input.jsonSchema.schema;
+    generationConfig.responseJsonSchema = cleanGeminiSchema(input.jsonSchema.schema);
   }
 
   const payload = await fetchJson(
