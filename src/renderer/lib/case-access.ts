@@ -51,7 +51,7 @@ export async function ensureModuleActivity(
   if (!existing) {
     await window.lexDesktop.cases.createCase({
       caseId: activityCaseId,
-      name: expectedModule === 'engineering' ? 'Ingeniería Jurídica' : 'Actividad Fiscal',
+      name: expectedModule === 'engineering' ? 'Ingeniería Jurídica' : 'Actividad Corporativa',
       module: expectedModule,
     });
   }

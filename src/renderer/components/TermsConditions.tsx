@@ -51,7 +51,7 @@ export const TermsConditions: React.FC<TermsConditionsProps> = ({ onBack }) => {
               LexCorporativo Desktop es una estación jurídica local asistida por inteligencia artificial para derecho corporativo mexicano que ofrece:
             </p>
             <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1 mt-3">
-              <li>Generación asistida de contratos y documentos jurídicos mercantiles y fiscales.</li>
+              <li>Generación asistida de contratos y documentos jurídicos mercantiles y corporativos.</li>
               <li>Análisis automatizado de documentos legales con identificación de riesgos.</li>
               <li>Generación de borradores de instrumentos jurídicos.</li>
               <li>Acceso a normativa federal mexicana vigente.</li>

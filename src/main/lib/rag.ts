@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as lancedb from '@lancedb/lancedb';
 import * as path from 'path';
 import type { DocumentChunk } from './chunking';
-import { getModuleLabel, isLawAllowedForModule, normalizeLawCode, type LegalModule } from './prompts';
+import { MODULE_ALLOWED_LAW_CODES, getModuleLabel, isLawAllowedForModule, normalizeLawCode, type LegalModule } from './prompts';
 import { assessLegalEvidence, getExplicitProvisionTarget, getPreferredLawCodes } from './legal-relevance';
 
 function resolveRuntimeOverride(value: string): string {
@@ -149,12 +149,21 @@ function scoreLexicalMatch(row: any, terms: string[]): number {
     if (lawCode === 'LGTOC' && ['pagare', 'cheque', 'endoso', 'aval', 'letra'].includes(term)) score += 5;
     if (lawCode === 'LGSM' && ['sociedad', 'sociedades', 'asamblea', 'accion', 'acciones', 'disolucion', 'liquidador', 'disolver'].includes(term)) score += 5;
     if (lawCode === 'CFF' && ['materialidad', 'deducibilidad', 'cfdi', '69b', '69'].includes(term)) score += 5;
+    if (lawCode === 'LFT' && ['trabajador', 'trabajadora', 'patron', 'salario', 'jornada', 'prestaciones', 'laboral', 'contrato'].includes(term)) score += 5;
+    if (lawCode === 'LCE' && ['comercio', 'exterior', 'exportacion', 'importacion', 'cuota', 'compensatoria', 'arancelaria'].includes(term)) score += 5;
+    if (lawCode === 'RLCE' && ['comision', 'secretaria', 'permiso', 'cupo', 'certificado', 'origen'].includes(term)) score += 5;
+    if (lawCode === 'LA' && ['aduana', 'aduanal', 'pedimento', 'despacho', 'mercancias', 'regimen', 'valor'].includes(term)) score += 5;
+    if (lawCode === 'RLA' && ['aduana', 'aduanal', 'expediente', 'electronico', 'agente', 'mandatario', 'prevalidacion'].includes(term)) score += 5;
+    if (lawCode === 'RGCE' && ['rgce', 'regla', 'anexo', 'pedimento', 'aduana', 'valor', 'despacho'].includes(term)) score += 5;
+    if (lawCode === 'LIGIE' && ['ligie', 'tigie', 'fraccion', 'arancelaria', 'tarifa', 'capitulo', 'arancel'].includes(term)) score += 5;
   }
 
   if (terms.includes('pagare') && lawCode === 'LGTOC' && articleWords.has('170')) score += 20;
   if (terms.includes('sa') || terms.includes('cv') || terms.includes('anonima')) {
     if (lawCode === 'LGSM') score += 10;
   }
+  if (terms.includes('pedimento') && lawCode === 'LA' && articleWords.has('36')) score += 20;
+  if (terms.includes('valor') && lawCode === 'RGCE' && articleWords.has('1') && articleWords.has('5')) score += 12;
   
   return score;
 }
@@ -169,9 +178,10 @@ async function getLexicalMatches(
   if (terms.length === 0) return [];
 
   try {
+    const lawFilter = getModuleLawFilter(module);
     const rows = await table
       .query()
-      .where(`module = '${module}'`)
+      .where(lawFilter)
       .limit(5000)
       .toArray();
 
@@ -233,6 +243,16 @@ function hasUserDocumentsTable(dbPath: string): boolean {
 
 function escapeSqlLiteral(value: string): string {
   return value.replace(/'/g, "''");
+}
+
+function toStoredLawCode(code: string): string {
+  return code === 'CCOM' ? 'CCom' : code;
+}
+
+function getModuleLawFilter(module: LegalModule): string {
+  return MODULE_ALLOWED_LAW_CODES[module]
+    .map(code => `law_code = '${escapeSqlLiteral(toStoredLawCode(code))}'`)
+    .join(' OR ');
 }
 
 function getCorpusManifestPath(): string {
@@ -348,16 +368,17 @@ async function searchLegalKnowledge(
   const verifiedLawCodes = getVerifiedLawCodes();
   if (verifiedLawCodes.size === 0) return { matches: [], dbPath };
   const rawLimit = Math.max(limit * 4, 20);
+  const lawFilter = getModuleLawFilter(module);
 
   const explicitTarget = getExplicitProvisionTarget(query);
   const preferredLawCodes = getPreferredLawCodes(query);
   let explicitResults: any[] = [];
   if (explicitTarget.lawCode && explicitTarget.id) {
-    const storedLawCode = explicitTarget.lawCode === 'CCOM' ? 'CCom' : explicitTarget.lawCode;
-    const label = `${explicitTarget.kind === 'rule' || explicitTarget.lawCode === 'RMF' ? 'Regla' : 'Artículo'} ${explicitTarget.id}`;
+    const storedLawCode = toStoredLawCode(explicitTarget.lawCode);
+    const label = `${explicitTarget.kind === 'rule' || ['RMF', 'RGCE'].includes(explicitTarget.lawCode) ? 'Regla' : 'Artículo'} ${explicitTarget.id}`;
     explicitResults = await table
       .query()
-      .where(`law_code = '${escapeSqlLiteral(storedLawCode)}' AND article = '${escapeSqlLiteral(label)}' AND module = '${module}'`)
+      .where(`law_code = '${escapeSqlLiteral(storedLawCode)}' AND article = '${escapeSqlLiteral(label)}' AND (${lawFilter})`)
       .limit(1)
       .toArray();
   }
@@ -366,7 +387,7 @@ async function searchLegalKnowledge(
   try {
     searchResults = await table
       .vectorSearch(vector)
-      .where(`module = '${module}'`)
+      .where(lawFilter)
       .limit(rawLimit)
       .toArray();
   } catch (err: any) {
@@ -587,19 +608,13 @@ function formatRAGContext(matches: RAGMatch[], module: LegalModule, isDrafting =
       '4. Redacta de forma formal, profesional y completa.',
     ];
   } else {
-    instructionLines = module === 'mercantil'
-      ? [
-        '1. Fundamenta tu respuesta únicamente con fuentes mercantiles del contexto verificado.',
-        '2. Usa los artículos recuperados como base principal de la explicación.',
-        '3. Responde únicamente con la información que se encuentre en el contexto proporcionado.',
-        '4. Si hay contradicción, prioriza la Ley vigente pero menciona el criterio judicial.',
-      ]
-      : [
-        '1. Fundamenta tu respuesta únicamente con fuentes fiscales del contexto verificado.',
-        '2. Usa las normas recuperadas como base principal de la explicación.',
-        '3. Responde únicamente con la información que se encuentre en el contexto proporcionado.',
-        '4. Si hay contradicción, prioriza la Ley vigente pero menciona el criterio judicial.',
-      ];
+    const moduleLabel = getModuleLabel(module);
+    instructionLines = [
+      `1. Fundamenta tu respuesta únicamente con fuentes de ${moduleLabel} del contexto verificado.`,
+      '2. Usa los artículos o reglas recuperadas como base principal de la explicación.',
+      '3. Responde únicamente con la información que se encuentre en el contexto proporcionado.',
+      '4. Si hay contradicción, prioriza la fuente vigente y explica la tensión sin inventar fundamentos.',
+    ];
   }
 
   return `

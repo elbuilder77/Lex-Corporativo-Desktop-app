@@ -9,14 +9,11 @@ import { AppShell } from './components/AppShell';
 
 const Introduction = lazy(() => import('./components/Introduction').then(m => ({ default: m.Introduction })));
 const NotificationHub = lazy(() => import('./components/NotificationHub').then(m => ({ default: m.NotificationHub })));
-const EcosystemFrame = lazy(() => import('./components/EcosystemFrame').then(m => ({ default: m.EcosystemFrame })));
-const FiscalModule = lazy(() => import('./components/FiscalModule').then(m => ({ default: m.FiscalModule })));
 const LegalEngineering = lazy(() => import('./components/LegalEngineering').then(m => ({ default: m.LegalEngineering })));
 const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy').then(m => ({ default: m.PrivacyPolicy })));
 const TermsConditions = lazy(() => import('./components/TermsConditions').then(m => ({ default: m.TermsConditions })));
 const Settings = lazy(() => import('./components/Settings').then(m => ({ default: m.Settings })));
 const Portafolio = lazy(() => import('./components/Portafolio').then(m => ({ default: m.Portafolio })));
-const Instructivo = lazy(() => import('./components/Instructivo').then(m => ({ default: m.Instructivo })));
 const BuscadorLegal = lazy(() => import('./components/BuscadorLegal').then(m => ({ default: m.BuscadorLegal })));
 
 import { useAuthStore } from './store/useAuthStore';
@@ -121,8 +118,9 @@ function GlobalEffects() {
       let activityName = "Actividad reciente";
       if (caseState.activeModule === 'fiscal' && caseState.fiscalOperationState.title) activityName = caseState.fiscalOperationState.title;
       else if (caseState.engineeringDraftingHistory.length > 0) activityName = "Ingeniería Jurídica";
-      else if (caseState.fiscalDraftingHistory.length > 0) activityName = "Generación fiscal";
-      else if (caseState.fiscalAnalysisHistory.length > 0) activityName = "Análisis fiscal";
+      else if (caseState.engineeringAnalysisHistory.length > 0) activityName = "Análisis jurídico";
+      else if (caseState.fiscalDraftingHistory.length > 0) activityName = "Generación documental";
+      else if (caseState.fiscalAnalysisHistory.length > 0) activityName = "Análisis documental";
 
       let activityModule: 'engineering' | 'fiscal' = caseState.activeModule || 'engineering';
       if (!caseState.activeModule && (caseState.fiscalDraftingHistory.length > 0 || caseState.fiscalAnalysisHistory.length > 0)) {
@@ -136,6 +134,7 @@ function GlobalEffects() {
         module: activityModule,
         date: new Date().toISOString().split('T')[0],
         fiscalAnalysisHistory: sanitizeForStorage(caseState.fiscalAnalysisHistory),
+        engineeringAnalysisHistory: sanitizeForStorage(caseState.engineeringAnalysisHistory),
         engineeringDraftingHistory: sanitizeForStorage(caseState.engineeringDraftingHistory),
         fiscalDraftingHistory: sanitizeForStorage(caseState.fiscalDraftingHistory),
         fiscalChatHistory: sanitizeForStorage(caseState.fiscalChatHistory),
@@ -185,10 +184,7 @@ function IntroductionWrapper() {
       await useCaseStore.getState().fetchRecentCases();
       if (remember) localStorage.setItem(STATION_OPENED_KEY, '1');
 
-      const defaultWorkspace = localStorage.getItem(DEFAULT_WORKSPACE_KEY);
-      navigate(defaultWorkspace === 'engineering' || defaultWorkspace === 'fiscal'
-        ? (defaultWorkspace === 'engineering' ? '/ingenieria-juridica' : '/fiscal')
-        : '/instructivo', { replace: true });
+      navigate('/ingenieria-juridica', { replace: true });
     } catch {
       setIsResuming(false);
       notify('No se pudo abrir la estación local.', 'error', 'Fallo de inicio');
@@ -281,15 +277,9 @@ function App() {
                 </CapabilityGate>
               </LocalStationRoute>
             } />
-            <Route path="/fiscal" element={
-              <LocalStationRoute>
-                <motion.div key="fiscal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }} className="h-full w-full block">
-                  <EcosystemFrame kind="fiscal">
-                    <FiscalModule />
-                  </EcosystemFrame>
-                </motion.div>
-              </LocalStationRoute>
-            } />
+            <Route path="/documentos" element={<Navigate to="/ingenieria-juridica" replace />} />
+            <Route path="/corporativo" element={<Navigate to="/ingenieria-juridica" replace />} />
+            <Route path="/fiscal" element={<Navigate to="/ingenieria-juridica" replace />} />
             <Route path="/privacy" element={
               <motion.div key="privacy" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2, ease: "easeOut" }} className="absolute inset-0 z-50 bg-slate-50 text-slate-900">
                 <PrivacyPolicy onBack={() => window.history.back()} />
@@ -307,13 +297,7 @@ function App() {
                 </motion.div>
               </LocalStationRoute>
             } />
-            <Route path="/instructivo" element={
-              <LocalStationRoute>
-                <motion.div key="instructivo" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }} className="h-full w-full block bg-slate-50 relative z-40">
-                  <Instructivo />
-                </motion.div>
-              </LocalStationRoute>
-            } />
+            <Route path="/instructivo" element={<Navigate to="/ingenieria-juridica" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>

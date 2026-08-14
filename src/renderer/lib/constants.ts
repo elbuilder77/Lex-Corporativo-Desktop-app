@@ -23,7 +23,7 @@ export const ALLOWED_FILE_TYPES = [
 // ── Default Chat Messages ─────────────────────────────────
 export const INITIAL_FISCAL_MESSAGE = {
   role: 'model' as const,
-  text: '¡Le damos la bienvenida al módulo de Asuntos Fiscales de Lex Corporativo!\n\nEstoy a su disposición para asistirle en la evaluación de implicaciones fiscales, análisis de cumplimiento, estrategias de prevención y dudas sobre la normativa tributaria federal.\n\n¿En qué podemos asistirle el día de hoy?',
+  text: '¡Le damos la bienvenida al módulo Corporativo de Lex Corporativo!\n\nEstoy a su disposición para asistirle en la evaluación de operaciones, contratos, gobierno societario, poderes, garantías y documentación corporativa.\n\n¿En qué podemos asistirle el día de hoy?',
 };
 
 export const RESET_MESSAGE = {
@@ -178,95 +178,210 @@ export const MERCANTIL_DRAFTING_TEMPLATES: DraftingTemplate[] = [
   },
 ];
 
-// ── Fiscal Drafting Templates ─────────────────────────────
-export const FISCAL_DRAFTING_TEMPLATES: DraftingTemplate[] = [
+// ── Laboral Drafting Templates ────────────────────────────
+export const LABORAL_DRAFTING_TEMPLATES: DraftingTemplate[] = [
   {
-    id: 'fiscal-dictamen-materialidad',
-    title: 'Dictamen de Materialidad',
-    description: 'Dictamen para soportar existencia, ejecución y evidencia de una operación.',
-    prompt: 'Dictamen de materialidad para una operación de servicios, integrando contrato, CFDI, entregables, pagos, evidencia de ejecución y conclusión de soporte documental.',
-    requiredFields: ['Contribuyente', 'Proveedor', 'Operación', 'Monto', 'Contrato', 'CFDI', 'Entregables', 'Pagos', 'Evidencia disponible'],
-    output: 'Dictamen con hechos, evidencia, riesgos y conclusión de soporte documental.',
-    intentGroup: 'Soportar / Acreditar materialidad',
+    id: 'laboral-contrato-individual',
+    title: 'Contrato Individual de Trabajo',
+    description: 'Relación laboral con puesto, jornada, salario, prestaciones y confidencialidad.',
+    prompt: 'Contrato individual de trabajo para una persona trabajadora en México, con puesto, funciones, jornada, salario, prestaciones, centro de trabajo, confidencialidad, herramientas de trabajo y causas de terminación conforme a los datos proporcionados.',
+    requiredFields: ['Patrón', 'Persona trabajadora', 'Puesto', 'Funciones', 'Jornada', 'Salario', 'Prestaciones', 'Centro de trabajo', 'Fecha de inicio'],
+    output: 'Contrato individual de trabajo listo para revisión profesional.',
+    intentGroup: 'Contratar personal',
   },
   {
-    id: 'fiscal-matriz-riesgo',
-    title: 'Matriz de Riesgo Fiscal',
-    description: 'Evaluación estructurada de riesgos documentales y fiscales.',
-    prompt: 'Matriz de riesgo fiscal para evaluar materialidad, deducibilidad, IVA acreditable, razón de negocios, exposición 69-B y coherencia documental.',
-    requiredFields: ['Operación', 'Proveedor', 'Riesgo principal', 'Evidencia existente', 'Evidencia faltante', 'Monto', 'Periodo'],
-    output: 'Matriz con rubros, nivel de riesgo, hallazgos y acciones de cierre.',
-    intentGroup: 'Evaluar / Prevenir riesgo',
+    id: 'laboral-teletrabajo',
+    title: 'Anexo de Teletrabajo',
+    description: 'Anexo para modalidad remota, herramientas, horarios y seguridad de información.',
+    prompt: 'Anexo de teletrabajo para regular lugar de prestación, equipo entregado, conectividad, seguridad de información, horarios de disponibilidad, reportes, reversibilidad y medidas de salud y seguridad.',
+    requiredFields: ['Contrato base', 'Persona trabajadora', 'Domicilio o lugar remoto', 'Equipo entregado', 'Horario', 'Medios de supervisión', 'Políticas internas'],
+    output: 'Anexo laboral de teletrabajo con obligaciones operativas y datos faltantes marcados.',
+    intentGroup: 'Regular modalidad',
   },
   {
-    id: 'fiscal-checklist',
-    title: 'Checklist Fiscal',
-    description: 'Lista de integración probatoria para portafolio de defensa.',
-    prompt: 'Checklist de soporte documental para acreditar operación, capacidad del proveedor, entregables, forma de pago, CFDI, contrato y evidencia de recepción.',
-    requiredFields: ['Tipo de operación', 'Proveedor', 'Documentos existentes', 'Documentos faltantes', 'Responsable interno', 'Fecha objetivo'],
-    output: 'Checklist accionable con documentos, prioridad y responsable sugerido.',
-    intentGroup: 'Evaluar / Prevenir riesgo',
+    id: 'laboral-confidencialidad',
+    title: 'Acuerdo de Confidencialidad Laboral',
+    description: 'Compromiso de confidencialidad para personal con acceso a información sensible.',
+    prompt: 'Acuerdo de confidencialidad laboral para persona trabajadora con acceso a información técnica, comercial, financiera o de clientes, incluyendo deberes durante y después de la relación laboral.',
+    requiredFields: ['Patrón', 'Persona trabajadora', 'Información protegida', 'Duración', 'Excepciones', 'Consecuencias por incumplimiento'],
+    output: 'Acuerdo de confidencialidad laboral con definiciones, obligaciones y excepciones.',
+    intentGroup: 'Proteger información',
   },
   {
-    id: 'fiscal-escrito-sat',
-    title: 'Escrito SAT',
-    description: 'Escrito libre de aclaración o contestación a requerimiento de autoridad fiscal.',
-    prompt: 'Escrito libre de aclaración al SAT para contestar requerimiento o presentar aclaración, con autoridad, RFC, folio, domicilio fiscal, hechos y peticiones.',
-    requiredFields: ['Contribuyente', 'RFC', 'Domicilio fiscal', 'Autoridad SAT', 'Folio o requerimiento', 'Hechos', 'Petición concreta'],
-    output: 'Escrito libre ensamblado desde plantilla estática cuando el motor extrae los datos requeridos.',
-    intentGroup: 'Contestar / Aclarar',
-  },
-  {
-    id: 'fiscal-informe-deducibilidad',
-    title: 'Informe de Deducibilidad',
-    description: 'Informe para justificar estricta indispensabilidad y soporte del gasto.',
-    prompt: 'Informe de deducibilidad para justificar estricta indispensabilidad, relación con actividad, documentación soporte y riesgos de rechazo.',
-    requiredFields: ['Gasto u operación', 'Actividad del contribuyente', 'Monto', 'Proveedor', 'CFDI', 'Pago', 'Relación con ingresos'],
-    output: 'Informe con análisis de indispensabilidad, soporte y riesgos de rechazo.',
-    intentGroup: 'Justificar / Analizar deducibilidad',
-  },
-  {
-    id: 'fiscal-informe-iva',
-    title: 'Informe de IVA Acreditable',
-    description: 'Revisión de requisitos para acreditamiento de IVA.',
-    prompt: 'Informe de IVA acreditable para revisar requisitos de acreditamiento, pago efectivo, CFDI, relación con actos gravados y soporte documental.',
-    requiredFields: ['Operación', 'IVA trasladado', 'Fecha de pago', 'CFDI', 'Actos gravados relacionados', 'Evidencia contable'],
-    output: 'Informe de acreditamiento con requisitos, faltantes y recomendación.',
-    intentGroup: 'Justificar / Analizar deducibilidad',
-  },
-  {
-    id: 'fiscal-razon-negocios',
-    title: 'Razón de Negocios',
-    description: 'Justificación ejecutiva de sustancia económica y beneficio esperado.',
-    prompt: 'Justificación de razón de negocios para explicar sustancia económica, necesidad operativa, beneficio esperado y coherencia documental de la operación.',
-    requiredFields: ['Operación', 'Necesidad operativa', 'Beneficio esperado', 'Alternativas consideradas', 'Evidencia de ejecución', 'Impacto económico'],
-    output: 'Memo de razón de negocios con narrativa, soporte y conclusión.',
-    intentGroup: 'Justificar / Analizar deducibilidad',
-  },
-  {
-    id: 'fiscal-solicitud-evidencia',
-    title: 'Solicitud de Evidencia',
-    description: 'Carta para pedir soporte documental a proveedor o área interna.',
-    prompt: 'Carta de solicitud de evidencia al proveedor para pedir entregables, reportes, constancias de ejecución, personal asignado y soporte de capacidad operativa.',
-    requiredFields: ['Destinatario', 'Operación', 'Periodo', 'Documentos solicitados', 'Fecha límite', 'Responsable de recepción'],
-    output: 'Carta formal de solicitud con lista de evidencia y plazo.',
-    intentGroup: 'Soportar / Acreditar materialidad',
-  },
-  {
-    id: 'fiscal-memo-interno',
-    title: 'Memo Fiscal Interno',
-    description: 'Memo de trabajo con hallazgos, faltantes y plan de integración.',
-    prompt: 'Memorándum fiscal interno con hallazgos, faltantes, riesgos, recomendaciones y plan de integración de portafolio probatorio.',
-    requiredFields: ['Área solicitante', 'Operación', 'Hallazgos', 'Riesgos', 'Faltantes', 'Acciones recomendadas', 'Responsables'],
-    output: 'Memo interno con diagnóstico y plan de seguimiento.',
-    intentGroup: 'Contestar / Aclarar',
+    id: 'laboral-convenio-terminacion',
+    title: 'Convenio de Terminación Laboral',
+    description: 'Documento de cierre de relación con pagos, entrega de bienes y liberaciones.',
+    prompt: 'Convenio de terminación de relación laboral con fecha de baja, conceptos de pago, entrega de herramientas, devolución de información, ratificación pendiente y reservas necesarias.',
+    requiredFields: ['Patrón', 'Persona trabajadora', 'Fecha de terminación', 'Conceptos de pago', 'Bienes a devolver', 'Ratificación o autoridad', 'Liberaciones'],
+    output: 'Convenio de terminación laboral para revisión antes de firma.',
+    intentGroup: 'Cerrar relación',
   },
 ];
 
-export type LegalEngineeringArea = 'mercantil';
+// ── Comercio Exterior Drafting Templates ──────────────────
+export const COMERCIO_EXTERIOR_DRAFTING_TEMPLATES: DraftingTemplate[] = [
+  {
+    id: 'comercio_exterior-compraventa-internacional',
+    title: 'Compraventa Internacional',
+    description: 'Contrato para importación/exportación con Incoterm, entrega, pago y documentos.',
+    prompt: 'Contrato de compraventa internacional de mercancías con Incoterm, punto de entrega, transmisión de riesgos, documentos comerciales, certificaciones, forma de pago, inspección, garantías y solución de controversias.',
+    requiredFields: ['Vendedor', 'Comprador', 'Mercancías', 'Incoterm', 'Puerto o punto de entrega', 'Precio', 'Moneda', 'Forma de pago', 'Documentos requeridos'],
+    output: 'Contrato de compraventa internacional con anexos documentales sugeridos.',
+    intentGroup: 'Importar / Exportar',
+  },
+  {
+    id: 'comercio_exterior-distribucion-internacional',
+    title: 'Distribución Internacional',
+    description: 'Acuerdo de distribución, territorio, exclusividad, pedidos y cumplimiento.',
+    prompt: 'Contrato de distribución internacional con territorio, exclusividad, órdenes de compra, mínimos de venta, cumplimiento regulatorio, propiedad intelectual, devoluciones y terminación.',
+    requiredFields: ['Proveedor', 'Distribuidor', 'Territorio', 'Productos', 'Exclusividad', 'Metas o mínimos', 'Condiciones de pago', 'Vigencia'],
+    output: 'Contrato de distribución internacional con obligaciones comerciales y de cumplimiento.',
+    intentGroup: 'Distribuir mercancías',
+  },
+  {
+    id: 'comercio_exterior-checklist-importacion',
+    title: 'Checklist de Importación',
+    description: 'Lista operativa de documentos, permisos, clasificación y pagos para importar.',
+    prompt: 'Checklist documental para operación de importación, incluyendo factura comercial, packing list, conocimiento de embarque o guía, fracción arancelaria, regulaciones y restricciones no arancelarias, permisos, certificados, pedimento y pagos.',
+    requiredFields: ['Importador', 'Proveedor extranjero', 'Mercancía', 'País de origen', 'Fracción arancelaria si existe', 'Incoterm', 'Aduana', 'Agente aduanal'],
+    output: 'Checklist de importación con documentos existentes, faltantes, responsables y alertas.',
+    intentGroup: 'Preparar operación',
+  },
+  {
+    id: 'comercio_exterior-carta-instrucciones',
+    title: 'Carta de Instrucciones al Agente Aduanal',
+    description: 'Instrucciones operativas para despacho, documentos y coordinación logística.',
+    prompt: 'Carta de instrucciones al agente aduanal para despacho de importación o exportación, con datos de mercancía, régimen, documentos anexos, Incoterm, transporte, contacto operativo y observaciones.',
+    requiredFields: ['Importador/exportador', 'Agente aduanal', 'Régimen', 'Mercancía', 'Aduana', 'Transporte', 'Documentos anexos', 'Contacto operativo'],
+    output: 'Carta de instrucciones clara para revisión interna y envío al agente aduanal.',
+    intentGroup: 'Coordinar despacho',
+  },
+];
+
+// ── Aduanal Drafting Templates ────────────────────────────
+export const ADUANAL_DRAFTING_TEMPLATES: DraftingTemplate[] = [
+  {
+    id: 'aduanal-expediente-pedimento',
+    title: 'Expediente de Pedimento',
+    description: 'Índice y control documental para pedimento de importación o exportación.',
+    prompt: 'Índice de expediente aduanal asociado a pedimento, integrando factura, documentos de transporte, manifestación de valor, hoja de cálculo, permisos, certificados, comprobantes de pago, anexos y observaciones.',
+    requiredFields: ['Número de pedimento si existe', 'Régimen', 'Aduana', 'Importador/exportador', 'Mercancía', 'Documentos disponibles', 'Documentos faltantes'],
+    output: 'Índice de expediente aduanal con control de faltantes y responsable de cierre.',
+    intentGroup: 'Integrar expediente',
+  },
+  {
+    id: 'aduanal-manifestacion-valor',
+    title: 'Manifestación de Valor',
+    description: 'Borrador de integración de datos de valor en aduana y soporte documental.',
+    prompt: 'Borrador de manifestación de valor o memo de soporte para valor en aduana, con proveedor, mercancía, precio pagado o por pagar, incrementables, documentos soporte y datos faltantes.',
+    requiredFields: ['Importador', 'Proveedor', 'Mercancía', 'Factura', 'Incoterm', 'Valor', 'Incrementables', 'Documentos soporte'],
+    output: 'Memo estructurado de soporte de valor en aduana con campos pendientes.',
+    intentGroup: 'Soportar valor',
+  },
+  {
+    id: 'aduanal-rectificacion-pedimento',
+    title: 'Solicitud de Rectificación',
+    description: 'Escrito interno para preparar rectificación de datos del pedimento.',
+    prompt: 'Escrito o memo para preparar solicitud de rectificación de pedimento, identificando dato incorrecto, dato correcto, fundamento documental, causa de corrección, anexos y validaciones previas.',
+    requiredFields: ['Pedimento', 'Dato a corregir', 'Dato correcto', 'Causa', 'Documentos soporte', 'Responsable', 'Fecha objetivo'],
+    output: 'Memo de rectificación con hechos, anexos y checklist de revisión.',
+    intentGroup: 'Corregir operación',
+  },
+  {
+    id: 'aduanal-respuesta-requerimiento',
+    title: 'Respuesta a Requerimiento Aduanal',
+    description: 'Estructura de contestación con hechos, anexos y peticiones.',
+    prompt: 'Borrador de respuesta a requerimiento o carta de atención aduanal, con autoridad, expediente, hechos, documentos anexos, aclaraciones, peticiones y reservas.',
+    requiredFields: ['Autoridad', 'Expediente o folio', 'Contribuyente', 'Hechos', 'Documentos anexos', 'Petición concreta', 'Fecha límite'],
+    output: 'Borrador de respuesta ordenado para revisión y firma.',
+    intentGroup: 'Atender autoridad',
+  },
+];
+
+// ── Fiscal y Patrimonial Legal Templates ──────────────────
+export const FISCAL_DRAFTING_TEMPLATES: DraftingTemplate[] = [
+  {
+    id: 'fiscal-prestacion-servicios',
+    title: 'Contrato de Servicios con Cláusulas Fiscales',
+    description: 'Instrumento legal con delimitación de entregables, retenciones y cumplimiento tributario.',
+    prompt: 'Contrato de prestación de servicios profesionales con estipulaciones claras de contraprestación, CFDI, retenciones aplicables, propiedad intelectual, no relación laboral y entregables verificables.',
+    requiredFields: ['Prestador', 'Cliente', 'Objeto y entregables', 'Honorarios', 'Forma de pago y CFDI', 'Retenciones', 'Vigencia'],
+    output: 'Contrato formal de prestación de servicios con cláusulas de cumplimiento legal-fiscal.',
+    intentGroup: 'Contratar / Operar',
+  },
+  {
+    id: 'fiscal-mutuo-interes',
+    title: 'Contrato de Mutuo con Interés y Retención',
+    description: 'Préstamo dinerario entre partes con calendario de amortización, interés y soporte patrimonial.',
+    prompt: 'Contrato de mutuo con interés mercantil/civil, especificando monto prestado, tasa de interés pactada, calendario de amortización, cuenta de depósito para trazabilidad y cláusulas de retención legal.',
+    requiredFields: ['Mutuante', 'Mutuario', 'Monto prestado', 'Tasa de interés', 'Plazo y calendario de amortización', 'Destino de los fondos', 'Garantía'],
+    output: 'Contrato de mutuo con pagaré anexo y soporte de origen y destino de recursos.',
+    intentGroup: 'Garantizar / Cobrar',
+  },
+  {
+    id: 'fiscal-reconocimiento-adeudo',
+    title: 'Convenio de Reconocimiento de Adeudo',
+    description: 'Instrumento de reestructuración de saldos, calendario de pagos y penalizaciones.',
+    prompt: 'Convenio de reconocimiento de adeudo y compromiso de pago en parcialidades, con liquidación de obligaciones comerciales o patrimoniales, intereses pactados y penas por mora.',
+    requiredFields: ['Acreedor', 'Deudor', 'Monto total reconocido', 'Origen del adeudo', 'Plan de pagos', 'Garantías', 'Consecuencias por mora'],
+    output: 'Convenio formal de reconocimiento de adeudo con fuerza ejecutiva.',
+    intentGroup: 'Garantizar / Cobrar',
+  },
+  {
+    id: 'fiscal-escrito-aclaracion',
+    title: 'Escrito Libre de Aclaración Legal',
+    description: 'Escrito formal para presentar aclaraciones, solventar cartas invitación o atender requerimientos.',
+    prompt: 'Escrito libre formal dirigido a la autoridad competente para presentar aclaraciones jurídicas, adjuntar documentación probatoria y formular peticiones en términos de ley.',
+    requiredFields: ['Autoridad destinataria', 'Promovente', 'RFC y domicilio', 'Folio o antecedente', 'Hechos y aclaraciones', 'Pruebas anexas', 'Puntos petitorios'],
+    output: 'Escrito legal formal con hechos, pruebas y petitorios en derecho.',
+    intentGroup: 'Contestar / Aclarar',
+  },
+  {
+    id: 'fiscal-memo-analisis',
+    title: 'Dictamen de Análisis Jurídico-Fiscal',
+    description: 'Evaluación técnico-jurídica sobre contratos, operaciones societarias o implicaciones patrimoniales.',
+    prompt: 'Dictamen jurídico-fiscal para analizar la validez, riesgos y requisitos de cumplimiento de una operación contractual o corporativa, con fundamento en leyes y reglamentos aplicables.',
+    requiredFields: ['Cliente u operación', 'Antecedentes', 'Preguntas o temas a dictaminar', 'Documentos analizados', 'Conclusiones y recomendaciones'],
+    output: 'Dictamen jurídico estructurado con antecedentes, análisis de fondo y conclusiones.',
+    intentGroup: 'Blindar / Dictaminar',
+  },
+  {
+    id: 'fiscal-arrendamiento-inmueble',
+    title: 'Arrendamiento con Cláusulas Fiscales',
+    description: 'Contrato de arrendamiento comercial con retenciones, comprobantes y uso de suelo.',
+    prompt: 'Contrato de arrendamiento de inmueble para uso comercial o corporativo, con estipulaciones de renta mensual, IVA, retenciones fiscales, depósito en garantía, mantenimiento y vigencia.',
+    requiredFields: ['Arrendador', 'Arrendatario', 'Inmueble', 'Renta mensual e IVA', 'Retenciones', 'Uso autorizado', 'Garantía'],
+    output: 'Contrato de arrendamiento formal con estipulaciones de cumplimiento fiscal.',
+    intentGroup: 'Contratar / Operar',
+  },
+  {
+    id: 'fiscal-comision-mercantil',
+    title: 'Comisión Mercantil y Honorarios',
+    description: 'Acuerdo de corretaje y comisión con reglas de devengo, liquidación y comprobación fiscal.',
+    prompt: 'Contrato de comisión mercantil para intermediación o colocación comercial, detallando porcentaje de comisión, condiciones de devengo, rendición de cuentas y comprobación mediante CFDI.',
+    requiredFields: ['Comitente', 'Comisionista', 'Operaciones objeto', 'Porcentaje o tarifa de comisión', 'Condición de devengo', 'CFDI y retenciones'],
+    output: 'Contrato de comisión mercantil estructurado.',
+    intentGroup: 'Contratar / Operar',
+  },
+  {
+    id: 'fiscal-convenio-dacion',
+    title: 'Convenio de Dación en Pago',
+    description: 'Instrumento para extinguir deudas mediante la entrega de bienes con avalúo y valor fiscal.',
+    prompt: 'Convenio de dación en pago para liquidación total o parcial de adeudos comerciales, con determinación de bienes entregados, valor fiscal pactado, liberación de gravámenes y finiquito de obligaciones.',
+    requiredFields: ['Acreedor', 'Deudor', 'Adeudo a extinguir', 'Bienes dados en pago', 'Valor pactado o avalúo', 'Fecha de entrega', 'Finiquito'],
+    output: 'Convenio de dación en pago con cláusula de liberación y finiquito.',
+    intentGroup: 'Garantizar / Cobrar',
+  },
+];
+
+export type LegalEngineeringArea = 'mercantil' | 'laboral' | 'comercio_exterior' | 'aduanal' | 'fiscal';
 
 export const LEGAL_ENGINEERING_TEMPLATES: Record<LegalEngineeringArea, DraftingTemplate[]> = {
   mercantil: MERCANTIL_DRAFTING_TEMPLATES,
+  laboral: LABORAL_DRAFTING_TEMPLATES,
+  comercio_exterior: COMERCIO_EXTERIOR_DRAFTING_TEMPLATES,
+  aduanal: ADUANAL_DRAFTING_TEMPLATES,
+  fiscal: FISCAL_DRAFTING_TEMPLATES,
 };
 
 // Fase posterior: litigio fiscal profundo, no visible en el módulo actual.

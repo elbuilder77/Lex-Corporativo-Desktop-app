@@ -109,6 +109,8 @@ function normalizeProvisionIdentity(article) {
   const kind = /^regla\s+/i.test(article) ? 'rule' : 'article';
   const identifier = String(article)
     .replace(/^(?:Artículo|Regla)\s+/i, '')
+    .replace(/ñ/g, 'enie')
+    .replace(/Ñ/g, 'enie')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()

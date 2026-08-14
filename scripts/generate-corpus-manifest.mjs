@@ -27,6 +27,8 @@ function sha256File(filePath) {
 
 function normalizeProvisionIdentifier(value) {
   return String(value)
+    .replace(/ñ/g, 'enie')
+    .replace(/Ñ/g, 'enie')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()

@@ -1,4 +1,4 @@
-import { getAnalysisPromptProfile, type AiExecutionMode } from '../../shared/legal-contracts';
+import { getAnalysisPromptProfile, type AnalysisPromptProfile, type LegalAnalysisEcosystem } from '../../shared/legal-contracts';
 import type { DocumentAnalysisResult } from '../types';
 
 export interface FiscalEvidenceUpload {
@@ -10,7 +10,8 @@ export interface FiscalEvidenceUpload {
 export interface FiscalAnalysisResponse {
   result: DocumentAnalysisResult;
   requestId: string;
-  promptProfile: 'fiscal_analysis' | 'mercantil_analysis';
+  ecosystem: LegalAnalysisEcosystem;
+  promptProfile: AnalysisPromptProfile;
   requestedExecutionMode: 'byok';
   engine: 'byok';
   provider?: 'gemini' | 'openai' | 'anthropic';
@@ -19,7 +20,7 @@ export interface FiscalAnalysisResponse {
 
 const FALLBACK_RESULT: DocumentAnalysisResult = {
   summary: 'El motor devolvió una respuesta sin estructura completa. Revise el contenido antes de tomar una decisión.',
-  documentType: 'Análisis fiscal',
+  documentType: 'Revisión corporativa',
   riskScore: 0,
   detectedParties: [],
   detectedObligations: [],
@@ -109,7 +110,9 @@ export async function runFiscalAnalysis(input: {
   instruction: string;
   files?: File[];
   syntheticFileName: string;
+  ecosystem?: LegalAnalysisEcosystem;
 }): Promise<FiscalAnalysisResponse> {
+  const ecosystem = input.ecosystem || 'mercantil';
   const evidence = input.files?.length
     ? await Promise.all(input.files.map(fileToEvidence))
     : [textEvidence(input.syntheticFileName, input.context)];
@@ -117,10 +120,10 @@ export async function runFiscalAnalysis(input: {
     caseId: input.caseId,
     files: evidence,
     focusedInstruction: `${input.instruction}\n\nCONTEXTO DECLARADO POR EL USUARIO:\n${input.context}`,
-    ecosystem: 'fiscal',
+    ecosystem,
     module: 'analysis',
     currentDocumentOnly: true,
-    promptProfile: getAnalysisPromptProfile('fiscal'),
+    promptProfile: getAnalysisPromptProfile(ecosystem),
   });
 
   const result = parseFiscalAnalysisResult(response.result);

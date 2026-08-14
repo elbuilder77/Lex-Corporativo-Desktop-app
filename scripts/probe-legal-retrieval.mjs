@@ -9,6 +9,9 @@ const shouldWrite = args.has('--write');
 
 const ALLOWED_LAWS = {
   mercantil: ['CCOM', 'LGSM', 'LGTOC'],
+  laboral: ['LFT'],
+  comercio_exterior: ['LCE', 'RLCE', 'LA', 'RLA', 'LIGIE', 'RGCE'],
+  aduanal: ['LA', 'RLA', 'LIGIE', 'RGCE', 'LCE', 'RLCE'],
   fiscal: ['CFF', 'LISR', 'RLISR', 'LIVA', 'RLIVA', 'RMF'],
 };
 
@@ -62,6 +65,36 @@ const PROBES = [
     expected: [{ lawCode: 'RLIVA', article: 'Artículo 79' }],
   },
   {
+    id: 'laboral_lft_20',
+    module: 'laboral',
+    query: 'relacion de trabajo contrato individual salario trabajador patron articulo 20',
+    expected: [{ lawCode: 'LFT', article: 'Artículo 20' }],
+  },
+  {
+    id: 'comercio_lce_15',
+    module: 'comercio_exterior',
+    query: 'medidas de regulacion restriccion no arancelarias exportacion articulo 15',
+    expected: [{ lawCode: 'LCE', article: 'Artículo 15' }],
+  },
+  {
+    id: 'aduanal_la_36',
+    module: 'aduanal',
+    query: 'pedimento documento electronico regimen aduanero mercancias articulo 36',
+    expected: [{ lawCode: 'LA', article: 'Artículo 36' }],
+  },
+  {
+    id: 'aduanal_rgce_151',
+    module: 'aduanal',
+    query: 'manifestacion de valor valor en aduana regla 1.5.1',
+    expected: [{ lawCode: 'RGCE', article: 'Regla 1.5.1' }],
+  },
+  {
+    id: 'aduanal_ligie_87',
+    module: 'aduanal',
+    query: 'tarifa arancelaria vehiculos automoviles capitulo 87 ligie',
+    expected: [{ lawCode: 'LIGIE', article: 'Artículo 1o - Capítulo 87' }],
+  },
+  {
     id: 'mercantil_no_fiscal_bleed',
     module: 'mercantil',
     query: '69-B operaciones inexistentes comprobantes fiscales',
@@ -83,6 +116,13 @@ const BOOSTS = {
   LISR: ['deducibilidad', 'renta', 'ingresos', 'deducciones'],
   LIVA: ['iva', 'acreditamiento', 'valor', 'agregado'],
   RMF: ['rmf', 'sat', 'regla', 'servicios', 'tributarios'],
+  LFT: ['laboral', 'trabajo', 'trabajador', 'patron', 'patrón', 'salario', 'contrato'],
+  LCE: ['comercio', 'exterior', 'regulacion', 'regulación', 'arancelarias', 'exportacion', 'exportación'],
+  RLCE: ['comercio', 'exterior', 'reglamento', 'secretaria', 'economia'],
+  LA: ['aduanero', 'aduanera', 'pedimento', 'despacho', 'mercancias', 'mercancías'],
+  RLA: ['aduanero', 'aduanera', 'reglamento', 'expediente', 'electronico', 'electrónico'],
+  LIGIE: ['ligie', 'tarifa', 'arancelaria', 'arancel', 'vehiculos', 'vehículos'],
+  RGCE: ['rgce', 'regla', 'sat', 'aduana', 'aduanera', 'pedimento', 'valor'],
 };
 
 function escapeSqlLiteral(value) {
@@ -107,6 +147,10 @@ function normalizeLawCode(value) {
 
   if (normalized === 'CCOM' || normalized === 'CODIGO DE COMERCIO') return 'CCOM';
   return normalized;
+}
+
+function toStoredLawCode(value) {
+  return normalizeLawCode(value) === 'CCOM' ? 'CCom' : value;
 }
 
 function normalizeArticle(value) {
@@ -139,6 +183,11 @@ function scoreRow(row, terms) {
   if (lawCode === 'LIVA' && article.includes('5') && terms.includes('acreditamiento')) score += 30;
   if (lawCode === 'RLISR' && article.includes('313') && terms.includes('certificados')) score += 30;
   if (lawCode === 'RLIVA' && article.includes('79') && terms.includes('acreditables')) score += 30;
+  if (lawCode === 'LFT' && article.includes('20') && terms.includes('contrato')) score += 30;
+  if (lawCode === 'LCE' && article.includes('15') && terms.includes('arancelarias')) score += 30;
+  if (lawCode === 'LA' && article.includes('36') && terms.includes('pedimento')) score += 30;
+  if (lawCode === 'RGCE' && article.includes('1 5 1') && terms.includes('valor')) score += 30;
+  if (lawCode === 'LIGIE' && article.includes('capitulo 87') && terms.includes('vehiculos')) score += 30;
 
   return score;
 }
@@ -156,7 +205,7 @@ function hasForbiddenLaw(rows, module) {
 async function runProbe(table, probe) {
   const rows = await table
     .query()
-    .where(`module = '${escapeSqlLiteral(probe.module)}'`)
+    .where(ALLOWED_LAWS[probe.module].map(lawCode => `law_code = '${escapeSqlLiteral(toStoredLawCode(lawCode))}'`).join(' OR '))
     .limit(20000)
     .toArray();
 

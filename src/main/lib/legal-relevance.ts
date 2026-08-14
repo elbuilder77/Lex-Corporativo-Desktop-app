@@ -22,6 +22,24 @@ function terms(value: string): string[] {
   return [...new Set(normalize(value).split(' ').filter(term => term.length >= 3 && !RELEVANCE_STOPWORDS.has(term)))];
 }
 
+function normalizeExplicitQuery(value: string): string {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9.\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getExplicitLawCode(query: string, normalized: string): string | null {
+  const generalCode = normalized.match(/\b(CFF|LISR|RLISR|LIVA|RLIVA|RMF|CCOM|LGSM|LGTOC|LFT|LCE|RLCE|RLA|LIGIE|TIGIE|RGCE)\b/)?.[1] || null;
+  if (generalCode) return generalCode === 'TIGIE' ? 'LIGIE' : generalCode;
+  if (/\bREGLAMENTO DE LA LEY ADUANERA\b/.test(normalized)) return 'RLA';
+  if (/\bLEY ADUANERA\b/.test(normalized) || /\bLA\b/.test(query)) return 'LA';
+  return null;
+}
+
 function termMatches(queryTerm: string, evidenceTerms: Set<string>): boolean {
   if (evidenceTerms.has(queryTerm)) return true;
   if (queryTerm.length < 6) return false;
@@ -30,14 +48,8 @@ function termMatches(queryTerm: string, evidenceTerms: Set<string>): boolean {
 }
 
 export function getExplicitProvisionTarget(query: string): { lawCode: string | null; kind: 'article' | 'rule' | null; id: string | null } {
-  const normalized = String(query || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toUpperCase()
-    .replace(/[^A-Z0-9.\s-]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const law = normalized.match(/\b(CFF|LISR|RLISR|LIVA|RLIVA|RMF|CCOM|LGSM|LGTOC)\b/)?.[1] || null;
+  const normalized = normalizeExplicitQuery(query);
+  const law = getExplicitLawCode(query, normalized);
   const labeled = normalized.match(/\b(ARTICULO|REGLA)\s+(\d+(?:\.\d+){0,3}(?:-[A-Z]+)?)/);
   const compact = law ? normalized.match(new RegExp(`\\b${law}\\s+(\\d+(?:\\.\\d+){0,3}(?:-[A-Z]+)?)`)) : null;
   return {
@@ -76,6 +88,17 @@ export function getPreferredLawCodes(query: string): Set<string> {
   if (/\b(?:pagare|endoso|aval|cheque|letra de cambio)\b/u.test(value)) preferred.add('LGTOC');
   if (/\b(?:sociedad anonima|asamblea|accionistas)\b/u.test(value)) preferred.add('LGSM');
   if (/\b(?:actos de comercio|codigo de comercio)\b/u.test(value)) preferred.add('CCOM');
+  if (/\b(?:laboral|trabajador|trabajadora|patron|patronal|salario|jornada|prestaciones|relacion de trabajo|contrato individual)\b/u.test(value)) preferred.add('LFT');
+  if (/\b(?:comercio exterior|exportacion|importacion|cuota compensatoria|practicas desleales|restriccion no arancelaria|permiso previo)\b/u.test(value)) {
+    preferred.add('LCE');
+    preferred.add('RLCE');
+  }
+  if (/\b(?:aduana|aduanal|pedimento|despacho aduanero|agente aduanal|valor en aduana|regimen aduanero)\b/u.test(value)) {
+    preferred.add('LA');
+    preferred.add('RLA');
+    preferred.add('RGCE');
+  }
+  if (/\b(?:ligie|tigie|fraccion arancelaria|tarifa|arancel|nico|capitulo arancelario)\b/u.test(value)) preferred.add('LIGIE');
   return preferred;
 }
 

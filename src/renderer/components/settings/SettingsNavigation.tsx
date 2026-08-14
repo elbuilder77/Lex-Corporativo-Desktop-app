@@ -1,15 +1,13 @@
 import React from 'react';
-import { DatabaseBackup, FileText, KeyRound, Settings, Shield, User } from 'lucide-react';
+import { Bot, DatabaseBackup, FileText, Shield } from 'lucide-react';
 
-export type SettingsTab = 'profile' | 'preferences' | 'ia' | 'trazabilidad' | 'data' | 'legal';
+export type SettingsTab = 'ia' | 'data' | 'security' | 'legal';
 
 export const SETTINGS_TABS: ReadonlyArray<{ id: SettingsTab; label: string; icon: React.ReactNode }> = [
-  { id: 'profile', label: 'Estación', icon: <User size={16} /> },
-  { id: 'ia', label: 'Procesamiento', icon: <KeyRound size={16} /> },
-  { id: 'preferences', label: 'Aplicación y recursos', icon: <Settings size={16} /> },
-  { id: 'trazabilidad', label: 'Trazabilidad', icon: <Shield size={16} /> },
-  { id: 'data', label: 'Datos locales', icon: <DatabaseBackup size={16} /> },
-  { id: 'legal', label: 'Legal y privacidad', icon: <FileText size={16} /> },
+  { id: 'ia', label: 'Inteligencia Artificial (IA)', icon: <Bot size={16} /> },
+  { id: 'data', label: 'Datos y Bóveda Local', icon: <DatabaseBackup size={16} /> },
+  { id: 'security', label: 'Seguridad y Trazabilidad', icon: <Shield size={16} /> },
+  { id: 'legal', label: 'Acerca de y Legal', icon: <FileText size={16} /> },
 ];
 
 interface SettingsNavigationProps {
@@ -18,20 +16,20 @@ interface SettingsNavigationProps {
 }
 
 export const SettingsNavigation: React.FC<SettingsNavigationProps> = ({ activeTab, onSelect }) => (
-  <nav className="grid grid-cols-2 gap-1 sm:grid-cols-3 xl:grid-cols-1" aria-label="Secciones de configuración">
+  <nav className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 xl:grid-cols-1" aria-label="Secciones de configuración">
     {SETTINGS_TABS.map((tab) => (
       <button
         type="button"
         key={tab.id}
         onClick={() => onSelect(tab.id)}
-        className={`flex min-w-0 items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold transition-all sm:text-sm ${
+        className={`flex min-w-0 items-center gap-2.5 rounded-xl px-3.5 py-3 text-left text-xs font-bold transition-all ${
           activeTab === tab.id
-            ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/10'
-            : 'border border-transparent text-slate-500 hover:border-slate-200 hover:bg-white hover:text-slate-900'
+            ? 'bg-slate-950 text-white shadow-xs'
+            : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950'
         }`}
         aria-current={activeTab === tab.id ? 'page' : undefined}
       >
-        {tab.icon}
+        <span className="shrink-0">{tab.icon}</span>
         <span className="truncate">{tab.label}</span>
       </button>
     ))}

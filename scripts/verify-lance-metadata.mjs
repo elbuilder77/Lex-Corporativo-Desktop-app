@@ -16,6 +16,13 @@ function countCorpusEntries(corpusPath) {
   return [...content.matchAll(/^\*\*(?:Artículo|Regla)\s+.+?\*\*/gmu)].length;
 }
 
+function vectorLength(vector) {
+  if (!vector) return 0;
+  if (Array.isArray(vector) || ArrayBuffer.isView(vector)) return vector.length;
+  if (Number.isInteger(vector.length)) return vector.length;
+  return 0;
+}
+
 async function main() {
   const db = await lancedb.connect(LANCEDB_DIR);
   const table = await db.openTable('legal_knowledge');
@@ -37,7 +44,7 @@ async function main() {
       || row.provenance !== law.corpusProvenance
       || row.verification_status !== law.verificationStatus
     )).length;
-    const invalidVectors = lawRows.filter(row => !Array.isArray(row.vector) || row.vector.length !== 384).length;
+    const invalidVectors = lawRows.filter(row => vectorLength(row.vector) !== 384).length;
     if (lawRows.length !== expectedRows) failures.push(`${law.code}: ${lawRows.length} filas; se esperaban ${expectedRows}.`);
     if (Object.values(missingMetadata).some(Boolean)) failures.push(`${law.code}: hay metadatos obligatorios vacíos.`);
     if (metadataMismatches) failures.push(`${law.code}: ${metadataMismatches} filas no coinciden con la configuración canónica.`);

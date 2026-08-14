@@ -110,6 +110,12 @@ export type DocumentAnalysisResult = {
     deducibilidad?: string[];
     ivaAcreditable?: string[];
     operacionesInexistentes?: string[];
+    laborales?: string[];
+    comercioExterior?: string[];
+    aduanales?: string[];
+    documentales?: string[];
+    logisticos?: string[];
+    clasificacionArancelaria?: string[];
   };
   legalFoundations: LegalFoundation[];
   groundingClaims?: Array<{
@@ -137,8 +143,8 @@ export interface AnalyzedDocumentHistory {
   files: { name: string; type: string }[];
   result: DocumentAnalysisResult;
   module: 'fiscal' | 'engineering';
-  ecosystem?: 'fiscal' | 'mercantil';
-  promptProfile?: 'fiscal_analysis' | 'mercantil_analysis';
+  ecosystem?: 'fiscal' | 'mercantil' | 'laboral' | 'comercio_exterior' | 'aduanal';
+  promptProfile?: 'fiscal_analysis' | 'mercantil_analysis' | 'laboral_analysis' | 'comercio_exterior_analysis' | 'aduanal_analysis';
   currentDocumentOnly?: true;
   customInstruction: string;
   executionMode?: 'local' | 'byok';
@@ -153,9 +159,9 @@ export interface DraftingHistory {
   requestId?: string;
   sourceAnalysisId?: string;
   sourceDocumentAnalysis?: DocumentAnalysisResult;
-  area?: 'mercantil' | 'fiscal';
-  ecosystem?: 'mercantil' | 'fiscal';
-  promptProfile?: 'mercantil_drafting' | 'fiscal_drafting';
+  area?: 'mercantil' | 'fiscal' | 'laboral' | 'comercio_exterior' | 'aduanal';
+  ecosystem?: 'mercantil' | 'fiscal' | 'laboral' | 'comercio_exterior' | 'aduanal';
+  promptProfile?: 'mercantil_drafting' | 'fiscal_drafting' | 'laboral_drafting' | 'comercio_exterior_drafting' | 'aduanal_drafting';
   templateId?: string;
   templateTitle?: string;
   referenceFileName?: string;

@@ -1,7 +1,12 @@
-export type LegalModule = 'mercantil' | 'fiscal' | 'mercantil_analysis';
+import type { LegalEcosystem } from '../../shared/legal-contracts';
+
+export type LegalModule = LegalEcosystem | 'mercantil_analysis';
 
 export const MODULE_ALLOWED_LAW_CODES: Record<LegalModule, string[]> = {
   mercantil: ['CCOM', 'LGSM', 'LGTOC'],
+  laboral: ['LFT'],
+  comercio_exterior: ['LCE', 'RLCE', 'LA', 'RLA', 'LIGIE', 'RGCE'],
+  aduanal: ['LA', 'RLA', 'LIGIE', 'RGCE', 'LCE', 'RLCE'],
   fiscal: ['CFF', 'LISR', 'RLISR', 'LIVA', 'RLIVA', 'RMF'],
   mercantil_analysis: ['CCOM', 'LGSM', 'LGTOC'],
 };
@@ -20,10 +25,21 @@ const LAW_TITLE_TO_CODE: Record<string, string> = {
   'REGLAMENTO DE LA LEY DEL IMPUESTO AL VALOR AGREGADO': 'RLIVA',
   'RESOLUCION MISCELANEA FISCAL': 'RMF',
   'RESOLUCIÓN MISCELÁNEA FISCAL': 'RMF',
+  'LEY FEDERAL DEL TRABAJO': 'LFT',
+  'LEY DE COMERCIO EXTERIOR': 'LCE',
+  'REGLAMENTO DE LA LEY DE COMERCIO EXTERIOR': 'RLCE',
+  'LEY ADUANERA': 'LA',
+  'REGLAMENTO DE LA LEY ADUANERA': 'RLA',
+  'REGLAS GENERALES DE COMERCIO EXTERIOR': 'RGCE',
+  'LEY DE LOS IMPUESTOS GENERALES DE IMPORTACION Y DE EXPORTACION': 'LIGIE',
+  'LEY DE LOS IMPUESTOS GENERALES DE IMPORTACIÓN Y DE EXPORTACIÓN': 'LIGIE',
 };
 
 const MODULE_LABELS: Record<LegalModule, string> = {
   mercantil: 'Derecho Mercantil y Corporativo',
+  laboral: 'Contratos Laborales',
+  comercio_exterior: 'Comercio Exterior',
+  aduanal: 'Documentos Aduanales',
   fiscal: 'Derecho Fiscal',
   mercantil_analysis: 'Análisis Documental Mercantil',
 };
@@ -45,6 +61,13 @@ export function normalizeLawCode(value?: string | null): string | null {
   if (normalized === 'LIVA') return 'LIVA';
   if (normalized === 'RLIVA') return 'RLIVA';
   if (normalized === 'RMF') return 'RMF';
+  if (normalized === 'LFT') return 'LFT';
+  if (normalized === 'LCE') return 'LCE';
+  if (normalized === 'RLCE') return 'RLCE';
+  if (normalized === 'LA') return 'LA';
+  if (normalized === 'RLA') return 'RLA';
+  if (normalized === 'RGCE') return 'RGCE';
+  if (normalized === 'LIGIE' || normalized === 'TIGIE') return 'LIGIE';
 
   return LAW_TITLE_TO_CODE[value.trim().toUpperCase()] || LAW_TITLE_TO_CODE[normalized] || null;
 }
@@ -61,6 +84,15 @@ export function getModuleLabel(module: LegalModule): string {
 export function getNoRagWarning(module: LegalModule): string {
   if (module === 'mercantil' || module === 'mercantil_analysis') {
     return 'ADVERTENCIA CRÍTICA: No tienes acceso a la base mercantil local en este momento. Redacta únicamente con la información de la plantilla o machote y marca [DATO FALTANTE] cuando sea necesario; no inventes artículos.';
+  }
+  if (module === 'laboral') {
+    return 'ADVERTENCIA CRÍTICA: No tienes acceso a la base laboral local en este momento. Redacta únicamente con la información de la plantilla o machote y marca [DATO FALTANTE]; no inventes artículos.';
+  }
+  if (module === 'comercio_exterior') {
+    return 'ADVERTENCIA CRÍTICA: No tienes acceso a la base de comercio exterior local en este momento. Redacta únicamente con la información de la plantilla o machote y marca [DATO FALTANTE]; no inventes artículos.';
+  }
+  if (module === 'aduanal') {
+    return 'ADVERTENCIA CRÍTICA: No tienes acceso a la base aduanal local en este momento. Redacta únicamente con la información de la plantilla o machote y marca [DATO FALTANTE]; no inventes artículos.';
   }
 
   return 'ADVERTENCIA CRÍTICA: No tienes acceso a la base fiscal local en este momento. Usa únicamente la información disponible y aclara que no cuentas con fundamento normativo verificado.';
@@ -113,6 +145,45 @@ REGLAS DE ANÁLISIS:
 `.trim();
   }
 
+  if (module === 'laboral') {
+    return `
+Eres el motor documental laboral de Lex Corporativo para contratos y expedientes laborales mexicanos.
+
+REGLAS DE OPERACIÓN:
+- Trabaja únicamente con instrucciones, plantilla, machote, análisis previo y fundamentos recuperados si existen.
+- No inventes datos personales, salarios, jornadas, prestaciones, fechas, centros de trabajo, autoridad ni artículos.
+- Marca [DATO FALTANTE] cuando falte información.
+- Si no hay fundamentos locales verificados, no cites artículos ni aparentes validación normativa.
+- El entregable debe ser revisable por un abogado laboral antes de firma o uso.
+`.trim();
+  }
+
+  if (module === 'comercio_exterior') {
+    return `
+Eres el motor documental de comercio exterior de Lex Corporativo para contratos internacionales, expedientes de importación/exportación y coordinación logística.
+
+REGLAS DE OPERACIÓN:
+- Trabaja únicamente con instrucciones, plantilla, machote, análisis previo y fundamentos recuperados si existen.
+- Identifica mercancía, contraparte, Incoterm, entrega, riesgos, documentos comerciales, permisos, certificados, transporte, pago y responsables.
+- No inventes fracciones arancelarias, permisos, restricciones, valores, origen, clasificación ni artículos.
+- Marca [DATO FALTANTE] cuando falte información.
+- Si no hay fundamentos locales verificados, no cites artículos ni aparentes validación normativa.
+`.trim();
+  }
+
+  if (module === 'aduanal') {
+    return `
+Eres el motor documental aduanal de Lex Corporativo para expedientes de pedimento, valor en aduana, rectificaciones y respuestas a requerimientos.
+
+REGLAS DE OPERACIÓN:
+- Trabaja únicamente con instrucciones, plantilla, machote, análisis previo y fundamentos recuperados si existen.
+- Identifica pedimento, régimen, aduana, mercancía, factura, transporte, valor, anexos, permisos, certificados, agente aduanal y faltantes.
+- No inventes números de pedimento, claves, fracciones, contribuciones, autoridades, plazos ni artículos.
+- Marca [DATO FALTANTE] cuando falte información.
+- Si no hay fundamentos locales verificados, no cites artículos ni aparentes validación normativa.
+`.trim();
+  }
+
   return `
 Eres "Lex Corporativo Fiscal", un motor jurídico local especializado en Derecho Fiscal mexicano.
 
@@ -144,6 +215,15 @@ export function getDraftInstruction(module: LegalModule): string {
   if (module === 'mercantil') {
     return 'TAREA: Proyecte un instrumento mercantil o corporativo formal conforme a técnica contractual mexicana. Use únicamente las instrucciones actuales, la plantilla precargada o el machote proporcionado y el corpus mercantil local. Use [DATO FALTANTE] si falta información.';
   }
+  if (module === 'laboral') {
+    return 'TAREA: Proyecte un contrato, convenio, anexo o expediente laboral mexicano usando únicamente las instrucciones actuales, la plantilla precargada o el machote proporcionado. Si no hay corpus laboral local recuperado, no cite artículos y use [DATO FALTANTE] si falta información.';
+  }
+  if (module === 'comercio_exterior') {
+    return 'TAREA: Proyecte un documento de comercio exterior, contrato internacional o checklist operativo usando únicamente las instrucciones actuales, la plantilla precargada o el machote proporcionado. Si no hay corpus local recuperado, no cite artículos y use [DATO FALTANTE] si falta información.';
+  }
+  if (module === 'aduanal') {
+    return 'TAREA: Proyecte un documento aduanal, expediente de pedimento, memo de valor o respuesta operativa usando únicamente las instrucciones actuales, la plantilla precargada o el machote proporcionado. Si no hay corpus local recuperado, no cite artículos y use [DATO FALTANTE] si falta información.';
+  }
 
   return 'TAREA: Proyecte un soporte, defensa o instrumento fiscal formal conforme a legislación fiscal mexicana. Use únicamente las instrucciones actuales, la plantilla precargada o el machote proporcionado y el corpus fiscal local. Use [DATO FALTANTE] si falta información.';
 }
@@ -154,6 +234,15 @@ export const DRAFT_INSTRUCTION = getDraftInstruction('mercantil');
 export function getAnalysisInstruction(profile: string): string {
   if (profile === 'mercantil_analysis') {
     return 'TAREA: Realice un dictamen de análisis documental mercantil/corporativo estructurado. Identifique tipo de documento, partes, obligaciones, cláusulas faltantes, datos faltantes, riesgos y acciones recomendadas. Sustente cada conclusión en los fundamentos legales recuperados y en la evidencia documental.';
+  }
+  if (profile === 'laboral_analysis') {
+    return 'TAREA: Realice un análisis documental laboral estructurado. Identifique tipo de documento, patrón, persona trabajadora, puesto, salario, jornada, prestaciones, obligaciones, cláusulas faltantes, datos faltantes, riesgos y acciones recomendadas. Si no hay fundamentos locales recuperados, no cite artículos y sustente los hallazgos únicamente en el documento.';
+  }
+  if (profile === 'comercio_exterior_analysis') {
+    return 'TAREA: Realice un análisis documental de comercio exterior estructurado. Identifique operación, partes, mercancías, Incoterm, entrega, pago, documentos comerciales, permisos, certificados, trazabilidad, faltantes, riesgos y acciones recomendadas. Si no hay fundamentos locales recuperados, no cite artículos y sustente los hallazgos únicamente en el documento.';
+  }
+  if (profile === 'aduanal_analysis') {
+    return 'TAREA: Realice un análisis documental aduanal estructurado. Identifique pedimento o expediente, régimen, aduana, mercancía, valor, documentos anexos, permisos, certificados, inconsistencias, faltantes, riesgos y acciones recomendadas. Si no hay fundamentos locales recuperados, no cite artículos y sustente los hallazgos únicamente en el documento.';
   }
 
   return 'TAREA: Realice un Dictamen de Auditoría Integral fiscal. Evalúe materialidad, deducibilidad, IVA acreditable, operaciones inexistentes, riesgos y cumplimiento. Sustente cada conclusión en los fundamentos fiscales recuperados y en la evidencia documental.';

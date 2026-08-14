@@ -19,6 +19,11 @@ const strictMode = args.has('--strict');
 const REQUIRED_ANCHORS = [
   { lawCode: 'CCom', article: 'Artículo 75', terms: ['actos de comercio'] },
   { lawCode: 'LGTOC', article: 'Artículo 170', terms: ['pagaré'] },
+  { lawCode: 'LFT', article: 'Artículo 20', terms: ['relación de trabajo', 'contrato individual de trabajo'] },
+  { lawCode: 'LCE', article: 'Artículo 15', terms: ['medidas de regulación', 'restricción no arancelarias'] },
+  { lawCode: 'LA', article: 'Artículo 36', terms: ['pedimento'] },
+  { lawCode: 'RGCE', article: 'Regla 1.5.1', terms: ['valor en aduana'] },
+  { lawCode: 'LIGIE', article: 'Artículo 1o - Capítulo 87', terms: ['vehículos automóviles'] },
   { lawCode: 'CFF', article: 'Artículo 69-B', terms: ['inexistencia'] },
   { lawCode: 'RMF', article: 'Regla 1.1', terms: ['SAT'] },
 ];

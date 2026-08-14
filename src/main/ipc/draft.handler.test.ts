@@ -41,8 +41,8 @@ describe('draft payload validation', () => {
     expect(payload.templateId).toBe('fiscal-escrito-sat');
   });
 
-  it('rejects labor drafting until a verified labor corpus exists', () => {
-    expect(() => parseDraftPayload({
+  it('accepts labor drafting when the template belongs to the labor area', () => {
+    const payload = parseDraftPayload({
       requirements: 'Preparar contrato individual por tiempo indeterminado.',
       ecosystem: 'laboral',
       template: {
@@ -50,7 +50,10 @@ describe('draft payload validation', () => {
         title: 'Contrato por tiempo indeterminado',
         prompt: 'Contrato individual de trabajo.',
       },
-    })).toThrow();
+    });
+
+    expect(payload.ecosystem).toBe('laboral');
+    expect(payload.promptProfile).toBe('laboral_drafting');
   });
 
   it('ignores renderer attempts to select an execution mode', () => {

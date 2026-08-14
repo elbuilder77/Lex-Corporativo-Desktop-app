@@ -4,6 +4,7 @@ import { getHybridLegalContext } from '../lib/rag';
 import { getDraftInstruction } from '../lib/prompts';
 import { getAnalysis } from '../lib/case-vault';
 import {
+  LEGAL_ECOSYSTEMS,
   getDraftingPromptProfile,
   isPromptProfileForEcosystem,
   type DraftingPromptProfile,
@@ -24,12 +25,12 @@ import {
 // Zod validation for drafting
 export const DraftPayloadSchema = z.object({
   requirements: z.string().min(1),
-  module: z.enum(['mercantil', 'fiscal']).optional(),
-  ecosystem: z.enum(['mercantil', 'fiscal']).optional(),
+  module: z.enum(LEGAL_ECOSYSTEMS).optional(),
+  ecosystem: z.enum(LEGAL_ECOSYSTEMS).optional(),
   workflowModule: z.literal('drafting').optional(),
   sourceAnalysisId: z.string().min(1).optional(),
   templateId: z.string().min(1).optional(),
-  promptProfile: z.enum(['mercantil_drafting', 'fiscal_drafting']).optional(),
+  promptProfile: z.enum(['mercantil_drafting', 'laboral_drafting', 'comercio_exterior_drafting', 'aduanal_drafting', 'fiscal_drafting']).optional(),
   template: z.object({
     id: z.string().min(1),
     title: z.string().min(1),

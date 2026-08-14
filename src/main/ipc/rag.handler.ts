@@ -3,10 +3,11 @@ import * as crypto from 'crypto';
 import { z } from 'zod';
 import { getHybridLegalContext, isLocalRagAvailable } from '../lib/rag';
 import { logLegalExecution } from '../lib/traceability';
+import { LEGAL_ECOSYSTEMS } from '../../shared/legal-contracts';
 
 const RAGPayloadSchema = z.object({
   query: z.string().min(1),
-  module: z.enum(['mercantil', 'fiscal']),
+  module: z.enum(LEGAL_ECOSYSTEMS),
   limit: z.number().optional()
 });
 

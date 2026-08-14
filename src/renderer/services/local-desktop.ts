@@ -50,6 +50,7 @@ export interface UpsertCasePayload {
   name: string;
   date: string;
   fiscalAnalysisHistory: unknown[];
+  engineeringAnalysisHistory?: unknown[];
   engineeringDraftingHistory: unknown[];
   fiscalDraftingHistory: unknown[];
   fiscalChatHistory: unknown[];
@@ -75,6 +76,7 @@ export async function upsertCase(payload: UpsertCasePayload): Promise<void> {
       expectedModule: module,
       stateData: {
         fiscalAnalysisHistory: payload.fiscalAnalysisHistory,
+        engineeringAnalysisHistory: payload.engineeringAnalysisHistory,
         engineeringDraftingHistory: payload.engineeringDraftingHistory,
         fiscalDraftingHistory: payload.fiscalDraftingHistory,
         fiscalChatHistory: payload.fiscalChatHistory,

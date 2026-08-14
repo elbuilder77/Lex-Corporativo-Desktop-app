@@ -2,6 +2,18 @@ import { create } from 'zustand';
 import { AnalyzedDocumentHistory, ChatMessage, DraftingHistory, FiscalOperationState, FiscalOperationStep, SavedCase } from '../types';
 import { buildCfdiEvidence, buildFiscalEvidenceMatrix, mergeFiscalEvidence } from '../lib/fiscal-evidence';
 
+type EngineeringDraftArea = 'mercantil' | 'laboral' | 'comercio_exterior' | 'aduanal' | 'fiscal';
+type EngineeringDraftState = {
+  prompt: string;
+  mode: 'template' | 'reference' | 'analysis';
+  generatedDoc: string;
+  template: any | null;
+  area: EngineeringDraftArea;
+  referenceFileName?: string;
+  sourceAnalysisId?: string;
+  executionMode: 'local' | 'byok';
+};
+
 interface CaseState {
   currentCaseId: string | null;
   activeModule: 'engineering' | 'fiscal' | null;
@@ -14,9 +26,9 @@ interface CaseState {
   recentCases: SavedCase[];
   isLoadingCases: boolean;
   
-  engineeringDraftState: { prompt: string; mode: 'template' | 'reference' | 'analysis'; generatedDoc: string; template: any | null; area: 'mercantil' | 'fiscal'; referenceFileName?: string; sourceAnalysisId?: string; executionMode: 'local' | 'byok' };
+  engineeringDraftState: EngineeringDraftState;
   fiscalDraftState: { prompt: string; mode: 'scratch' | 'template' | 'analysis'; generatedDoc: string; template: any | null; linkedAnalysisId?: string };
-  setEngineeringDraftState: (state: Partial<{ prompt: string; mode: 'template' | 'reference' | 'analysis'; generatedDoc: string; template: any | null; area: 'mercantil' | 'fiscal'; referenceFileName?: string; sourceAnalysisId?: string; executionMode: 'local' | 'byok' }>) => void;
+  setEngineeringDraftState: (state: Partial<EngineeringDraftState>) => void;
   setFiscalDraftState: (state: Partial<{ prompt: string; mode: 'scratch' | 'template' | 'analysis'; generatedDoc: string; template: any | null; linkedAnalysisId?: string }>) => void;
   setFiscalChatHistory: (updater: ChatMessage[] | ((current: ChatMessage[]) => ChatMessage[])) => void;
   updateFiscalOperationState: (state: Partial<FiscalOperationState>) => void;
@@ -204,7 +216,7 @@ export const useCaseStore = create<CaseState>((set, get) => ({
       || state.fiscalOperationState.title
       || latestDraftTitle
       || latestAnalysisTitle
-      || (state.fiscalChatHistory.length ? 'Consulta fiscal' : 'Trabajo fiscal');
+      || (state.fiscalChatHistory.length ? 'Consulta corporativa' : 'Trabajo corporativo');
 
     await window.lexDesktop.cases.createCase({
       caseId,

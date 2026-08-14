@@ -1,15 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Settings as SettingsIcon, AlertTriangle, Wifi, CloudOff, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Settings as SettingsIcon } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import logoMarkUrl from '../assets/logo-mark.png';
 import { useUiStore } from '../store/useUiStore';
 import { useCaseStore } from '../store/useCaseStore';
 import { LegalSettingsPanel } from './settings/LegalSettingsPanel';
 import { LocalDataSettingsPanel } from './settings/LocalDataSettingsPanel';
-import { PreferencesSettingsPanel, type DefaultWorkspace } from './settings/PreferencesSettingsPanel';
 import { SETTINGS_TABS, SettingsNavigation, type SettingsTab } from './settings/SettingsNavigation';
-import { StationSettingsPanel } from './settings/StationSettingsPanel';
 import { TraceabilitySettingsPanel } from './settings/TraceabilitySettingsPanel';
 import { IaSettingsPanel } from './settings/IaSettingsPanel';
 import { useConfirmDialog } from '../hooks/useConfirmDialog';
@@ -43,7 +41,9 @@ export const Settings: React.FC = () => {
   const clearAllCaseState = useCaseStore((state) => state.clearAllState);
   const [searchParams] = useSearchParams();
   const requestedTab = searchParams.get('tab');
-  const [activeTab, setActiveTab] = useState<SettingsTab>(requestedTab === 'ia' ? 'ia' : 'profile');
+  const [activeTab, setActiveTab] = useState<SettingsTab>(
+    requestedTab === 'data' || requestedTab === 'security' || requestedTab === 'legal' ? requestedTab : 'ia'
+  );
   const [byokEnabled, setByokEnabled] = useState(false);
   const [byokProvider, setByokProvider] = useState<ByokProvider>('gemini');
   const [byokProviders, setByokProviders] = useState<Record<ByokProvider, ByokProviderStatus>>(EMPTY_PROVIDER_SETTINGS);
@@ -59,8 +59,6 @@ export const Settings: React.FC = () => {
   const [byokMessage, setByokMessage] = useState('');
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'ok' | 'error'>('idle');
   const [updateMessage, setUpdateMessage] = useState('');
-  const [defaultWorkspace, setDefaultWorkspace] = useState<DefaultWorkspace>('instructivo');
-  const [preferenceSaved, setPreferenceSaved] = useState(false);
   const [ledgerStatus, setLedgerStatus] = useState<{ path: string; exists: boolean; size: number } | null>(null);
   const [ledgerExporting, setLedgerExporting] = useState(false);
   const [ledgerMessage, setLedgerMessage] = useState('');
@@ -71,8 +69,8 @@ export const Settings: React.FC = () => {
   const [dialogState, confirm] = useConfirmDialog();
 
   const containerVariants = {
-    hidden: { opacity: 0, y: 10 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+    hidden: { opacity: 0, y: 8 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.25 } },
   };
 
   const applyByokSettings = (settings: Awaited<ReturnType<typeof window.lexDesktop.byok.getSettings>>) => {
@@ -102,11 +100,6 @@ export const Settings: React.FC = () => {
   };
 
   useEffect(() => {
-    const savedWorkspace = localStorage.getItem('lex_default_workspace');
-    if (savedWorkspace === 'engineering' || savedWorkspace === 'fiscal') {
-      setDefaultWorkspace(savedWorkspace);
-    }
-
     window.lexDesktop?.byok?.getSettings().then(applyByokSettings).catch(() => undefined);
 
     window.lexDesktop?.traceability?.getStatus()
@@ -155,7 +148,7 @@ export const Settings: React.FC = () => {
         apiKey: byokApiKey.trim() || undefined,
       });
       setByokStatus('ok');
-      setByokMessage(`Conexión con ${BYOK_PROVIDER_LABELS[byokProvider]} verificada.`);
+      setByokMessage(`Conexión con ${BYOK_PROVIDER_LABELS[byokProvider]} verificada exitosamente.`);
     } catch (err: any) {
       setByokStatus('error');
       setByokMessage(err?.message || `No se pudo conectar con ${BYOK_PROVIDER_LABELS[byokProvider]}.`);
@@ -193,12 +186,6 @@ export const Settings: React.FC = () => {
       setUpdateStatus('error');
       setUpdateMessage(err?.message || 'No se pudo revisar actualizaciones.');
     }
-  };
-
-  const handleSavePreferences = () => {
-    localStorage.setItem('lex_default_workspace', defaultWorkspace);
-    setPreferenceSaved(true);
-    window.setTimeout(() => setPreferenceSaved(false), 2500);
   };
 
   const handleExportLedger = async () => {
@@ -251,125 +238,130 @@ export const Settings: React.FC = () => {
     setVaultMessage('');
     try {
       const result = await window.lexDesktop.cases.deleteAll({ confirmation: 'DELETE_ALL_LOCAL_DATA' });
-      clearAllCaseState();
-      setDeleteConfirmation('');
-      setVaultMessage(`Se eliminaron permanentemente ${result.deleted} portafolio(s) locales.`);
+      if (result.deleted !== undefined) {
+        clearAllCaseState();
+        setDeleteConfirmation('');
+        setVaultMessage('Se eliminó la bóveda local y se restableció el estado inicial.');
+        window.location.reload();
+      } else {
+        setVaultMessage('No se pudo restablecer la bóveda local.');
+      }
     } catch (err: any) {
-      setVaultMessage(err?.message || 'No se pudieron eliminar los datos locales.');
+      setVaultMessage(err?.message || 'Fallo al eliminar la bóveda local.');
     } finally {
       setVaultDeleting(false);
     }
   };
 
+  const runtimeChecks = [
+    { id: 'vault', label: 'Bóveda local (SQLite)', ok: runtimeHealth?.capabilities.vault.ready ?? false },
+    { id: 'rag', label: 'Corpus legal (LanceDB)', ok: runtimeHealth?.capabilities.legalSearch.ready ?? false },
+  ];
+
   return (
-    <div className="h-full overflow-y-auto bg-slate-50 text-slate-700 scrollbar-hide flex flex-col font-sans">
-      <header className="pl-16 pr-4 md:px-8 py-5 border-b border-slate-200 bg-white/80 backdrop-blur-md flex items-center justify-between sticky top-0 z-20 shrink-0 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center">
-            <SettingsIcon className="text-legal-gold" size={20} />
+    <div className="h-full overflow-y-auto bg-slate-50 text-slate-800">
+      <div className="mx-auto w-full max-w-7xl px-5 py-6 md:px-8">
+        
+        {/* Header Principal de Configuración */}
+        <header className="flex items-center justify-between border-b border-slate-200 bg-white p-5 rounded-2xl shadow-xs">
+          <div className="flex items-center gap-3">
+            <img src={logoMarkUrl} alt="Lex Corporativo" className="h-9 w-9 rounded-lg object-contain" />
+            <div>
+              <h1 className="text-base font-bold text-slate-950">Configuración</h1>
+              <p className="text-xs text-slate-500">Ajustes de IA, almacenamiento local y privacidad</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-base font-serif font-bold text-slate-900 tracking-tight">Configuración</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Procesamiento, datos y preferencias de esta estación.</p>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
+              {byokEnabled ? `${BYOK_PROVIDER_LABELS[byokProvider]} Activo` : 'IA Desconectada'}
+            </span>
           </div>
+        </header>
+
+        {/* Layout: Menú de 4 Pestañas + Panel Activo */}
+        <div className="mt-6 grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+          <aside>
+            <div className="sticky top-6">
+              <SettingsNavigation activeTab={activeTab} onSelect={setActiveTab} />
+            </div>
+          </aside>
+
+          <main className="min-w-0">
+            <motion.div
+              key={activeTab}
+              initial="hidden"
+              animate="visible"
+              variants={containerVariants}
+              className="space-y-6"
+            >
+              {activeTab === 'ia' && (
+                <IaSettingsPanel
+                  byokEnabled={byokEnabled}
+                  strictPrivacy={strictPrivacy}
+                  setStrictPrivacy={setStrictPrivacy}
+                  automaticUpdatesEnabled={automaticUpdatesEnabled}
+                  setAutomaticUpdatesEnabled={setAutomaticUpdatesEnabled}
+                  updateStatus={updateStatus}
+                  updateMessage={updateMessage}
+                  handleCheckUpdates={handleCheckUpdates}
+                  byokProvider={byokProvider}
+                  handleProviderChange={handleProviderChange}
+                  byokApiKey={byokApiKey}
+                  setByokApiKey={setByokApiKey}
+                  hasApiKey={hasApiKey}
+                  apiKeyFingerprint={apiKeyFingerprint}
+                  byokKeyStatus={byokKeyStatus}
+                  byokModel={byokModel}
+                  setByokModel={setByokModel}
+                  maxInputChars={maxInputChars}
+                  setMaxInputChars={setMaxInputChars}
+                  byokStatus={byokStatus}
+                  byokMessage={byokMessage}
+                  handleClearByok={handleClearByok}
+                  handleTestByok={handleTestByok}
+                  handleSaveByok={handleSaveByok}
+                />
+              )}
+
+              {activeTab === 'data' && (
+                <LocalDataSettingsPanel
+                  runtimeChecks={runtimeChecks}
+                  runtimeHealthLoading={runtimeHealthLoading}
+                  onRefreshRuntime={() => void refreshRuntimeHealth()}
+                  vaultExporting={vaultExporting}
+                  vaultDeleting={vaultDeleting}
+                  vaultMessage={vaultMessage}
+                  deleteConfirmation={deleteConfirmation}
+                  onDeleteConfirmationChange={setDeleteConfirmation}
+                  onExport={() => void handleExportVault()}
+                  onDelete={() => void handleDeleteVault()}
+                />
+              )}
+
+              {activeTab === 'security' && (
+                <TraceabilitySettingsPanel
+                  ledgerStatus={ledgerStatus}
+                  ledgerExporting={ledgerExporting}
+                  ledgerMessage={ledgerMessage}
+                  onExport={() => void handleExportLedger()}
+                />
+              )}
+
+              {activeTab === 'legal' && (
+                <LegalSettingsPanel
+                  onOpenTerms={() => navigate('/terms')}
+                  onOpenPrivacy={() => navigate('/privacy')}
+                />
+              )}
+            </motion.div>
+          </main>
         </div>
-      </header>
 
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="mx-auto w-full max-w-6xl flex-1 px-5 py-7 md:px-8 md:py-10"
-      >
-        <div className="grid gap-6 xl:grid-cols-[240px_minmax(0,1fr)]">
-          {/* Sidebar nav */}
-          <div className="min-w-0">
-            <SettingsNavigation activeTab={activeTab} onSelect={setActiveTab} />
-          </div>
+      </div>
 
-          {/* Content area */}
-          <div className="min-w-0 rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:p-9 min-h-[450px]">
-            {activeTab === 'profile' && (
-              <StationSettingsPanel
-                imageUrl={logoMarkUrl}
-                onReturnToCover={() => {
-                  localStorage.removeItem('lex_station_opened');
-                  navigate('/');
-                }}
-              />
-            )}
-            {activeTab === 'preferences' && (
-              <PreferencesSettingsPanel
-                runtimeChecks={runtimeHealth?.checks || []}
-                runtimeHealthLoading={runtimeHealthLoading}
-                defaultWorkspace={defaultWorkspace}
-                preferenceSaved={preferenceSaved}
-                onRefreshRuntime={() => void refreshRuntimeHealth()}
-                onWorkspaceChange={(workspace) => {
-                  setDefaultWorkspace(workspace);
-                  setPreferenceSaved(false);
-                }}
-                onSave={handleSavePreferences}
-              />
-            )}
-            {activeTab === 'ia' && (
-              <IaSettingsPanel
-                byokEnabled={byokEnabled}
-                strictPrivacy={strictPrivacy}
-                setStrictPrivacy={setStrictPrivacy}
-                automaticUpdatesEnabled={automaticUpdatesEnabled}
-                setAutomaticUpdatesEnabled={setAutomaticUpdatesEnabled}
-                updateStatus={updateStatus}
-                updateMessage={updateMessage}
-                handleCheckUpdates={handleCheckUpdates}
-                byokProvider={byokProvider}
-                handleProviderChange={handleProviderChange}
-                byokApiKey={byokApiKey}
-                setByokApiKey={setByokApiKey}
-                hasApiKey={hasApiKey}
-                apiKeyFingerprint={apiKeyFingerprint}
-                byokKeyStatus={byokKeyStatus}
-                byokModel={byokModel}
-                setByokModel={setByokModel}
-                maxInputChars={maxInputChars}
-                setMaxInputChars={setMaxInputChars}
-                byokStatus={byokStatus}
-                byokMessage={byokMessage}
-                handleClearByok={handleClearByok}
-                handleTestByok={handleTestByok}
-                handleSaveByok={handleSaveByok}
-              />
-            )}
-
-            {activeTab === 'trazabilidad' && (
-              <TraceabilitySettingsPanel
-                ledgerStatus={ledgerStatus}
-                ledgerExporting={ledgerExporting}
-                ledgerMessage={ledgerMessage}
-                onExport={() => void handleExportLedger()}
-              />
-            )}
-            {activeTab === 'data' && (
-              <LocalDataSettingsPanel
-                vaultExporting={vaultExporting}
-                vaultDeleting={vaultDeleting}
-                vaultMessage={vaultMessage}
-                deleteConfirmation={deleteConfirmation}
-                onDeleteConfirmationChange={setDeleteConfirmation}
-                onExport={() => void handleExportVault()}
-                onDelete={() => void handleDeleteVault()}
-              />
-            )}
-            {activeTab === 'legal' && (
-              <LegalSettingsPanel
-                onOpenTerms={() => navigate('/terms')}
-                onOpenPrivacy={() => navigate('/privacy')}
-              />
-            )}
-          </div>
-        </div>
-      </motion.div>
       <ConfirmDialog {...dialogState} />
     </div>
   );
 };
+
+export default Settings;

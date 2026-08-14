@@ -22,6 +22,19 @@ export function normalizeForComparison(value) {
     .trim();
 }
 
+function normalizeForIdentity(value) {
+  return String(value || '')
+    .replace(/ñ/g, '\u0000')
+    .replace(/Ñ/g, '\u0001')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\u0000|\u0001/g, 'ñ')
+    .toLowerCase()
+    .replace(/[^a-z0-9ñ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function normalizeProvisionId(value, kind) {
   const normalized = String(value)
     .normalize('NFC')
@@ -230,7 +243,7 @@ export function validateProvisions(provisions, policy = {}) {
   const byId = new Map();
 
   for (const provision of provisions) {
-    const normalizedId = normalizeForComparison(normalizeProvisionId(provision.id, provision.kind || 'article'));
+    const normalizedId = normalizeForIdentity(normalizeProvisionId(provision.id, provision.kind || 'article'));
     const group = byId.get(normalizedId) || [];
     group.push(provision);
     byId.set(normalizedId, group);
@@ -245,7 +258,7 @@ export function validateProvisions(provisions, policy = {}) {
     }));
   if (duplicates.length) failures.push(`Se detectaron ${duplicates.length} identificadores duplicados.`);
 
-  const artifacts = provisions.filter(item => /--\s*\d+\s+of\s+\d+\s*--|\uFFFD|C[ÁA]MARA DE DIPUTADOS/i.test(item.content));
+  const artifacts = provisions.filter(item => /--\s*\d+\s+of\s+\d+\s*--|\uFFFD|C[ÁA]MARA DE DIPUTADOS DEL H\. CONGRESO DE LA UNI[ÓO]N/i.test(item.content));
   if (artifacts.length) failures.push(`${artifacts.length} disposiciones conservan artefactos de extracción.`);
 
   const short = provisions.filter(item => item.content.length < (policy.minimumContentLength || 30));

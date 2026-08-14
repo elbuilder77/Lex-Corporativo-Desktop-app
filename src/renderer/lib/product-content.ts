@@ -6,13 +6,13 @@ export const BRAND_CONTENT = {
 } as const;
 
 export const MODULE_CONTENT = {
-  fiscal: {
-    ecosystemTitle: 'Fiscal',
+  documentos: {
+    ecosystemTitle: 'Documentos',
     analysis: {
-      title: 'Revisar operación',
-      subtitle: 'Revisa documentos, evidencia y pendientes de una operación.',
-      focusLabel: 'Contexto de la operación',
-      focusPlaceholder: 'Ej: Revisa materialidad, CFDI, contraprestación, entregables, pagos, deducibilidad, IVA o exposición 69-B.',
+      title: 'Análisis documental',
+      subtitle: 'Revisa documentos, evidencia, riesgos y pendientes antes de usarlos.',
+      focusLabel: 'Instrucciones de análisis',
+      focusPlaceholder: 'Ej: analiza este contrato, identifica partes, obligaciones, riesgos, faltantes y acciones recomendadas.',
     },
   },
 } as const;

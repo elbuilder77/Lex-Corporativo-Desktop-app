@@ -1,20 +1,47 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
+  ArrowRight,
+  BookOpen,
+  Bot,
+  BriefcaseBusiness,
   Check,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  CircleDot,
   Clipboard,
   Download,
+  FileSignature,
   FileText,
+  FolderOpen,
+  Globe2,
   History,
+  House,
   Loader2,
+  MessageSquareQuote,
+  ReceiptText,
   RefreshCw,
+  RotateCcw,
   Scale,
+  Search,
   SearchCheck,
+  Send,
+  Settings2,
+  ShieldAlert,
+  ShieldCheck,
+  ShipWheel,
+  Sparkles,
   Upload,
+  User,
   X,
 } from 'lucide-react';
-import { analyzeEngineeringDocument, draftLegalDocument, type LegalDraftingArea, type UserReferenceFile } from '../services/ai';
-import type { DocumentAnalysisResult } from '../types';
+import { AnimatePresence, motion } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import { analyzeEngineeringDocument, draftLegalDocument, type UserReferenceFile } from '../services/ai';
+import type { LegalDraftingArea } from '../../shared/legal-contracts';
+import type { DocumentAnalysisResult, SavedCase } from '../types';
 import {
   LEGAL_ENGINEERING_TEMPLATES,
   type DraftingTemplate,
@@ -28,10 +55,17 @@ import { useCaseStore } from '../store/useCaseStore';
 import { useUiStore } from '../store/useUiStore';
 import { cn } from '../lib/utils';
 import { useProcessingGuard } from '../hooks/useProcessingGuard';
+import logoMarkUrl from '../assets/logo-mark.png';
 
+type WorkspaceTab = 'estacion' | 'drafting' | 'analysis' | 'consultation';
 type SourceMode = 'template' | 'reference' | 'analysis';
 
-const ENGINEERING_AREAS: LegalEngineeringArea[] = ['mercantil'];
+interface GuideMessage {
+  role: 'user' | 'model';
+  text: string;
+}
+
+const ENGINEERING_AREAS: LegalEngineeringArea[] = ['mercantil', 'laboral', 'comercio_exterior', 'aduanal', 'fiscal'];
 
 const AREA_CONTENT: Record<LegalEngineeringArea, {
   label: string;
@@ -41,21 +75,144 @@ const AREA_CONTENT: Record<LegalEngineeringArea, {
   tone: 'blue' | 'amber' | 'emerald';
   activeClass: string;
   focusPlaceholder: string;
+  consultationTopicSuggestions: string[];
 }> = {
   mercantil: {
     label: 'Mercantil y corporativo',
     shortLabel: 'Mercantil',
-    description: 'Contratos, actas, poderes, pagarés y convenios comerciales.',
-    icon: <Scale size={19} />,
+    description: 'Contratos, actas, poderes, pagarés, gobierno societario y convenios comerciales.',
+    icon: <Scale size={18} />,
     tone: 'blue',
     activeClass: 'border-blue-300 bg-blue-50 text-blue-950 ring-blue-500/20',
-    focusPlaceholder: 'Indica las partes, objeto, montos, vigencia, obligaciones y condiciones que debe contener el documento.',
+    focusPlaceholder: 'Indica partes, objeto, montos, vigencia, obligaciones y condiciones que debe contener el documento.',
+    consultationTopicSuggestions: [
+      '¿Qué requisitos exige la LGSM para convocar a asamblea extraordinaria de accionistas?',
+      '¿Cuáles son los límites legales para pactar penas convencionales según el Código de Comercio?',
+      '¿Qué formalidades requiere el endoso en procuración de un pagaré conforme a la LGTOC?',
+      '¿Cómo regular el derecho de preferencia y drag-along en estatutos de una SAPI?',
+    ],
+  },
+  laboral: {
+    label: 'Laboral y relaciones de trabajo',
+    shortLabel: 'Laboral',
+    description: 'Contratos individuales, teletrabajo, confidencialidad, actas y terminación.',
+    icon: <BriefcaseBusiness size={18} />,
+    tone: 'amber',
+    activeClass: 'border-amber-300 bg-amber-50 text-amber-950 ring-amber-500/20',
+    focusPlaceholder: 'Indica patrón, persona trabajadora, puesto, salario, jornada, prestaciones, centro de trabajo y modalidad.',
+    consultationTopicSuggestions: [
+      '¿Cuáles son los requisitos de validez del aviso de rescisión laboral según el Art. 47 LFT?',
+      '¿Qué obligaciones patronales aplican para el teletrabajo (home office) en la NOM-037?',
+      '¿Cómo estructurar un convenio de terminación voluntaria para evitar nulidad ante el Centro de Conciliación?',
+      '¿Cuáles son los límites de la jornada extraordinaria y su remuneración en México?',
+    ],
+  },
+  comercio_exterior: {
+    label: 'Comercio exterior y contratos globales',
+    shortLabel: 'Comercio exterior',
+    description: 'Compraventa internacional, distribución, Incoterms 2020 y coordinación logística.',
+    icon: <Globe2 size={18} />,
+    tone: 'emerald',
+    activeClass: 'border-emerald-300 bg-emerald-50 text-emerald-950 ring-emerald-500/20',
+    focusPlaceholder: 'Indica partes, mercancías, Incoterm, país de origen, entrega, pago, documentos y permisos aplicables.',
+    consultationTopicSuggestions: [
+      '¿Qué diferencias legales existen entre los Incoterms FOB, CIF y DDP en transmisión de riesgos?',
+      '¿Qué cláusulas de resolución de controversias y ley aplicable convienen en contratos transfronterizos?',
+      '¿Cuáles son los requisitos de certificación de origen bajo el T-MEC?',
+      '¿Cómo mitigar riesgos en contratos de distribución internacional exclusiva?',
+    ],
+  },
+  aduanal: {
+    label: 'Aduanal y despacho',
+    shortLabel: 'Aduanal',
+    description: 'Expedientes de pedimento, valor en aduana, rectificaciones y requerimientos.',
+    icon: <ShipWheel size={18} />,
+    tone: 'blue',
+    activeClass: 'border-slate-300 bg-slate-50 text-slate-950 ring-slate-500/20',
+    focusPlaceholder: 'Indica pedimento, régimen, aduana, importador/exportador, mercancía, valor y documentos soporte.',
+    consultationTopicSuggestions: [
+      '¿Qué supuestos permiten la rectificación de pedimento conforme al Art. 89 de la Ley Aduanera?',
+      '¿Cuáles son los elementos que integran los incrementables en la manifestación de valor?',
+      '¿Qué causales detonan el embargo precautorio en un PAMA (Art. 150 Ley Aduanera)?',
+      '¿Qué documentos integran el expediente electrónico aduanal obligatorio?',
+    ],
+  },
+  fiscal: {
+    label: 'Fiscal y patrimonial',
+    shortLabel: 'Fiscal',
+    description: 'Contratos con estipulaciones fiscales, mutuo, reconocimientos de adeudo y escritos de defensa.',
+    icon: <ReceiptText size={18} />,
+    tone: 'emerald',
+    activeClass: 'border-emerald-300 bg-emerald-50 text-emerald-950 ring-emerald-500/20',
+    focusPlaceholder: 'Indica partes, objeto de la operación, contraprestación, comprobantes (CFDI), retenciones, pagos y obligaciones de cumplimiento.',
+    consultationTopicSuggestions: [
+      '¿Qué requisitos debe reunir un contrato de mutuo para acreditar fecha cierta y origen de fondos?',
+      '¿Cuáles son los elementos de estricta indispensabilidad del gasto conforme al Art. 27 LISR?',
+      '¿Qué formalidades requiere un escrito de aclaración ante requerimiento de autoridad en términos del CFF?',
+      '¿Cómo pactar adecuadamente las obligaciones de retención de IVA e ISR en servicios profesionales?',
+    ],
   },
 };
 
-function normalizeEngineeringArea(_area?: LegalDraftingArea): LegalEngineeringArea {
-  return 'mercantil';
+const AREA_THEMES: Record<LegalEngineeringArea, {
+  text: string;
+  border: string;
+  rail: string;
+  ring: string;
+  button: string;
+}> = {
+  mercantil: {
+    text: 'text-mercantil',
+    border: 'border-mercantil',
+    rail: 'bg-mercantil',
+    ring: 'focus:border-mercantil focus:ring-mercantil/15',
+    button: 'bg-mercantil hover:bg-mercantil-dark',
+  },
+  laboral: {
+    text: 'text-amber-700',
+    border: 'border-amber-500',
+    rail: 'bg-amber-500',
+    ring: 'focus:border-amber-500 focus:ring-amber-500/20',
+    button: 'bg-amber-600 hover:bg-amber-700',
+  },
+  comercio_exterior: {
+    text: 'text-emerald-700',
+    border: 'border-emerald-500',
+    rail: 'bg-emerald-600',
+    ring: 'focus:border-emerald-500 focus:ring-emerald-500/20',
+    button: 'bg-emerald-700 hover:bg-emerald-800',
+  },
+  aduanal: {
+    text: 'text-slate-700',
+    border: 'border-slate-700',
+    rail: 'bg-slate-700',
+    ring: 'focus:border-slate-500 focus:ring-slate-500/20',
+    button: 'bg-slate-800 hover:bg-slate-950',
+  },
+  fiscal: {
+    text: 'text-emerald-800',
+    border: 'border-emerald-600',
+    rail: 'bg-emerald-600',
+    ring: 'focus:border-emerald-600 focus:ring-emerald-600/20',
+    button: 'bg-emerald-700 hover:bg-emerald-800',
+  },
+};
+
+function isEngineeringArea(area?: string | null): area is LegalEngineeringArea {
+  return Boolean(area && area in LEGAL_ENGINEERING_TEMPLATES);
 }
+
+function normalizeEngineeringArea(area?: LegalDraftingArea | null): LegalEngineeringArea {
+  return isEngineeringArea(area) ? area : 'mercantil';
+}
+
+const formatCaseDate = (value?: string) => {
+  if (!value) return 'Sin fecha';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: 'short' }).format(date);
+};
 
 const ACCEPTED_REFERENCE_TYPES = ['application/pdf', 'text/plain', 'text/markdown'];
 const MAX_REFERENCE_BYTES = 15 * 1024 * 1024;
@@ -64,20 +221,34 @@ function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
-      const value = String(reader.result || '');
-      resolve(value.includes(',') ? value.split(',')[1] : value);
+      const result = reader.result as string;
+      const base64 = result.includes(',') ? result.split(',')[1] : result;
+      resolve(base64);
     };
-    reader.onerror = () => reject(new Error('No se pudo leer el archivo seleccionado.'));
+    reader.onerror = reject;
     reader.readAsDataURL(file);
   });
 }
 
 export const LegalEngineering: React.FC = () => {
-  const { notify } = useUiStore();
-  const canGenerate = useProcessingGuard('legalGeneration', 'generar este documento');
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawTab = searchParams.get('tab');
+  const initialWorkspaceTab: WorkspaceTab =
+    rawTab === 'drafting' || rawTab === 'analysis' || rawTab === 'consultation'
+      ? rawTab
+      : 'estacion';
+
+  const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>(initialWorkspaceTab);
+
+  const { notify, runtimeHealth, refreshRuntimeHealth, requestProcessingSetup } = useUiStore();
+  const canGenerate = useProcessingGuard('legalGeneration', 'generar este documento o consulta');
   const {
     currentCaseId,
     setCurrentCaseId,
+    recentCases,
+    fetchRecentCases,
+    loadCase,
     engineeringDraftState,
     setEngineeringDraftState,
     engineeringDraftingHistory,
@@ -87,12 +258,13 @@ export const LegalEngineering: React.FC = () => {
     saveEngineeringWork,
   } = useCaseStore();
 
-  const canRestoreEngineeringDraft = engineeringDraftState.area !== 'fiscal';
+  const canRestoreEngineeringDraft = isEngineeringArea(engineeringDraftState.area);
   const initialArea = normalizeEngineeringArea(engineeringDraftState.area);
   const initialTemplate = canRestoreEngineeringDraft && LEGAL_ENGINEERING_TEMPLATES[initialArea].some((template) => template.id === engineeringDraftState.template?.id)
     ? engineeringDraftState.template
     : null;
   const initialMode = canRestoreEngineeringDraft && engineeringDraftState.mode === 'analysis' ? 'analysis' : (canRestoreEngineeringDraft ? engineeringDraftState.mode : 'template');
+
   const [sourceMode, setSourceMode] = useState<SourceMode | 'analysis'>(initialMode);
   const [area, setArea] = useState<LegalEngineeringArea>(initialArea);
   const [prompt, setPrompt] = useState(canRestoreEngineeringDraft ? engineeringDraftState.prompt : '');
@@ -108,25 +280,72 @@ export const LegalEngineering: React.FC = () => {
   const [analysisProgress, setAnalysisProgress] = useState('');
   const [analysisResult, setAnalysisResult] = useState<DocumentAnalysisResult | null>(null);
   const [analysisId, setAnalysisId] = useState<string | null>(null);
+
+  // Consultation Tab State
+  const [consultationQuery, setConsultationQuery] = useState('');
+  const [consultationHistory, setConsultationHistory] = useState<Array<{ role: 'user' | 'model'; text: string; citationsAvailable?: boolean }>>([]);
+  const [isConsulting, setIsConsulting] = useState(false);
+
+  // Estación Hub Guide State
+  const [guideMessages, setGuideMessages] = useState<GuideMessage[]>([
+    { role: 'model', text: 'Puedo ayudarte a usar las herramientas de Ingeniería Jurídica paso a paso.' },
+  ]);
+  const [guideInput, setGuideInput] = useState('');
+  const [isGuideGenerating, setIsGuideGenerating] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [byokSettings, setByokSettings] = useState<Awaited<ReturnType<typeof window.lexDesktop.byok.getSettings>> | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const analysisInputRef = useRef<HTMLInputElement>(null);
+  const consultationEndRef = useRef<HTMLDivElement>(null);
+  const guideMessagesEndRef = useRef<HTMLDivElement>(null);
 
-  const templates = useMemo(() => LEGAL_ENGINEERING_TEMPLATES[area], [area]);
+  const templates = useMemo(() => LEGAL_ENGINEERING_TEMPLATES[area] || [], [area]);
   const visibleHistory = useMemo(
-    () => engineeringDraftingHistory.filter((item) => (!item.area || item.area === 'mercantil') && item.ecosystem !== 'fiscal' && item.promptProfile !== 'fiscal_drafting'),
+    () => engineeringDraftingHistory.filter((item) => {
+      const itemArea = item.area || item.ecosystem;
+      return !itemArea || isEngineeringArea(itemArea);
+    }),
     [engineeringDraftingHistory],
   );
-  const visibleAnalysisHistory = useMemo(
-    () => engineeringAnalysisHistory.filter((item) => item.ecosystem === 'mercantil'),
-    [engineeringAnalysisHistory],
-  );
+
   const areaContent = AREA_CONTENT[area];
-  const areaTheme = {
-    text: 'text-mercantil',
-    border: 'border-mercantil',
-    rail: 'bg-mercantil',
-    ring: 'focus:border-mercantil focus:ring-mercantil/15',
-    button: 'bg-mercantil hover:bg-mercantil-dark',
+  const areaTheme = AREA_THEMES[area];
+
+  const vaultReady = runtimeHealth?.capabilities.vault.ready ?? false;
+  const corpusReady = runtimeHealth?.capabilities.legalSearch.ready ?? false;
+  const byokActive = Boolean(byokSettings?.enabled && byokSettings.hasApiKey);
+  const guideReady = byokActive;
+  const providerLabel = byokSettings?.provider === 'openai'
+    ? 'OpenAI'
+    : byokSettings?.provider === 'anthropic'
+      ? 'Claude'
+      : 'Gemini';
+  const processingLabel = byokActive
+    ? `${providerLabel} conectado`
+    : 'Conectar IA';
+
+  useEffect(() => {
+    void refreshRuntimeHealth();
+    void fetchRecentCases();
+    window.lexDesktop.byok.getSettings().then(setByokSettings).catch(() => setByokSettings(null));
+  }, [fetchRecentCases, refreshRuntimeHealth]);
+
+  useEffect(() => {
+    if (rawTab && (rawTab === 'estacion' || rawTab === 'analysis' || rawTab === 'consultation' || rawTab === 'drafting') && rawTab !== workspaceTab) {
+      setWorkspaceTab(rawTab);
+    }
+  }, [rawTab, workspaceTab]);
+
+  useEffect(() => {
+    if (helpOpen && (guideMessages.length > 1 || isGuideGenerating)) {
+      guideMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [helpOpen, isGuideGenerating, guideMessages]);
+
+  const switchWorkspaceTab = (tab: WorkspaceTab) => {
+    setWorkspaceTab(tab);
+    setSearchParams(tab === 'estacion' ? {} : { tab });
   };
 
   useEffect(() => {
@@ -144,13 +363,6 @@ export const LegalEngineering: React.FC = () => {
   const changeArea = (nextArea: LegalEngineeringArea) => {
     setArea(nextArea);
     setSelectedTemplate(null);
-    setReferenceFile(null);
-    setAnalysisFile(null);
-    setAnalysisResult(null);
-    setAnalysisId(null);
-    setAnalysisPrompt('');
-    setPrompt('');
-    setGeneratedDoc('');
   };
 
   const resetAnalysis = () => {
@@ -179,9 +391,6 @@ export const LegalEngineering: React.FC = () => {
     }
     setReferenceFile(file);
     setSelectedTemplate(null);
-    setAnalysisFile(null);
-    setAnalysisResult(null);
-    setAnalysisId(null);
   };
 
   const applyAnalysisFile = (file?: File) => {
@@ -196,8 +405,6 @@ export const LegalEngineering: React.FC = () => {
       return;
     }
     setAnalysisFile(file);
-    setReferenceFile(null);
-    setSelectedTemplate(null);
     setAnalysisResult(null);
     setAnalysisId(null);
   };
@@ -209,7 +416,7 @@ export const LegalEngineering: React.FC = () => {
     }
     if (!canGenerate()) return;
     setIsAnalyzing(true);
-    setAnalysisProgress('Preparando análisis…');
+    setAnalysisProgress('Extrayendo contenido y estructura del documento...');
     try {
       window.lexDesktop.analysis.onProgress((state) => setAnalysisProgress(state.label));
       const targetCaseId = await ensureModuleActivity('engineering', currentCaseId);
@@ -223,8 +430,8 @@ export const LegalEngineering: React.FC = () => {
         mimeType,
         base64: await readFileAsBase64(analysisFile),
       };
-      const instruction = analysisPrompt.trim() || 'Analiza el documento, identifica riesgos, obligaciones, partes, cláusulas faltantes y datos clave.';
-      const response = await analyzeEngineeringDocument([filePayload], instruction);
+      const instruction = analysisPrompt.trim() || 'Audita el documento identificando contingencias y evaluando riesgos normativos, cláusulas faltantes y fundamentos legales.';
+      const response = await analyzeEngineeringDocument([filePayload], instruction, area);
       const result = typeof response.result === 'string' ? JSON.parse(response.result) : response.result;
       setAnalysisResult(result);
       setAnalysisId(response.requestId);
@@ -235,8 +442,8 @@ export const LegalEngineering: React.FC = () => {
         files: [{ name: analysisFile.name, type: mimeType }],
         result,
         module: 'engineering',
-        ecosystem: 'mercantil',
-        promptProfile: response.promptProfile as 'mercantil_analysis',
+        ecosystem: area,
+        promptProfile: response.promptProfile,
         currentDocumentOnly: true,
         customInstruction: instruction,
         executionMode: response.requestedExecutionMode,
@@ -244,14 +451,35 @@ export const LegalEngineering: React.FC = () => {
         provider: response.provider,
       });
       await saveEngineeringWork();
-      const providerLabel = response.provider === 'openai' ? 'OpenAI' : response.provider === 'anthropic' ? 'Claude' : 'Gemini';
-      notify(`Análisis documental listo con ${providerLabel} BYOK.`, 'success', 'Ingeniería Jurídica');
+      const provLabel = response.provider === 'openai' ? 'OpenAI' : response.provider === 'anthropic' ? 'Claude' : 'Gemini';
+      notify(`Auditoría documental completada con ${provLabel} BYOK.`, 'success', 'Ingeniería Jurídica');
     } catch (error: any) {
       notify(error?.message || 'No se pudo analizar el documento.', 'error', 'Ingeniería Jurídica');
     } finally {
       setIsAnalyzing(false);
       setAnalysisProgress('');
     }
+  };
+
+  // Puente Directo: Análisis ➔ Redactor Contractual
+  const deriveDraftFromAnalysis = () => {
+    if (!analysisResult) return;
+    const missing = [...(analysisResult.missingClauses || []), ...(analysisResult.missingData || [])];
+    const risks = analysisResult.risks?.map((r) => `${r.title} (${r.severity}): ${r.explanation}`).filter(Boolean);
+    const actions = analysisResult.recommendedActions?.map((a) => `- ${a}`).join('\n');
+
+    const lines = [
+      `Redactar adenda o convenio modificatorio correctivo para subsanar los hallazgos de la auditoría jurídica en materia ${areaContent.label}.`,
+      missing.length ? `CLÁUSULAS Y REQUISITOS FALTANTES OBLIGATORIOS A INCORPORAR:\n${missing.map((m) => `- ${m}`).join('\n')}` : '',
+      risks?.length ? `CONTINGENCIAS Y RIESGOS A MITIGAR EN EL CLAUSULADO:\n${risks.map((r) => `- ${r}`).join('\n')}` : '',
+      actions ? `ACCIONES CORRECTIVAS A ATENDER:\n${actions}` : '',
+      'Redactar con técnica jurídica formal, cláusulas numeradas, causales de rescisión claras, penas convencionales exigibles y fundamento normativo aplicable en la legislación mexicana.',
+    ].filter(Boolean).join('\n\n');
+
+    setPrompt(lines);
+    setSourceMode('analysis');
+    switchWorkspaceTab('drafting');
+    notify('Instrucciones derivadas de la auditoría cargadas en el Redactor Contractual.', 'info', 'Redacción asistida');
   };
 
   const handleGenerate = async () => {
@@ -314,8 +542,8 @@ export const LegalEngineering: React.FC = () => {
         engine: response.engine,
       });
       await saveEngineeringWork();
-      const providerLabel = response.provider === 'openai' ? 'OpenAI' : response.provider === 'anthropic' ? 'Claude' : 'Gemini';
-      notify(`Documento preparado con ${providerLabel} BYOK.`, 'success', 'Ingeniería Jurídica');
+      const provLabel = response.provider === 'openai' ? 'OpenAI' : response.provider === 'anthropic' ? 'Claude' : 'Gemini';
+      notify(`Documento redactado con éxito mediante ${provLabel} BYOK.`, 'success', 'Ingeniería Jurídica');
     } catch (error: any) {
       notify(error?.message || 'No se pudo generar el documento.', 'error', 'Ingeniería Jurídica');
     } finally {
@@ -352,54 +580,236 @@ export const LegalEngineering: React.FC = () => {
     setAnalysisPrompt('');
   };
 
+  // Consultation Handler
+  const handleSendConsultation = async (queryText: string) => {
+    const textToSend = queryText.trim();
+    if (!textToSend || isConsulting) return;
+    if (!canGenerate()) return;
+
+    const newHistory = [...consultationHistory, { role: 'user' as const, text: textToSend }];
+    setConsultationHistory(newHistory);
+    setConsultationQuery('');
+    setIsConsulting(true);
+
+    try {
+      const response = await window.lexDesktop.assistant.askFiscal({
+        query: textToSend,
+        module: area,
+        history: consultationHistory.slice(-8).map((m) => ({ role: m.role, text: m.text })),
+      });
+      setConsultationHistory((prev) => [
+        ...prev,
+        { role: 'model', text: response.result, citationsAvailable: response.citationsAvailable },
+      ]);
+      if (!response.citationsAvailable) {
+        notify('Respuesta emitida con abstención debido a falta de fundamento oficial recuperado.', 'warning', 'Dictamen RAG');
+      }
+    } catch (error: any) {
+      setConsultationHistory((prev) => [
+        ...prev,
+        { role: 'model', text: 'No se pudo procesar la consulta jurídica. Verifica que BYOK esté habilitado y que el corpus local esté disponible.' },
+      ]);
+      notify(error?.message || 'Error en consulta jurídica', 'error');
+    } finally {
+      setIsConsulting(false);
+      setTimeout(() => consultationEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    }
+  };
+
+  // Guide Assistant Handler (for Estación Hub)
+  const handleSendGuide = async (textToSend: string) => {
+    if (!textToSend.trim() || isGuideGenerating) return;
+    if (!guideReady) {
+      requestProcessingSetup('usar la guía interactiva');
+      return;
+    }
+    const userMessage: GuideMessage = { role: 'user', text: textToSend.trim() };
+    setGuideMessages((prev) => [...prev, userMessage]);
+    setGuideInput('');
+    setIsGuideGenerating(true);
+    try {
+      if (!window.lexDesktop?.assistant) {
+        throw new Error('El asistente local no está disponible.');
+      }
+      const response = await window.lexDesktop.assistant.askInstructivo({
+        query: textToSend.trim(),
+        history: guideMessages.slice(-6).map((m) => ({ role: m.role, text: m.text })),
+      });
+      setGuideMessages((prev) => [...prev, { role: 'model', text: response.result }]);
+    } catch {
+      setGuideMessages((prev) => [...prev, { role: 'model', text: 'No pude procesar tu consulta en este momento.' }]);
+    } finally {
+      setIsGuideGenerating(false);
+    }
+  };
+
+  const resumeCase = async (savedCase: SavedCase) => {
+    await loadCase(savedCase);
+    switchWorkspaceTab('drafting');
+  };
+
+  // Split risks by severity for Semáforo
+  const highRisks = useMemo(() => analysisResult?.risks?.filter((r) => r.severity === 'high') || [], [analysisResult]);
+  const mediumRisks = useMemo(() => analysisResult?.risks?.filter((r) => r.severity === 'medium') || [], [analysisResult]);
+  const lowRisks = useMemo(() => analysisResult?.risks?.filter((r) => r.severity === 'low') || [], [analysisResult]);
+
+  const hubActions = [
+    {
+      title: 'Redactar documento',
+      description: 'Contratos de servicios, trabajo, pagarés, compraventa, arrendamiento y acuerdos.',
+      icon: FileSignature,
+      iconBg: 'bg-blue-50 text-blue-700',
+      action: () => switchWorkspaceTab('drafting'),
+    },
+    {
+      title: 'Revisar documento',
+      description: 'Sube un contrato o archivo para detectar riesgos, omisiones y cláusulas faltantes.',
+      icon: ShieldAlert,
+      iconBg: 'bg-rose-50 text-rose-700',
+      action: () => switchWorkspaceTab('analysis'),
+    },
+    {
+      title: 'Consultas con leyes',
+      description: 'Preguntas y respuestas fundamentadas con artículos de leyes mexicanas oficiales.',
+      icon: BookOpen,
+      iconBg: 'bg-amber-50 text-amber-700',
+      action: () => switchWorkspaceTab('consultation'),
+    },
+    {
+      title: 'Buscador normativo',
+      description: 'Búsqueda directa de artículos en el Código de Comercio, LFT, Ley Aduanera y CFF.',
+      icon: Search,
+      iconBg: 'bg-emerald-50 text-emerald-700',
+      action: () => navigate('/buscador'),
+    },
+    {
+      title: 'Documentos guardados',
+      description: 'Tus contratos, borradores y revisiones almacenados de forma local y privada.',
+      icon: FolderOpen,
+      iconBg: 'bg-slate-100 text-slate-700',
+      action: () => navigate('/portafolio'),
+    },
+  ];
+
   return (
-    <div className="relative h-full overflow-y-auto bg-white text-slate-800">
+    <div className="relative h-full overflow-y-auto bg-slate-50 text-slate-800">
       <div className={cn('pointer-events-none sticky left-0 top-0 z-20 h-1 w-full', areaTheme.rail)} />
-      <div className="mx-auto w-full max-w-7xl px-5 pb-10 pt-6 md:px-8">
-        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-5">
-          <div className="max-w-2xl">
-            <div className={cn('mb-1.5 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em]', areaTheme.text)}>
-              <FileText size={15} />
-              Ingeniería Jurídica
+      <div className="mx-auto w-full max-w-7xl px-5 pb-12 pt-6 md:px-8">
+        
+        {/* Header Principal de la Suite */}
+        <header className="flex items-center justify-between border-b border-slate-200 bg-white p-5 rounded-2xl shadow-xs">
+          <div className="flex items-center gap-3">
+            <img src={logoMarkUrl} alt="Lex Corporativo" className="h-9 w-9 rounded-lg object-contain" />
+            <div>
+              <h1 className="text-base font-bold text-slate-950">Ingeniería Jurídica</h1>
+              <p className="text-xs text-slate-500">Lex Corporativo</p>
             </div>
-            <h1 className="font-serif text-3xl font-bold tracking-tight text-slate-950">Documentos y contratos</h1>
-            <p className="mt-1.5 text-sm text-slate-600">
-              Redacta contratos e instrumentos mercantiles desde una plantilla o un archivo existente, con fundamento local verificable.
-            </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setShowHistory((value) => !value)}
-              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+              onClick={() => setShowHistory((v) => !v)}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50"
             >
-              <History size={16} /> Documentos ({visibleHistory.length})
+              <History size={14} /> Guardados ({visibleHistory.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/settings?tab=ia')}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50"
+            >
+              <CircleDot size={13} className={byokActive ? 'text-emerald-600' : 'text-amber-600'} />
+              {processingLabel}
+              <Settings2 size={13} className="text-slate-400" />
             </button>
           </div>
         </header>
 
+        {/* Pestañas Principales: Estación (Carátula) + 3 Modos de Trabajo */}
+        <nav className="mt-5 flex flex-wrap gap-2 border-b border-slate-200 pb-3" aria-label="Navegación de Ingeniería Jurídica">
+          <button
+            type="button"
+            onClick={() => switchWorkspaceTab('estacion')}
+            className={cn(
+              'inline-flex min-h-10 items-center gap-2 rounded-xl px-4 text-xs font-bold transition shadow-xs',
+              workspaceTab === 'estacion'
+                ? 'bg-slate-950 text-white'
+                : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
+            )}
+          >
+            <House size={15} />
+            Estación
+          </button>
+          <button
+            type="button"
+            onClick={() => switchWorkspaceTab('drafting')}
+            className={cn(
+              'inline-flex min-h-10 items-center gap-2 rounded-xl px-4 text-xs font-bold transition shadow-xs',
+              workspaceTab === 'drafting'
+                ? 'bg-slate-950 text-white'
+                : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
+            )}
+          >
+            <FileSignature size={15} />
+            Redactor & Plantillas
+          </button>
+          <button
+            type="button"
+            onClick={() => switchWorkspaceTab('analysis')}
+            className={cn(
+              'inline-flex min-h-10 items-center gap-2 rounded-xl px-4 text-xs font-bold transition shadow-xs',
+              workspaceTab === 'analysis'
+                ? 'bg-slate-950 text-white'
+                : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
+            )}
+          >
+            <ShieldAlert size={15} />
+            Auditoría de Riesgos
+          </button>
+          <button
+            type="button"
+            onClick={() => switchWorkspaceTab('consultation')}
+            className={cn(
+              'inline-flex min-h-10 items-center gap-2 rounded-xl px-4 text-xs font-bold transition shadow-xs',
+              workspaceTab === 'consultation'
+                ? 'bg-slate-950 text-white'
+                : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
+            )}
+          >
+            <BookOpen size={15} />
+            Dictamen & Consultas RAG
+          </button>
+        </nav>
+
+        {/* Historial Flotante */}
         {showHistory && (
-          <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5" aria-label="Historial de documentos">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-slate-950">Documentos recientes</h2>
-              <button type="button" onClick={() => setShowHistory(false)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Cerrar historial"><X size={17} /></button>
+          <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs" aria-label="Historial de documentos">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">Documentos guardados recientemente</h2>
+              <button type="button" onClick={() => setShowHistory(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Cerrar historial"><X size={15} /></button>
             </div>
             {visibleHistory.length === 0 ? (
-              <p className="text-sm text-slate-500">Todavía no has generado documentos.</p>
+              <p className="text-xs text-slate-500">No hay documentos generados recientemente en esta sesión.</p>
             ) : (
               <div className="divide-y divide-slate-100">
                 {visibleHistory.map((item) => (
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => { setGeneratedDoc(item.generatedDoc || ''); setPrompt(item.prompt); setArea(normalizeEngineeringArea(item.area)); setShowHistory(false); }}
-                    className="flex w-full items-center justify-between gap-4 py-3 text-left hover:text-slate-950"
+                    onClick={() => {
+                      setGeneratedDoc(item.generatedDoc || '');
+                      setPrompt(item.prompt);
+                      setArea(normalizeEngineeringArea(item.area));
+                      setShowHistory(false);
+                      switchWorkspaceTab('drafting');
+                    }}
+                    className="flex w-full items-center justify-between gap-4 py-2 text-left hover:text-slate-950 transition"
                   >
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold">{item.templateTitle || item.referenceFileName || 'Documento personalizado'}</span>
-                      <span className="mt-1 block text-xs text-slate-500">{AREA_CONTENT[normalizeEngineeringArea(item.area)].shortLabel} · {new Date(item.timestamp).toLocaleDateString()}</span>
+                      <span className="block truncate text-xs font-bold text-slate-900">{item.templateTitle || item.referenceFileName || 'Documento personalizado'}</span>
+                      <span className="block text-[11px] text-slate-500">{AREA_CONTENT[normalizeEngineeringArea(item.area || item.ecosystem)].shortLabel} · {new Date(item.timestamp).toLocaleDateString()}</span>
                     </span>
-                    <FileText size={16} className="shrink-0 text-slate-400" />
+                    <FileText size={15} className="shrink-0 text-slate-400" />
                   </button>
                 ))}
               </div>
@@ -407,214 +817,695 @@ export const LegalEngineering: React.FC = () => {
           </section>
         )}
 
-        {!generatedDoc ? (
-          <main className="mt-5 space-y-5">
-            <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h2 className="text-sm font-bold text-slate-950">Área del documento</h2>
-                  <p className="mt-0.5 text-xs text-slate-500">Elige el contexto jurídico del documento.</p>
-                </div>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {ENGINEERING_AREAS.map((item) => {
-                  const content = AREA_CONTENT[item];
-                  const active = area === item;
+        {/* ========================================================================= */}
+        {/* CARÁTULA OFICIAL: ESTACIÓN                                                */}
+        {/* ========================================================================= */}
+        {workspaceTab === 'estacion' && (
+          <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <main className="space-y-6">
+              {/* Opciones directas */}
+              <section className="grid gap-3 sm:grid-cols-2">
+                {hubActions.map((item) => {
+                  const Icon = item.icon;
                   return (
                     <button
-                      key={item}
+                      key={item.title}
                       type="button"
-                      onClick={() => changeArea(item)}
-                      aria-pressed={active}
-                      className={cn(
-                        'rounded-lg border bg-white px-4 py-3 text-left transition focus:outline-none focus:ring-2',
-                        active ? `${content.activeClass} ring-2` : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50',
-                      )}
+                      onClick={item.action}
+                      className="group flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-xs transition hover:border-slate-300 hover:shadow-sm"
                     >
-                      <span className="flex items-center gap-2 text-sm font-bold">{content.icon}{content.label}{active && <Check size={15} className="ml-auto" />}</span>
-                      <span className="mt-1 block text-xs leading-5 text-slate-600">{content.description}</span>
+                      <div>
+                        <span className={cn('inline-flex h-10 w-10 items-center justify-center rounded-xl', item.iconBg)}>
+                          <Icon size={20} />
+                        </span>
+                        <h2 className="mt-3 text-sm font-bold text-slate-950 group-hover:text-blue-900 transition-colors">
+                          {item.title}
+                        </h2>
+                        <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                          {item.description}
+                        </p>
+                      </div>
+                      <div className="mt-4 flex items-center gap-1 text-xs font-bold text-slate-700 group-hover:text-slate-950">
+                        <span>Abrir</span>
+                        <ArrowRight size={14} className="transition group-hover:translate-x-1" />
+                      </div>
                     </button>
                   );
                 })}
-              </div>
-            </section>
+              </section>
 
-            <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
-            <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="mb-3">
-                <h2 className="text-sm font-bold text-slate-950">Punto de partida</h2>
-                <p className="mt-0.5 text-xs text-slate-500">Selecciona una estructura o carga un documento para editarlo.</p>
-              </div>
-              <div className="mb-4 grid gap-2 sm:grid-cols-3">
-                <button type="button" onClick={() => { setSourceMode('template'); setReferenceFile(null); setAnalysisFile(null); }} className={cn('flex min-h-11 items-center gap-2 rounded-lg border px-3 text-left text-sm font-bold transition', sourceMode === 'template' ? `${areaTheme.border} ${areaTheme.button} text-white` : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50')}>
-                  <FileText size={17} />
-                  Plantilla
-                </button>
-                <button type="button" onClick={() => { setSourceMode('reference'); setSelectedTemplate(null); setAnalysisFile(null); setPrompt(''); }} className={cn('flex min-h-11 items-center gap-2 rounded-lg border px-3 text-left text-sm font-bold transition', sourceMode === 'reference' ? `${areaTheme.border} ${areaTheme.button} text-white` : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50')}>
-                  <Upload size={17} />
-                  Documento propio
-                </button>
-                <button type="button" onClick={() => { setSourceMode('analysis'); setSelectedTemplate(null); setReferenceFile(null); setPrompt(''); }} className={cn('flex min-h-11 items-center gap-2 rounded-lg border px-3 text-left text-sm font-bold transition', sourceMode === 'analysis' ? `${areaTheme.border} ${areaTheme.button} text-white` : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50')}>
-                  <SearchCheck size={17} />
-                  Analizar primero
-                </button>
-              </div>
-
-              {sourceMode === 'template' ? (
-                <DraftingTemplatePicker templates={templates} selectedTemplate={selectedTemplate} tone={areaContent.tone} onSelect={selectTemplate} onClear={() => { setSelectedTemplate(null); setPrompt(''); }} />
-              ) : sourceMode === 'reference' ? (
-                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5">
-                  <input ref={fileInputRef} type="file" accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown" className="hidden" onChange={(event) => { applyReferenceFile(event.target.files?.[0]); event.target.value = ''; }} />
-                  {referenceFile ? (
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <span className="rounded-lg bg-slate-100 p-2 text-slate-600"><FileText size={20} /></span>
-                        <span className="min-w-0"><span className="block truncate text-sm font-semibold">{referenceFile.name}</span><span className="text-xs text-slate-500">{(referenceFile.size / 1024 / 1024).toFixed(1)} MB · listo para corrección</span></span>
-                      </div>
-                      <button type="button" onClick={() => setReferenceFile(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Quitar archivo"><X size={18} /></button>
-                    </div>
-                  ) : (
-                    <div className="flex min-h-52 w-full flex-col items-center justify-center rounded-lg px-4 text-center text-slate-600">
-                      <Upload size={28} className="mb-3 text-slate-400" />
-                      <span className="text-sm font-bold text-slate-900">Sube el documento que quieres corregir o editar</span>
-                      <span className="mt-1 text-sm text-slate-500">PDF, TXT o Markdown · máximo 15 MB</span>
-                      <button type="button" onClick={() => fileInputRef.current?.click()} className={cn('mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg px-5 text-sm font-bold text-white transition', areaTheme.button)}>
-                        <Upload size={16} /> Subir archivo
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5">
-                  <input ref={analysisInputRef} type="file" accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown" className="hidden" onChange={(event) => { applyAnalysisFile(event.target.files?.[0]); event.target.value = ''; }} />
-                  {analysisFile ? (
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <span className="rounded-lg bg-slate-100 p-2 text-slate-600"><FileText size={20} /></span>
-                        <span className="min-w-0"><span className="block truncate text-sm font-semibold">{analysisFile.name}</span><span className="text-xs text-slate-500">{(analysisFile.size / 1024 / 1024).toFixed(1)} MB · listo para análisis</span></span>
-                      </div>
-                      <button type="button" onClick={() => setAnalysisFile(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Quitar archivo"><X size={18} /></button>
-                    </div>
-                  ) : (
-                    <div className="flex min-h-40 w-full flex-col items-center justify-center rounded-lg px-4 text-center text-slate-600">
-                      <SearchCheck size={28} className="mb-3 text-slate-400" />
-                      <span className="text-sm font-bold text-slate-900">Sube el documento para analizar antes de redactar</span>
-                      <span className="mt-1 text-sm text-slate-500">PDF, TXT o Markdown · máximo 15 MB</span>
-                      <button type="button" onClick={() => analysisInputRef.current?.click()} className={cn('mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg px-5 text-sm font-bold text-white transition', areaTheme.button)}>
-                        <Upload size={16} /> Subir archivo
-                      </button>
-                    </div>
-                  )}
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold text-slate-700">Enfoque del análisis (opcional)</label>
-                    <textarea
-                      value={analysisPrompt}
-                      onChange={(event) => setAnalysisPrompt(event.target.value)}
-                      rows={4}
-                      placeholder="Ej: identifica riesgos de representación, obligaciones pendientes y cláusulas de terminación."
-                      className={cn('w-full resize-y rounded-xl border border-slate-300 bg-white p-3 text-sm leading-5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:ring-2', areaTheme.ring)}
-                    />
+              {/* Guardados recientes */}
+              {recentCases.length > 0 && (
+                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">Guardados recientes</h2>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/portafolio')}
+                      className="text-xs font-semibold text-slate-600 hover:text-slate-950"
+                    >
+                      Ver todos ({recentCases.length})
+                    </button>
                   </div>
-                  <button type="button" onClick={handleAnalyzeDocument} disabled={isAnalyzing || !analysisFile} className={cn('inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-6 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50', areaTheme.button)}>
-                    {isAnalyzing ? <><Loader2 size={17} className="animate-spin" /> {analysisProgress || 'Analizando documento'}</> : <><SearchCheck size={17} /> Analizar documento</>}
+                  <div className="divide-y divide-slate-100">
+                    {recentCases.slice(0, 4).map((savedCase) => (
+                      <button
+                        key={savedCase.id}
+                        type="button"
+                        onClick={() => void resumeCase(savedCase)}
+                        className="group flex w-full items-center justify-between py-2.5 text-left hover:text-slate-950 transition"
+                      >
+                        <div className="min-w-0 pr-3">
+                          <span className="block truncate text-xs font-bold text-slate-900 group-hover:text-blue-900">
+                            {savedCase.name}
+                          </span>
+                          <span className="block text-[11px] text-slate-500">
+                            {formatCaseDate(savedCase.date)}
+                          </span>
+                        </div>
+                        <ArrowRight size={14} className="shrink-0 text-slate-400 transition group-hover:translate-x-1 group-hover:text-slate-700" />
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </main>
+
+            {/* Columna Lateral */}
+            <aside className="space-y-4">
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-3">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">Sistema local</h2>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="inline-flex items-center gap-2 text-slate-600">
+                      <FolderOpen size={14} /> Bóveda local
+                    </span>
+                    <span className={cn('font-bold', vaultReady ? 'text-emerald-700' : 'text-amber-700')}>
+                      {vaultReady ? 'Lista' : 'Pendiente'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="inline-flex items-center gap-2 text-slate-600">
+                      <BookOpen size={14} /> Corpus de leyes
+                    </span>
+                    <span className={cn('font-bold', corpusReady ? 'text-emerald-700' : 'text-amber-700')}>
+                      {corpusReady ? 'Listo' : 'Pendiente'}
+                    </span>
+                  </div>
+                </div>
+              </section>
+
+              {/* Guía de la aplicación */}
+              <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => setHelpOpen((o) => !o)}
+                  className="flex w-full items-center gap-3 p-4 text-left hover:bg-slate-50 transition"
+                >
+                  <Bot size={17} className="text-slate-700" />
+                  <div className="flex-1 min-w-0">
+                    <span className="block text-xs font-bold text-slate-900">Guía de uso</span>
+                    <span className="block text-[11px] text-slate-500">¿Cómo usar las herramientas?</span>
+                  </div>
+                  {helpOpen ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+                </button>
+
+                {helpOpen && (
+                  <div className="border-t border-slate-100 p-4 space-y-3">
+                    {!guideReady && (
+                      <div className="flex gap-2 rounded-xl bg-amber-50 p-2.5 text-[11px] text-amber-900">
+                        <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                        <span>Conecta una API en Configuración para usar la guía.</span>
+                      </div>
+                    )}
+                    <div className="max-h-56 space-y-2 overflow-y-auto">
+                      <AnimatePresence initial={false}>
+                        {guideMessages.map((message, index) => (
+                          <motion.div
+                            key={`${message.role}-${index}`}
+                            initial={{ opacity: 0, y: 4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className={cn(
+                              'rounded-xl p-2.5 text-xs leading-relaxed',
+                              message.role === 'user' ? 'ml-4 bg-slate-900 text-white' : 'bg-slate-100 text-slate-800'
+                            )}
+                          >
+                            <span className="whitespace-pre-wrap">{message.text}</span>
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                      {isGuideGenerating && (
+                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                          <Loader2 size={13} className="animate-spin" /> Respondiendo...
+                        </div>
+                      )}
+                      <div ref={guideMessagesEndRef} />
+                    </div>
+                    <form
+                      onSubmit={(e) => { e.preventDefault(); void handleSendGuide(guideInput); }}
+                      className="flex items-center gap-2 pt-1"
+                    >
+                      <input
+                        value={guideInput}
+                        onChange={(e) => setGuideInput(e.target.value)}
+                        disabled={isGuideGenerating}
+                        placeholder={guideReady ? 'Pregunta sobre la app...' : 'Configura la IA para preguntar'}
+                        className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs outline-hidden focus:ring-2 focus:ring-slate-400"
+                      />
+                      <button
+                        type="submit"
+                        disabled={isGuideGenerating || !guideInput.trim()}
+                        className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900 text-white disabled:opacity-30 shadow-xs"
+                        aria-label="Enviar"
+                      >
+                        <Send size={13} />
+                      </button>
+                    </form>
+                  </div>
+                )}
+              </section>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 text-[11px] leading-relaxed text-slate-500 flex items-start gap-2.5 shadow-xs">
+                <ShieldCheck size={16} className="shrink-0 text-emerald-600 mt-0.5" />
+                <p>Tus documentos y datos se almacenan exclusivamente en tu computadora con cifrado local.</p>
+              </div>
+            </aside>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* MODOS DE TRABAJO (DRAFTING, ANALYSIS, CONSULTATION)                       */}
+        {/* ========================================================================= */}
+        {workspaceTab !== 'estacion' && (
+          <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">Materia jurídica</h2>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+              {ENGINEERING_AREAS.map((item) => {
+                const content = AREA_CONTENT[item];
+                const active = area === item;
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => changeArea(item)}
+                    aria-pressed={active}
+                    className={cn(
+                      'rounded-xl border p-3 text-left transition focus:outline-hidden',
+                      active ? `${content.activeClass} ring-2 shadow-xs` : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/70',
+                    )}
+                  >
+                    <span className="flex items-center gap-2 text-xs font-bold">
+                      {content.icon}
+                      {content.shortLabel}
+                      {active && <Check size={14} className="ml-auto text-current" />}
+                    </span>
+                    <span className="mt-1 block text-[11px] leading-4 text-slate-600 line-clamp-2">{content.description}</span>
                   </button>
-                  {analysisResult && (
-                    <div className="rounded-lg border border-slate-200 bg-white p-4">
-                      <div className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-900">
-                        <SearchCheck size={16} className="text-mercantil" />
-                        Resultado del análisis
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* PESTAÑA: REDACTOR CONTRACTUAL & PLANTILLAS */}
+        {workspaceTab === 'drafting' && (
+          <div className="mt-5">
+            {!generatedDoc ? (
+              <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
+                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-4">
+                  <div>
+                    <h2 className="text-sm font-bold text-slate-950">Modalidad de origen</h2>
+                    <p className="text-xs text-slate-500">Selecciona si partirás de una plantilla predefinida o cargarás un machote de referencia.</p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => { setSourceMode('template'); setReferenceFile(null); }}
+                      className={cn(
+                        'flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 text-xs font-bold transition shadow-xs',
+                        sourceMode === 'template' ? `${areaTheme.border} ${areaTheme.button} text-white` : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      )}
+                    >
+                      <FileText size={16} /> Plantilla jurídica ({templates.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setSourceMode('reference'); setSelectedTemplate(null); setPrompt(''); }}
+                      className={cn(
+                        'flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 text-xs font-bold transition shadow-xs',
+                        sourceMode === 'reference' ? `${areaTheme.border} ${areaTheme.button} text-white` : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      )}
+                    >
+                      <Upload size={16} /> Documento propio de referencia
+                    </button>
+                  </div>
+
+                  {sourceMode === 'template' ? (
+                    <DraftingTemplatePicker
+                      templates={templates}
+                      selectedTemplate={selectedTemplate}
+                      tone={areaContent.tone}
+                      onSelect={selectTemplate}
+                      onClear={() => { setSelectedTemplate(null); setPrompt(''); }}
+                    />
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-6 text-center">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown"
+                        className="hidden"
+                        onChange={(e) => { applyReferenceFile(e.target.files?.[0]); e.target.value = ''; }}
+                      />
+                      {referenceFile ? (
+                        <div className="flex items-center justify-between rounded-xl bg-white border border-slate-200 p-3 shadow-xs">
+                          <div className="flex items-center gap-3 text-left">
+                            <FileText size={20} className={areaTheme.text} />
+                            <div>
+                              <span className="block text-xs font-bold text-slate-900">{referenceFile.name}</span>
+                              <span className="text-[11px] text-slate-500">{(referenceFile.size / 1024 / 1024).toFixed(1)} MB</span>
+                            </div>
+                          </div>
+                          <button type="button" onClick={() => setReferenceFile(null)} className="text-slate-400 hover:text-slate-600 p-1"><X size={16} /></button>
+                        </div>
+                      ) : (
+                        <div>
+                          <Upload size={24} className="mx-auto mb-2 text-slate-400" />
+                          <p className="text-xs font-bold text-slate-900">Sube el documento base o machote a corregir</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">PDF, TXT o Markdown · hasta 15 MB</p>
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className={cn('mt-3 inline-flex min-h-9 items-center gap-1.5 rounded-xl px-4 text-xs font-bold text-white transition', areaTheme.button)}
+                          >
+                            <Upload size={14} /> Seleccionar archivo
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </section>
+
+                {/* Formulario de Instrucciones / Variables */}
+                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-3 lg:sticky lg:top-5">
+                  <div>
+                    <h2 className="text-sm font-bold text-slate-950">
+                      {sourceMode === 'reference' ? 'Instrucciones de corrección' : sourceMode === 'analysis' ? 'Instrucciones derivadas de auditoría' : 'Variables y cláusulas específicas'}
+                    </h2>
+                    <p className="text-xs text-slate-500">
+                      {sourceMode === 'analysis'
+                        ? 'Ajusta los puntos correctivos antes de ensamblar el instrumento formal.'
+                        : 'Ingresa las partes, montos, plazos y condiciones a incorporar en el documento.'}
+                    </p>
+                  </div>
+                  <textarea
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    rows={13}
+                    placeholder={
+                      sourceMode === 'reference'
+                        ? 'Indica las correcciones de fondo, cláusulas a modificar o adiciones que necesitas.'
+                        : selectedTemplate
+                        ? `Completa los datos requeridos para ${selectedTemplate.title}:\n${selectedTemplate.requiredFields.join('\n- ')}`
+                        : areaContent.focusPlaceholder
+                    }
+                    className={cn('w-full resize-y rounded-xl border border-slate-300 bg-slate-50/60 p-3.5 text-xs leading-relaxed text-slate-900 outline-hidden transition placeholder:text-slate-400 focus:bg-white focus:ring-2', areaTheme.ring)}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleGenerate}
+                    disabled={isGenerating || (sourceMode === 'analysis' && !analysisResult)}
+                    className={cn('inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-6 text-xs font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50 shadow-xs', areaTheme.button)}
+                  >
+                    {isGenerating ? <><Loader2 size={16} className="animate-spin" /> Redactando documento con IA...</> : <><FileSignature size={16} /> Generar documento legal</>}
+                  </button>
+                </section>
+              </div>
+            ) : (
+              <main className="mt-2 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+                  <div>
+                    <p className={cn('text-xs font-bold uppercase tracking-wider', areaTheme.text)}>Documento legal generado</p>
+                    <h2 className="font-serif text-2xl font-bold text-slate-950">{selectedTemplate?.title || referenceFile?.name || 'Instrumento jurídico'}</h2>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => { await navigator.clipboard.writeText(generatedDoc); notify('Documento copiado al portapapeles.', 'success'); }}
+                      className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold hover:bg-slate-50 transition"
+                    >
+                      <Clipboard size={15} /> Copiar texto
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExport}
+                      disabled={isExporting}
+                      className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold hover:bg-slate-50 transition disabled:opacity-50"
+                    >
+                      {isExporting ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} Exportar a PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={resetDocument}
+                      className={cn('inline-flex min-h-10 items-center gap-2 rounded-xl px-4 text-xs font-bold text-white transition', areaTheme.button)}
+                    >
+                      <RefreshCw size={15} /> Nuevo documento
+                    </button>
+                  </div>
+                </div>
+                <article className="rounded-2xl border border-slate-200 bg-white p-8 shadow-xs">
+                  <pre className="whitespace-pre-wrap font-sans text-xs leading-relaxed text-slate-800">{generatedDoc}</pre>
+                </article>
+              </main>
+            )}
+          </div>
+        )}
+
+        {/* PESTAÑA: AUDITORÍA DOCUMENTAL & RIESGOS */}
+        {workspaceTab === 'analysis' && (
+          <div className="mt-5 space-y-6">
+            {!analysisResult ? (
+              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4 max-w-3xl mx-auto">
+                <div>
+                  <h2 className="text-base font-bold text-slate-950">Auditoría y Detección de Riesgos Contractuales</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Sube un contrato o instrumento legal para auditar riesgos críticos, cláusulas faltantes y cotejo normativo oficial.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 p-8 text-center">
+                  <input
+                    ref={analysisInputRef}
+                    type="file"
+                    accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown"
+                    className="hidden"
+                    onChange={(e) => { applyAnalysisFile(e.target.files?.[0]); e.target.value = ''; }}
+                  />
+                  {analysisFile ? (
+                    <div className="flex items-center justify-between rounded-xl bg-white border border-slate-200 p-4 shadow-xs">
+                      <div className="flex items-center gap-3 text-left">
+                        <FileText size={22} className={areaTheme.text} />
+                        <div>
+                          <span className="block text-xs font-bold text-slate-900">{analysisFile.name}</span>
+                          <span className="text-[11px] text-slate-500">{(analysisFile.size / 1024 / 1024).toFixed(1)} MB · Listo para auditoría</span>
+                        </div>
                       </div>
-                      <div className="space-y-3 text-sm text-slate-700">
-                        <p><span className="font-semibold">Tipo:</span> {analysisResult.documentType}</p>
-                        <p>{analysisResult.summary}</p>
-                        {analysisResult.detectedParties.length > 0 && (
-                          <div>
-                            <p className="font-semibold">Partes detectadas</p>
-                            <ul className="ml-4 list-disc">{analysisResult.detectedParties.map((party, index) => <li key={index}>{party}</li>)}</ul>
-                          </div>
-                        )}
-                        {analysisResult.detectedObligations.length > 0 && (
-                          <div>
-                            <p className="font-semibold">Obligaciones</p>
-                            <ul className="ml-4 list-disc">{analysisResult.detectedObligations.map((obligation, index) => <li key={index}>{obligation}</li>)}</ul>
-                          </div>
-                        )}
-                        {(analysisResult.missingClauses.length > 0 || (analysisResult.missingData?.length ?? 0) > 0) && (
-                          <div className="rounded-md bg-amber-50 p-3 text-amber-900">
-                            <p className="mb-1 flex items-center gap-1.5 font-semibold"><AlertTriangle size={14} /> Faltantes detectados</p>
-                            <ul className="ml-4 list-disc">
-                              {analysisResult.missingClauses.map((clause, index) => <li key={`c-${index}`}>{clause}</li>)}
-                              {analysisResult.missingData?.map((data, index) => <li key={`d-${index}`}>{data}</li>)}
-                            </ul>
-                          </div>
-                        )}
-                        {analysisResult.risks.length > 0 && (
-                          <div>
-                            <p className="font-semibold">Riesgos</p>
-                            <ul className="ml-4 list-disc">{analysisResult.risks.map((risk, index) => <li key={index}><span className="font-medium">{risk.title}</span> ({risk.severity}): {risk.explanation}</li>)}</ul>
-                          </div>
-                        )}
-                        {analysisResult.recommendedActions.length > 0 && (
-                          <div>
-                            <p className="font-semibold">Acciones recomendadas</p>
-                            <ul className="ml-4 list-disc">{analysisResult.recommendedActions.map((action, index) => <li key={index}>{action}</li>)}</ul>
-                          </div>
-                        )}
-                      </div>
-                      <button type="button" onClick={resetAnalysis} className="mt-4 text-xs font-semibold text-slate-500 hover:text-slate-700">Reiniciar análisis</button>
+                      <button type="button" onClick={() => setAnalysisFile(null)} className="text-slate-400 hover:text-slate-600 p-1"><X size={16} /></button>
+                    </div>
+                  ) : (
+                    <div>
+                      <ShieldAlert size={32} className="mx-auto mb-2 text-slate-400" />
+                      <p className="text-sm font-bold text-slate-900">Carga el contrato o documento a auditar</p>
+                      <p className="text-xs text-slate-500 mt-1">Formatos compatibles: PDF, TXT o Markdown (hasta 15 MB)</p>
+                      <button
+                        type="button"
+                        onClick={() => analysisInputRef.current?.click()}
+                        className={cn('mt-4 inline-flex min-h-10 items-center gap-2 rounded-xl px-5 text-xs font-bold text-white transition', areaTheme.button)}
+                      >
+                        <Upload size={15} /> Seleccionar archivo
+                      </button>
                     </div>
                   )}
                 </div>
-              )}
-            </section>
 
-            <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:sticky lg:top-5">
-              <div className="mb-3">
-                <h2 className="text-sm font-bold text-slate-950">{sourceMode === 'reference' ? 'Cambios solicitados' : sourceMode === 'analysis' ? 'Instrucciones de redacción' : 'Datos e instrucciones'}</h2>
-                <p className="mt-0.5 text-xs text-slate-500">{sourceMode === 'analysis' ? 'Confirma o ajusta las correcciones/acciones derivadas del análisis para generar el documento.' : 'Incluye la información necesaria para producir un documento revisable.'}</p>
-              </div>
-              <textarea
-                value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
-                rows={13}
-                placeholder={sourceMode === 'reference'
-                  ? 'Indica las correcciones de redacción, ortografía, estructura, cláusulas o formato que necesitas. Señala también qué contenido debe conservarse sin cambios.'
-                  : sourceMode === 'analysis'
-                  ? 'Describe cómo quieres que se redacte el documento a partir del análisis: tipo de instrumento, ajustes, cláusulas a incluir, partes, montos, vigencia, etc.'
-                  : selectedTemplate
-                  ? `Completa los datos para ${selectedTemplate.title}: ${selectedTemplate.requiredFields.join(', ')}.`
-                  : areaContent.focusPlaceholder}
-                className={cn('w-full resize-y rounded-xl border border-slate-300 bg-slate-50 p-4 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:bg-white focus:ring-2', areaTheme.ring)}
-              />
-              <div className="mt-3">
-                <button type="button" onClick={handleGenerate} disabled={isGenerating || (sourceMode === 'analysis' && !analysisResult)} className={cn('inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-6 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50', areaTheme.button)}>
-                  {isGenerating ? <><Loader2 size={17} className="animate-spin" /> {sourceMode === 'reference' ? 'Corrigiendo documento' : 'Preparando documento'}</> : <><FileText size={17} /> {sourceMode === 'reference' ? 'Corregir documento' : sourceMode === 'analysis' ? 'Generar desde análisis' : 'Generar documento'}</>}
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-slate-700">Enfoque específico de auditoría (opcional)</label>
+                  <textarea
+                    value={analysisPrompt}
+                    onChange={(e) => setAnalysisPrompt(e.target.value)}
+                    rows={3}
+                    placeholder="Ej: auditar estipulaciones de rescisión, validez de penas convencionales, facultades del apoderado y omisión de cláusulas de jurisdicción."
+                    className={cn('w-full resize-y rounded-xl border border-slate-300 bg-white p-3 text-xs leading-relaxed text-slate-900 outline-hidden transition placeholder:text-slate-400 focus:ring-2', areaTheme.ring)}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAnalyzeDocument}
+                  disabled={isAnalyzing || !analysisFile}
+                  className={cn('inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-6 text-xs font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50 shadow-xs', areaTheme.button)}
+                >
+                  {isAnalyzing ? <><Loader2 size={16} className="animate-spin" /> {analysisProgress || 'Procesando auditoría...'}</> : <><SearchCheck size={16} /> Iniciar auditoría de riesgos</>}
                 </button>
-                {sourceMode === 'analysis' && !analysisResult && (
-                  <p className="mt-2 text-xs text-amber-700">Primero analiza el documento para habilitar la redacción.</p>
+
+                {isAnalyzing && (
+                  <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-4 text-xs space-y-1 text-slate-700">
+                    <div className="flex items-center gap-2 font-bold text-blue-950">
+                      <Loader2 size={14} className="animate-spin text-blue-600" />
+                      <span>{analysisProgress || 'Analizando documento y cotejando corpus legal local...'}</span>
+                    </div>
+                    <p className="text-slate-500 text-[11px]">
+                      Extrayendo cláusulas, consultando índices normativos en LanceDB y clasificando riesgos con IA BYOK.
+                    </p>
+                  </div>
                 )}
+              </section>
+            ) : (
+              /* RESULTADO DE LA AUDITORÍA DE RIESGOS */
+              <div className="space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+                  <div>
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-700">
+                      <CheckCircle2 size={16} /> Auditoría completada
+                    </div>
+                    <h2 className="text-base font-bold text-slate-950 mt-0.5">
+                      Diagnóstico de Contingencias y Faltantes Normativos
+                    </h2>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={deriveDraftFromAnalysis}
+                      className={cn(
+                        'inline-flex min-h-10 items-center gap-2 rounded-xl px-5 text-xs font-bold text-white shadow-sm transition',
+                        areaTheme.button
+                      )}
+                    >
+                      <FileSignature size={15} /> Generar Adenda / Cláusula Correctiva
+                    </button>
+                    <button
+                      type="button"
+                      onClick={resetAnalysis}
+                      className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
+                    >
+                      <RotateCcw size={14} /> Nueva auditoría
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid gap-6 lg:grid-cols-2">
+                  {/* SEMÁFORO DE RIESGOS */}
+                  <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-2 text-sm font-bold text-slate-950">
+                        <ShieldAlert size={18} className="text-rose-600" />
+                        Semáforo de Riesgos Contractuales
+                      </div>
+                      <span className="text-xs font-bold text-slate-500">
+                        {(analysisResult.risks?.length || 0)} detectados
+                      </span>
+                    </div>
+
+                    <div className="space-y-3">
+                      {highRisks.map((risk, index) => (
+                        <div key={`high-${index}`} className="rounded-xl border border-rose-200 bg-rose-50/60 p-3.5 space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-xs text-rose-950">{risk.title}</span>
+                            <span className="rounded-md bg-rose-600 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white">
+                              Alto / Crítico
+                            </span>
+                          </div>
+                          <p className="text-xs leading-relaxed text-rose-900">{risk.explanation}</p>
+                          {risk.relatedClauses?.length > 0 && (
+                            <p className="text-[11px] text-rose-700 font-medium">Cláusulas vinculadas: {risk.relatedClauses.join(', ')}</p>
+                          )}
+                        </div>
+                      ))}
+
+                      {mediumRisks.map((risk, index) => (
+                        <div key={`med-${index}`} className="rounded-xl border border-amber-200 bg-amber-50/60 p-3.5 space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-xs text-amber-950">{risk.title}</span>
+                            <span className="rounded-md bg-amber-500 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white">
+                              Medio / Ambigüedad
+                            </span>
+                          </div>
+                          <p className="text-xs leading-relaxed text-amber-900">{risk.explanation}</p>
+                          {risk.relatedClauses?.length > 0 && (
+                            <p className="text-[11px] text-amber-700 font-medium">Cláusulas vinculadas: {risk.relatedClauses.join(', ')}</p>
+                          )}
+                        </div>
+                      ))}
+
+                      {lowRisks.map((risk, index) => (
+                        <div key={`low-${index}`} className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-xs text-slate-900">{risk.title}</span>
+                            <span className="rounded-md bg-slate-600 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white">
+                              Bajo / Mejora
+                            </span>
+                          </div>
+                          <p className="text-xs leading-relaxed text-slate-700">{risk.explanation}</p>
+                        </div>
+                      ))}
+
+                      {(!analysisResult.risks || analysisResult.risks.length === 0) && (
+                        <p className="text-xs text-slate-500">No se detectaron riesgos de severidad en el documento analizado.</p>
+                      )}
+                    </div>
+                  </section>
+
+                  {/* MATRIZ DE CLÁUSULAS FALTANTES Y FUNDAMENTOS */}
+                  <div className="space-y-6">
+                    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-3">
+                      <div className="flex items-center gap-2 text-sm font-bold text-amber-900 border-b border-slate-100 pb-3">
+                        <AlertTriangle size={17} className="text-amber-600" />
+                        Matriz de Cláusulas Faltantes
+                      </div>
+                      {(analysisResult.missingClauses?.length > 0 || (analysisResult.missingData?.length ?? 0) > 0) ? (
+                        <div className="space-y-2">
+                          <ul className="space-y-1.5 text-xs text-slate-700">
+                            {analysisResult.missingClauses?.map((clause, index) => (
+                              <li key={`mc-${index}`} className="flex items-start gap-2 rounded-lg bg-amber-50/60 p-2 text-amber-950 font-medium">
+                                <span className="text-amber-600 font-bold">•</span>
+                                <span>{clause}</span>
+                              </li>
+                            ))}
+                            {analysisResult.missingData?.map((data, index) => (
+                              <li key={`md-${index}`} className="flex items-start gap-2 rounded-lg bg-slate-50 p-2 text-slate-800">
+                                <span className="text-slate-500 font-bold">•</span>
+                                <span>Requisito de dato omitido: {data}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-500">El instrumento cuenta con el clausulado estructural mínimo.</p>
+                      )}
+                    </section>
+
+                    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-3">
+                      <div className="flex items-center gap-2 text-sm font-bold text-slate-950 border-b border-slate-100 pb-3">
+                        <Scale size={17} className={areaTheme.text} />
+                        Referencias Normativas Aplicables
+                      </div>
+                      {analysisResult.legalFoundations?.length > 0 ? (
+                        <div className="space-y-2">
+                          {analysisResult.legalFoundations.map((found, idx) => (
+                            <div key={`found-${idx}`} className="rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs space-y-1">
+                              <div className="flex items-center justify-between font-bold text-slate-900">
+                                <span>{found.law} {found.article ? `· ${found.article}` : ''}</span>
+                                <span className="text-[10px] text-slate-500 font-mono">{found.id}</span>
+                              </div>
+                              {found.excerpt && (
+                                <p className="text-[11px] text-slate-600 italic leading-relaxed">"{found.excerpt}"</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-500">Correlaciones automáticas del Código de Comercio, LGSM y LFT registradas en el motor.</p>
+                      )}
+                    </section>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* PESTAÑA: DICTAMEN & CONSULTAS JURÍDICAS RAG */}
+        {workspaceTab === 'consultation' && (
+          <div className="mt-5 space-y-6">
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
+              <div>
+                <h2 className="text-base font-bold text-slate-950">Dictamen & Consultas Normativas con RAG Local</h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Formula consultas técnicas en materia <strong>{areaContent.label}</strong>. Las respuestas se anclan estrictamente en el corpus legal oficial instalado (LanceDB).
+                </p>
+              </div>
+
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Consultas frecuentes sugeridas</span>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {areaContent.consultationTopicSuggestions.map((topic, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => handleSendConsultation(topic)}
+                      disabled={isConsulting}
+                      className="rounded-xl border border-slate-200 bg-slate-50/60 p-2.5 text-left text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-100 transition focus:outline-hidden disabled:opacity-50"
+                    >
+                      <Sparkles size={13} className="inline mr-1.5 text-legal-gold" />
+                      {topic}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 min-h-64 max-h-[480px] overflow-y-auto space-y-4">
+                {consultationHistory.length === 0 ? (
+                  <div className="py-12 text-center text-slate-400">
+                    <MessageSquareQuote size={32} className="mx-auto mb-2 opacity-50" />
+                    <p className="text-xs font-bold text-slate-600">No hay consultas activas en esta sesión.</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Escribe una duda jurídica o selecciona una de las sugerencias para iniciar el dictamen.</p>
+                  </div>
+                ) : (
+                  consultationHistory.map((msg, index) => (
+                    <div
+                      key={index}
+                      className={cn(
+                        'rounded-2xl p-4 text-xs leading-relaxed max-w-4xl',
+                        msg.role === 'user'
+                          ? 'ml-auto bg-slate-900 text-white'
+                          : 'mr-auto bg-white border border-slate-200 text-slate-800 shadow-xs space-y-2'
+                      )}
+                    >
+                      {msg.role === 'model' && (
+                        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-2">
+                          <BookOpen size={14} className={areaTheme.text} />
+                          Dictamen Jurídico Fundamentado
+                        </div>
+                      )}
+                      <div className="prose prose-xs max-w-none">
+                        <ReactMarkdown>{msg.text}</ReactMarkdown>
+                      </div>
+                    </div>
+                  ))
+                )}
+                {isConsulting && (
+                  <div className="mr-auto rounded-2xl bg-white border border-slate-200 p-4 text-xs text-slate-600 shadow-xs flex items-center gap-2">
+                    <Loader2 size={16} className="animate-spin text-blue-600" />
+                    <span>Recuperando fundamentos del corpus oficial y redactando dictamen...</span>
+                  </div>
+                )}
+                <div ref={consultationEndRef} />
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={consultationQuery}
+                  onChange={(e) => setConsultationQuery(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSendConsultation(consultationQuery); }}
+                  placeholder={`Formula tu consulta jurídica en materia ${areaContent.shortLabel}...`}
+                  className={cn('flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-xs text-slate-900 outline-hidden focus:ring-2', areaTheme.ring)}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleSendConsultation(consultationQuery)}
+                  disabled={isConsulting || !consultationQuery.trim()}
+                  className={cn('inline-flex min-h-11 items-center gap-2 rounded-xl px-5 text-xs font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50 shadow-xs', areaTheme.button)}
+                >
+                  <Send size={15} /> Consultar
+                </button>
               </div>
             </section>
-            </div>
-          </main>
-        ) : (
-          <main className="mt-8">
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className={cn('text-sm font-semibold', areaTheme.text)}>Documento preparado</p>
-                <h2 className="mt-1 font-serif text-2xl font-bold text-slate-950">{selectedTemplate?.title || referenceFile?.name || 'Documento jurídico'}</h2>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={async () => { await navigator.clipboard.writeText(generatedDoc); notify('Documento copiado.', 'success'); }} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold hover:bg-slate-100"><Clipboard size={16} /> Copiar</button>
-                <button type="button" onClick={handleExport} disabled={isExporting} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold hover:bg-slate-100 disabled:opacity-50">{isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} Exportar PDF</button>
-                <button type="button" onClick={resetDocument} className={cn('inline-flex min-h-10 items-center gap-2 rounded-lg px-4 text-sm font-semibold text-white', areaTheme.button)}><RefreshCw size={16} /> Nuevo documento</button>
-              </div>
-            </div>
-            <article className="rounded-xl border border-slate-200 bg-white px-7 py-8 shadow-sm">
-              <pre className="whitespace-pre-wrap font-sans text-[15px] leading-7 text-slate-800">{generatedDoc}</pre>
-            </article>
-          </main>
+          </div>
         )}
+
       </div>
     </div>
   );

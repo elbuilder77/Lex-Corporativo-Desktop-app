@@ -31,17 +31,17 @@ export interface LexDesktopAPI {
       files: any[];
       prompt?: string;
       focusedInstruction?: string;
-      rules?: 'fiscal' | 'mercantil';
-      ecosystem?: 'fiscal' | 'mercantil';
+      rules?: 'fiscal' | 'mercantil' | 'laboral' | 'comercio_exterior' | 'aduanal';
+      ecosystem?: 'fiscal' | 'mercantil' | 'laboral' | 'comercio_exterior' | 'aduanal';
       module?: 'analysis';
       currentDocumentOnly?: true;
-      promptProfile?: 'fiscal_analysis' | 'mercantil_analysis';
+      promptProfile?: 'fiscal_analysis' | 'mercantil_analysis' | 'laboral_analysis' | 'comercio_exterior_analysis' | 'aduanal_analysis';
     }) => Promise<{
       result: any;
       requestId: string;
-      ecosystem: 'fiscal' | 'mercantil';
+      ecosystem: 'fiscal' | 'mercantil' | 'laboral' | 'comercio_exterior' | 'aduanal';
       module: 'analysis';
-      promptProfile: 'fiscal_analysis' | 'mercantil_analysis';
+      promptProfile: 'fiscal_analysis' | 'mercantil_analysis' | 'laboral_analysis' | 'comercio_exterior_analysis' | 'aduanal_analysis';
       currentDocumentOnly: true;
       engine: 'byok';
       requestedExecutionMode: 'byok';
@@ -53,12 +53,12 @@ export interface LexDesktopAPI {
   drafts: {
     generateDraft: (payload: {
       requirements: string;
-      module?: 'mercantil' | 'fiscal';
-      ecosystem?: 'mercantil' | 'fiscal';
+      module?: 'mercantil' | 'fiscal' | 'laboral' | 'comercio_exterior' | 'aduanal';
+      ecosystem?: 'mercantil' | 'fiscal' | 'laboral' | 'comercio_exterior' | 'aduanal';
       workflowModule?: 'drafting';
       sourceAnalysisId?: string;
       templateId?: string;
-      promptProfile?: 'mercantil_drafting' | 'fiscal_drafting';
+      promptProfile?: 'mercantil_drafting' | 'fiscal_drafting' | 'laboral_drafting' | 'comercio_exterior_drafting' | 'aduanal_drafting';
       template?: any;
       referenceFile?: {
         name: string;
@@ -68,9 +68,9 @@ export interface LexDesktopAPI {
     }) => Promise<{
       result: string;
       requestId: string;
-      ecosystem: 'mercantil' | 'fiscal';
+      ecosystem: 'mercantil' | 'fiscal' | 'laboral' | 'comercio_exterior' | 'aduanal';
       module: 'drafting';
-      promptProfile: 'mercantil_drafting' | 'fiscal_drafting';
+      promptProfile: 'mercantil_drafting' | 'fiscal_drafting' | 'laboral_drafting' | 'comercio_exterior_drafting' | 'aduanal_drafting';
       sourceAnalysisId?: string;
       templateId?: string;
       engine: 'byok';
@@ -80,7 +80,7 @@ export interface LexDesktopAPI {
     }>;
   };
   legalKnowledge: {
-    searchRAG: (payload: { query: string; module: 'mercantil' | 'fiscal'; limit?: number }) => Promise<any>;
+    searchRAG: (payload: { query: string; module: 'mercantil' | 'fiscal' | 'laboral' | 'comercio_exterior' | 'aduanal'; limit?: number }) => Promise<any>;
   };
   runtime: {
     getHealth: () => Promise<{
@@ -188,6 +188,6 @@ export interface LexDesktopAPI {
   };
   assistant: {
     askInstructivo: (payload: { query: string; history?: Array<{ role: 'user' | 'model' | 'assistant'; text: string }> }) => Promise<{ result: string }>;
-    askFiscal: (payload: { query: string; history?: Array<{ role: 'user' | 'model' | 'assistant'; text: string }> }) => Promise<{ result: string; citationsAvailable: boolean; groundingStatus: 'grounded' | 'abstained' | 'rejected'; provider?: 'gemini' | 'openai' | 'anthropic' }>;
+    askFiscal: (payload: { query: string; module?: 'mercantil' | 'laboral' | 'comercio_exterior' | 'aduanal' | 'fiscal'; history?: Array<{ role: 'user' | 'model' | 'assistant'; text: string }> }) => Promise<{ result: string; citationsAvailable: boolean; groundingStatus: 'grounded' | 'abstained' | 'rejected'; provider?: 'gemini' | 'openai' | 'anthropic' }>;
   };
 }

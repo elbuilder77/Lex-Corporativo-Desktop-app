@@ -69,17 +69,23 @@ vi.mock('@xenova/transformers', () => ({
 }));
 
 function extractFilterValue(filterValue: string | undefined, field: string): string | undefined {
-  const match = filterValue?.match(new RegExp(`${field} = '([^']+)'`));
+  const match = filterValue?.match(new RegExp(`"?${field}"? = '([^']+)'`));
   return match?.[1];
+}
+
+function extractFilterValues(filterValue: string | undefined, field: string): string[] {
+  return [...(filterValue || '').matchAll(new RegExp(`"?${field}"? = '([^']+)'`, 'g'))].map(match => match[1]);
 }
 
 function filterRows(rows: any[], filterValue?: string): any[] {
   const module = extractFilterValue(filterValue, 'module');
   const requestId = extractFilterValue(filterValue, 'requestId');
+  const lawCodes = extractFilterValues(filterValue, 'law_code');
 
   return rows.filter(row => (
     (!module || row.module === module)
     && (!requestId || row.requestId === requestId)
+    && (lawCodes.length === 0 || lawCodes.includes(row.law_code))
   ));
 }
 
@@ -145,7 +151,12 @@ describe('RAG doble carril para análisis', () => {
     expect(result.context).toContain('CFF Artículo 69-B');
     expect(result.context).not.toContain('LGTOC');
     expect(result.context).not.toContain('contrato-mercantil.pdf');
-    expect(ragMockState.filters).toContain("legal-search:module = 'fiscal'");
+    expect(ragMockState.filters.some(filter => (
+      filter.startsWith('legal-search:')
+      && filter.includes("law_code = 'CFF'")
+      && filter.includes("law_code = 'RMF'")
+      && !filter.includes("law_code = 'LGTOC'")
+    ))).toBe(true);
     expect(ragMockState.filters).toContain('user-search:"requestId" = \'req-fiscal\' AND module = \'fiscal\'');
     expect(ragMockState.filters.some(filter => filter.includes("module = 'mercantil'"))).toBe(false);
   });
@@ -160,7 +171,12 @@ describe('RAG doble carril para análisis', () => {
     expect(result.context).not.toContain('LGTOC Artículo 170');
     expect(result.context).not.toContain('CFF');
     expect(result.context).not.toContain('expediente-fiscal.pdf');
-    expect(ragMockState.filters).toContain("legal-search:module = 'mercantil'");
+    expect(ragMockState.filters.some(filter => (
+      filter.startsWith('legal-search:')
+      && filter.includes("law_code = 'CCom'")
+      && filter.includes("law_code = 'LGTOC'")
+      && !filter.includes("law_code = 'CFF'")
+    ))).toBe(true);
     expect(ragMockState.filters).toContain('user-search:"requestId" = \'req-mercantil\' AND module = \'mercantil\'');
     expect(ragMockState.filters.some(filter => filter.includes("module = 'fiscal'"))).toBe(false);
   });

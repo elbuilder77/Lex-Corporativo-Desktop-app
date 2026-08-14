@@ -1,20 +1,27 @@
-export type LegalAnalysisEcosystem = 'fiscal' | 'mercantil';
-export type LegalDraftingArea = 'mercantil' | 'fiscal';
+export const LEGAL_ECOSYSTEMS = ['mercantil', 'laboral', 'comercio_exterior', 'aduanal', 'fiscal'] as const;
+export type LegalAnalysisEcosystem = typeof LEGAL_ECOSYSTEMS[number];
+export type LegalDraftingArea = LegalAnalysisEcosystem;
 export type LegalEcosystem = LegalDraftingArea;
 export type LegalWorkflowModule = 'analysis' | 'drafting';
 export type AiExecutionMode = 'local' | 'byok';
 
-export type AnalysisPromptProfile = 'fiscal_analysis' | 'mercantil_analysis';
-export type DraftingPromptProfile = 'mercantil_drafting' | 'fiscal_drafting';
+export type AnalysisPromptProfile = `${LegalAnalysisEcosystem}_analysis`;
+export type DraftingPromptProfile = `${LegalDraftingArea}_drafting`;
 export type LegalPromptProfile = AnalysisPromptProfile | DraftingPromptProfile;
 
 export const ANALYSIS_PROMPT_PROFILES: Record<LegalAnalysisEcosystem, AnalysisPromptProfile> = {
-  fiscal: 'fiscal_analysis',
   mercantil: 'mercantil_analysis',
+  laboral: 'laboral_analysis',
+  comercio_exterior: 'comercio_exterior_analysis',
+  aduanal: 'aduanal_analysis',
+  fiscal: 'fiscal_analysis',
 };
 
 export const DRAFTING_PROMPT_PROFILES: Record<LegalDraftingArea, DraftingPromptProfile> = {
   mercantil: 'mercantil_drafting',
+  laboral: 'laboral_drafting',
+  comercio_exterior: 'comercio_exterior_drafting',
+  aduanal: 'aduanal_drafting',
   fiscal: 'fiscal_drafting',
 };
 

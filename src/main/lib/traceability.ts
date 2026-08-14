@@ -4,12 +4,13 @@ import * as path from 'path';
 import { app } from 'electron';
 import { sanitizeForLogs } from './sanitizer';
 import type { GroundedClaim } from './legal-grounding';
+import type { LegalEcosystem } from '../../shared/legal-contracts';
 
 export interface QueryTrace {
   requestId: string;
   operation: 'search' | 'consultation' | 'analysis' | 'drafting';
-  moduleUsed: 'mercantil' | 'fiscal';
-  ecosystemLegal: 'mercantil' | 'fiscal';
+  moduleUsed: LegalEcosystem;
+  ecosystemLegal: LegalEcosystem;
   primaryModel: string;
   finalModelUsed: string;
   hasFallback: boolean;

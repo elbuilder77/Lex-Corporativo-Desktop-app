@@ -100,10 +100,19 @@ function createQuery(rowsFactory: (filterValue?: string) => any[], label: string
   };
 }
 
+function extractFilterValues(filterValue: string | undefined, field: string): string[] {
+  return [...(filterValue || '').matchAll(new RegExp(`"?${field}"? = '([^']+)'`, 'g'))].map(match => match[1]);
+}
+
+function filterLegalRows(filterValue?: string) {
+  const lawCodes = extractFilterValues(filterValue, 'law_code');
+  return mockState.legalRows.filter(row => lawCodes.length === 0 || lawCodes.includes(row.law_code));
+}
+
 vi.mock('@lancedb/lancedb', () => {
   const legalTable = {
-    vectorSearch: () => createQuery(() => mockState.legalRows, 'legal-search'),
-    query: () => createQuery(() => mockState.legalRows, 'legal-filter'),
+    vectorSearch: () => createQuery(filterLegalRows, 'legal-search'),
+    query: () => createQuery(filterLegalRows, 'legal-filter'),
   };
 
   const userTable = {
@@ -159,7 +168,12 @@ describe('analysis double-lane RAG context', () => {
     expect(result.context).not.toContain('LGTOC Artículo 170');
     expect(result.context).not.toContain('CFF');
 
-    expect(mockState.filters).toContain("legal-search:module = 'mercantil'");
+    expect(mockState.filters.some(filter => (
+      filter.startsWith('legal-search:')
+      && filter.includes("law_code = 'CCom'")
+      && filter.includes("law_code = 'LGTOC'")
+      && !filter.includes("law_code = 'CFF'")
+    ))).toBe(true);
     expect(mockState.filters).toContain('user-search:"requestId" = \'analysis-1\' AND module = \'mercantil\'');
   });
 
@@ -174,7 +188,12 @@ describe('analysis double-lane RAG context', () => {
     expect(result.context).toContain('CFF Artículo 69-B');
     expect(result.context).not.toContain('LGTOC');
 
-    expect(mockState.filters).toContain("legal-search:module = 'fiscal'");
+    expect(mockState.filters.some(filter => (
+      filter.startsWith('legal-search:')
+      && filter.includes("law_code = 'CFF'")
+      && filter.includes("law_code = 'RMF'")
+      && !filter.includes("law_code = 'LGTOC'")
+    ))).toBe(true);
     expect(mockState.filters).toContain('user-search:"requestId" = \'analysis-fiscal\' AND module = \'fiscal\'');
   });
 });

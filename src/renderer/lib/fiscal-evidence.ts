@@ -75,7 +75,7 @@ export function buildFiscalEvidenceMatrix(
 export function buildCfdiEvidence(records: FiscalCfdiRecord[]): FiscalEvidenceRecord[] {
   return records.map((record) => {
     const complete = Boolean(record.uuid && record.issuerRfc && record.receiverRfc && record.total);
-    const title = record.uuid ? `CFDI ${record.uuid}` : `CFDI ${record.fileName}`;
+    const title = record.uuid ? `Comprobante XML ${record.uuid}` : `Comprobante XML ${record.fileName}`;
     return {
       id: evidenceId(complete ? 'supported' : 'attention', title),
       analysisId: 'cfdi-local',
@@ -85,10 +85,10 @@ export function buildCfdiEvidence(records: FiscalCfdiRecord[]): FiscalEvidenceRe
         record.issuerRfc ? `Emisor ${record.issuerRfc}` : undefined,
         record.receiverRfc ? `Receptor ${record.receiverRfc}` : undefined,
         record.total ? `Total ${record.total}${record.currency ? ` ${record.currency}` : ''}` : undefined,
-      ]).join(' · ') || 'El XML no contiene todos los datos fiscales esperados.',
+      ]).join(' · ') || 'El XML no contiene todos los datos esperados.',
       sourceFiles: [record.fileName],
-      foundations: ['CFF · 29 y 29-A'],
-      action: complete ? 'Verificar la vigencia del comprobante en el SAT.' : 'Revisar la estructura del XML y completar los datos faltantes.',
+      foundations: [],
+      action: complete ? 'Conservar el comprobante junto con el expediente de la operación.' : 'Revisar la estructura del XML y completar los datos faltantes.',
     };
   });
 }

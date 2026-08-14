@@ -1,14 +1,19 @@
-import { getAnalysisPromptProfile, getDraftingPromptProfile, type LegalAnalysisEcosystem } from "../../shared/legal-contracts";
+import {
+  getAnalysisPromptProfile,
+  getDraftingPromptProfile,
+  type AnalysisPromptProfile,
+  type LegalAnalysisEcosystem,
+  type LegalDraftingArea,
+} from "../../shared/legal-contracts";
 
 const isElectron = typeof window !== 'undefined' && 'lexDesktop' in window;
-export type LegalDraftingArea = 'mercantil' | 'fiscal';
 
 export interface AnalysisResponse {
   result: any;
   requestId: string;
-  ecosystem: 'fiscal' | 'mercantil';
+  ecosystem: LegalAnalysisEcosystem;
   module: 'analysis';
-  promptProfile: 'fiscal_analysis' | 'mercantil_analysis';
+  promptProfile: AnalysisPromptProfile;
   currentDocumentOnly: true;
   engine: 'byok';
   requestedExecutionMode: 'byok';
@@ -98,7 +103,8 @@ export const draftLegalDocument = async (
 
 export const analyzeEngineeringDocument = async (
   files: { base64: string; mimeType: string; name: string }[],
-  prompt: string
+  prompt: string,
+  ecosystem: LegalAnalysisEcosystem = 'mercantil',
 ): Promise<AnalysisResponse> => {
-  return analyzeDocument(files, prompt, 'mercantil');
+  return analyzeDocument(files, prompt, ecosystem);
 };

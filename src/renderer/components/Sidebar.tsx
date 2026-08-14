@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { ModuleTab } from '../types';
-import { House, Landmark, FileSignature, BookOpen, X, Calculator, Settings, FolderOpen, ChevronLeft, ChevronRight, Search, ClipboardList, ShieldCheck, ReceiptText } from 'lucide-react';
+import { House, Landmark, FileSignature, BookOpen, X, Settings, FolderOpen, ChevronLeft, ChevronRight, Search, FileSearch, ShieldCheck, ClipboardList, ReceiptText } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { BRAND_CONTENT } from '../lib/product-content';
 import logoUrl from '../assets/logo-mark.png';
@@ -9,13 +9,11 @@ import { useUiStore } from '../store/useUiStore';
 import { useCaseStore } from '../store/useCaseStore';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-const fiscalSubItems: { tab: ModuleTab; label: string; icon: React.ReactNode }[] = [
-  { tab: 'fiscal-consultation', label: 'Consulta asistida', icon: <Search size={14} /> },
-  { tab: 'fiscal-preparation', label: 'Revisar operación', icon: <ShieldCheck size={14} /> },
-  { tab: 'fiscal-materiality', label: 'Materialidad', icon: <ClipboardList size={14} /> },
-  { tab: 'fiscal-deductibility', label: 'Deducibilidad / IVA', icon: <ReceiptText size={14} /> },
-  { tab: 'fiscal-documentation', label: 'Documentación', icon: <FileSignature size={14} /> },
-  { tab: 'fiscal-regulations', label: 'Normativa', icon: <BookOpen size={14} /> },
+const engineeringSubItems = [
+  { tab: 'estacion', label: 'Estación', icon: <House size={14} /> },
+  { tab: 'drafting', label: 'Redactor & Plantillas', icon: <FileSignature size={14} /> },
+  { tab: 'analysis', label: 'Auditoría de Riesgos', icon: <ShieldCheck size={14} /> },
+  { tab: 'consultation', label: 'Dictamen & Consultas RAG', icon: <BookOpen size={14} /> },
 ];
 
 export const Sidebar: React.FC = () => {
@@ -26,29 +24,42 @@ export const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const { activeTab, setActiveTab, setFiscalGuided, setSidebarOpen, isMobile, sidebarCollapsed, setSidebarCollapsed, runtimeHealth } = useUiStore();
+  const { setSidebarOpen, isMobile, sidebarCollapsed, setSidebarCollapsed, runtimeHealth } = useUiStore();
 
   const currentPath = location.pathname;
-  const searchMatter = new URLSearchParams(location.search).get('materia') === 'fiscal' ? 'fiscal' : 'mercantil';
+  const searchParams = new URLSearchParams(location.search);
+  const currentEngineeringTab = searchParams.get('tab') || 'estacion';
   const visuallyCollapsed = !isMobile && sidebarCollapsed && !temporarilyExpanded;
   
   const ecosystemItems = [
     {
-      path: '/instructivo',
-      label: 'Estación',
-      description: 'Instructivo interactivo',
-      icon: <BookOpen size={18} />,
+      path: '/ingenieria-juridica',
+      label: 'Ingeniería Jurídica',
+      description: 'Estación, redactor, auditoría y consultas RAG',
+      icon: <FileSignature size={18} />,
+      badge: null,
+      subItems: engineeringSubItems,
+      activeColor: 'text-blue-400',
+      activeBg: 'bg-blue-400/10',
+      activeBorder: 'border-blue-400/40',
+      dot: 'bg-blue-400',
+    },
+    {
+      path: '/buscador',
+      label: 'Buscador normativo',
+      description: 'Corpus oficial mexicano',
+      icon: <Search size={18} />,
       badge: null,
       subItems: null,
-      activeColor: 'text-legal-gold',
-      activeBg: 'bg-slate-100',
-      activeBorder: 'border-slate-300',
-      dot: 'bg-slate-400',
+      activeColor: 'text-blue-400',
+      activeBg: 'bg-blue-400/10',
+      activeBorder: 'border-blue-400/40',
+      dot: 'bg-blue-400',
     },
     {
       path: '/portafolio',
       label: 'Portafolio',
-      description: 'Actividad legal reciente',
+      description: 'Bóveda local de casos',
       icon: <FolderOpen size={18} />,
       badge: null,
       subItems: null,
@@ -58,45 +69,9 @@ export const Sidebar: React.FC = () => {
       dot: 'bg-slate-400',
     },
     {
-      path: '/buscador',
-      label: 'Consultas',
-      description: 'Consulta y fundamentos locales',
-      icon: <Search size={18} />,
-      badge: null,
-      subItems: null,
-      activeColor: searchMatter === 'fiscal' ? 'text-fiscal-light' : 'text-blue-400',
-      activeBg: searchMatter === 'fiscal' ? 'bg-fiscal-light/10' : 'bg-blue-400/10',
-      activeBorder: searchMatter === 'fiscal' ? 'border-fiscal-light/40' : 'border-blue-400/40',
-      dot: searchMatter === 'fiscal' ? 'bg-fiscal-light' : 'bg-blue-400',
-    },
-    {
-      path: '/ingenieria-juridica',
-      label: 'Documentos y contratos',
-      description: 'Ingeniería Jurídica',
-      icon: <FileSignature size={18} />,
-      badge: null,
-      subItems: null,
-      activeColor: 'text-blue-400',
-      activeBg: 'bg-blue-400/10',
-      activeBorder: 'border-blue-400/40',
-      dot: 'bg-blue-400',
-    },
-    {
-      path: '/fiscal',
-      label: 'Fiscal',
-      description: 'Consultas, evaluación y documentos',
-      icon: <Calculator size={18} />,
-      badge: null,
-      subItems: fiscalSubItems,
-      activeColor: 'text-fiscal-light',
-      activeBg: 'bg-fiscal-light/10',
-      activeBorder: 'border-fiscal-light/40',
-      dot: 'bg-fiscal-light',
-    },
-    {
       path: '/settings',
       label: 'Configuración',
-      description: 'Ajustes del sistema',
+      description: 'Modelos BYOK y privacidad',
       icon: <Settings size={18} />,
       badge: null,
       subItems: null,
@@ -108,16 +83,9 @@ export const Sidebar: React.FC = () => {
   ];
 
   const handleNavigate = (path: string) => {
-    if (path === '/fiscal' && useCaseStore.getState().activeModule === 'fiscal' && useCaseStore.getState().currentCaseId) {
-      useCaseStore.getState().resetFiscalWork();
-    }
     navigate(path);
-    setActiveTab(path.includes('fiscal') ? 'fiscal-home' : 'analysis');
-    if (path.includes('fiscal')) setFiscalGuided(false);
     if (path.includes('ingenieria-juridica')) {
       useCaseStore.getState().switchModule('engineering');
-    } else if (path.includes('fiscal')) {
-      useCaseStore.getState().switchModule('fiscal');
     }
     if (isMobile) {
       setSidebarOpen(false);
@@ -146,7 +114,7 @@ export const Sidebar: React.FC = () => {
       <div className={cn(
         "absolute inset-0 bg-gradient-to-b pointer-events-none opacity-20",
         useCaseStore.getState().activeModule === 'engineering' ? "from-blue-500/20 via-transparent to-transparent" :
-        useCaseStore.getState().activeModule === 'fiscal' ? "from-emerald-500/20 via-transparent to-transparent" :
+        useCaseStore.getState().activeModule === 'fiscal' ? "from-blue-500/20 via-transparent to-transparent" :
         "from-slate-500/20 via-transparent to-transparent"
       )} />
 
@@ -154,7 +122,7 @@ export const Sidebar: React.FC = () => {
         <button
           type="button"
           className="flex min-w-0 items-center gap-3 overflow-hidden text-left"
-          onClick={() => handleNavigate('/instructivo')}
+          onClick={() => handleNavigate('/ingenieria-juridica')}
           aria-label="Ir a Inicio"
         >
           <div className="w-8 h-8 flex items-center justify-center shrink-0 transition-transform hover:scale-105">
@@ -260,33 +228,35 @@ export const Sidebar: React.FC = () => {
                 </button>
 
                 {item.subItems && isActive && !visuallyCollapsed && (
-                  <div className="mx-2 mb-2 mt-1 space-y-0.5 border-l border-emerald-500/25 pl-2">
-                    {item.subItems.map((sub) => (
-                      <button
-                        type="button"
-                        key={sub.tab}
-                        onClick={() => {
-                          setFiscalGuided(false);
-                          setActiveTab(sub.tab);
-                          if (isMobile) setSidebarOpen(false);
-                          else setTemporarilyExpanded(false);
-                        }}
-                        aria-current={activeTab === sub.tab ? 'page' : undefined}
-                        aria-label={sub.label}
-                        className={cn(
-                          "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-200 min-w-0 group/sub cursor-pointer",
-                          activeTab === sub.tab
-                            ? `text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 shadow-sm`
-                            : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 border border-transparent'
-                        )}
-                      >
-                        <span className={cn(
-                          "flex-shrink-0 transition-transform duration-200",
-                          activeTab === sub.tab ? "scale-110" : "group-hover/sub:scale-110"
-                        )}>{sub.icon}</span>
-                        <span className="truncate">{sub.label}</span>
-                      </button>
-                    ))}
+                  <div className="mx-2 mb-2 mt-1 space-y-0.5 border-l border-blue-400/25 pl-2">
+                    {item.subItems.map((sub) => {
+                      const isSubActive = currentEngineeringTab === sub.tab;
+                      return (
+                        <button
+                          type="button"
+                          key={sub.tab}
+                          onClick={() => {
+                            navigate(`/ingenieria-juridica?tab=${sub.tab}`);
+                            if (isMobile) setSidebarOpen(false);
+                            else setTemporarilyExpanded(false);
+                          }}
+                          aria-current={isSubActive ? 'page' : undefined}
+                          aria-label={sub.label}
+                          className={cn(
+                            "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-200 min-w-0 group/sub cursor-pointer",
+                            isSubActive
+                              ? `text-blue-300 bg-blue-500/10 border border-blue-500/20 shadow-xs`
+                              : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 border border-transparent'
+                          )}
+                        >
+                          <span className={cn(
+                            "flex-shrink-0 transition-transform duration-200",
+                            isSubActive ? "scale-110" : "group-hover/sub:scale-110"
+                          )}>{sub.icon}</span>
+                          <span className="truncate">{sub.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assessLegalEvidence, getPreferredLawCodes } from './legal-relevance';
+import { assessLegalEvidence, getExplicitProvisionTarget, getPreferredLawCodes } from './legal-relevance';
 
 describe('legal evidence sufficiency gate', () => {
   it('accepts an exact law and provision reference', () => {
@@ -40,5 +40,49 @@ describe('legal evidence sufficiency gate', () => {
 
   it('narrows a VAT query to LIVA and its regulation', () => {
     expect([...getPreferredLawCodes('requisitos para acreditar el impuesto al valor agregado')]).toEqual(['LIVA', 'RLIVA']);
+  });
+});
+
+describe('legal relevance explicit references', () => {
+  it('does not treat the Spanish article la as the Ley Aduanera code', () => {
+    expect(getExplicitProvisionTarget('Que establece la regla 11.18.2 de la RMF?')).toEqual({
+      lawCode: 'RMF',
+      kind: 'rule',
+      id: '11.18.2',
+    });
+    expect(getExplicitProvisionTarget('Como define la sociedad anonima la LGSM articulo 87?')).toEqual({
+      lawCode: 'LGSM',
+      kind: 'article',
+      id: '87',
+    });
+  });
+
+  it('still detects actual Ley Aduanera references', () => {
+    expect(getExplicitProvisionTarget('Ley Aduanera articulo 36 pedimento')).toEqual({
+      lawCode: 'LA',
+      kind: 'article',
+      id: '36',
+    });
+    expect(getExplicitProvisionTarget('LA articulo 59 valor en aduana')).toEqual({
+      lawCode: 'LA',
+      kind: 'article',
+      id: '59',
+    });
+  });
+
+  it('qualifies exact RMF and LGSM explicit references', () => {
+    expect(assessLegalEvidence('Que establece la regla 11.18.2 de la RMF?', {
+      law_code: 'RMF',
+      article_number: 'Regla 11.18.2',
+      content: 'Operacion: adicion.',
+      similarity: 1,
+    }).reason).toBe('explicit_reference');
+
+    expect(assessLegalEvidence('Como define la sociedad anonima la LGSM articulo 87?', {
+      law_code: 'LGSM',
+      article_number: 'Articulo 87',
+      content: 'Sociedad anonima es la que existe bajo una denominacion.',
+      similarity: 1,
+    }).sufficient).toBe(true);
   });
 });

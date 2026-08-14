@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, BriefcaseBusiness, Clock, Download, FileSearch, FileSignature, FolderOpen, Layers3, Loader2, Plus, Trash2, X } from 'lucide-react';
+import { ArrowRight, BriefcaseBusiness, Clock, Download, FileSearch, FileSignature, FolderOpen, Layers3, Loader2, Plus, ShieldAlert, Trash2, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { useNavigate } from 'react-router-dom';
@@ -24,6 +24,7 @@ export const Portafolio: React.FC = () => {
   const { notify, setActiveTab, setFiscalGuided } = useUiStore();
   const {
     engineeringDraftingHistory,
+    engineeringAnalysisHistory,
     fiscalAnalysisHistory,
     fiscalDraftingHistory,
     fiscalOperationState,
@@ -64,9 +65,13 @@ export const Portafolio: React.FC = () => {
             module,
             activityType: 'drafting',
           }));
-          const analyses = module === 'fiscal'
-            ? (fullData.analyses || []).map((analysis: any) => ({ ...analysis, caseId: item.id, module, activityType: 'analysis', resolvedEvidenceIds }))
-            : [];
+          const analyses = (fullData.analyses || []).map((analysis: any) => ({
+            ...analysis,
+            caseId: item.id,
+            module,
+            activityType: 'analysis',
+            resolvedEvidenceIds: module === 'fiscal' ? resolvedEvidenceIds : undefined,
+          }));
           return [...drafts, ...analyses];
         } catch {
           return [];
@@ -91,6 +96,7 @@ export const Portafolio: React.FC = () => {
   const allActivity = useMemo(() => {
     const live = [
       ...engineeringDraftingHistory.map((item) => ({ ...item, caseId: currentCaseId, module: 'engineering', activityType: 'drafting' })),
+      ...engineeringAnalysisHistory.map((item) => ({ ...item, caseId: currentCaseId, module: 'engineering', activityType: 'analysis' })),
       ...fiscalDraftingHistory.map((item) => ({ ...item, caseId: currentCaseId, module: 'fiscal', activityType: 'drafting' })),
       ...fiscalAnalysisHistory.map((item) => ({ ...item, caseId: currentCaseId, module: 'fiscal', activityType: 'analysis', resolvedEvidenceIds: fiscalOperationState.resolvedEvidenceIds })),
     ];
@@ -103,7 +109,7 @@ export const Portafolio: React.FC = () => {
         return true;
       })
       .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
-  }, [currentCaseId, engineeringDraftingHistory, fiscalAnalysisHistory, fiscalDraftingHistory, fiscalOperationState.resolvedEvidenceIds, persistedActivity]);
+  }, [currentCaseId, engineeringDraftingHistory, engineeringAnalysisHistory, fiscalAnalysisHistory, fiscalDraftingHistory, fiscalOperationState.resolvedEvidenceIds, persistedActivity]);
 
   const filtered = allActivity.filter((item) => filter === 'all' || item.activityType === filter);
   const documentCount = allActivity.filter((item) => item.activityType === 'drafting').length;
@@ -111,19 +117,16 @@ export const Portafolio: React.FC = () => {
 
   const resumeCase = async (savedCase: typeof recentCases[number]) => {
     await loadCase(savedCase);
-    if (savedCase.module === 'fiscal') {
-      setFiscalGuided(false);
-      setActiveTab(useCaseStore.getState().fiscalOperationState.lastActiveTab || 'fiscal-home');
-      navigate('/fiscal');
-    } else {
-      setActiveTab('drafting');
-      navigate('/ingenieria-juridica');
-    }
+    navigate('/ingenieria-juridica');
   };
 
-  const titleFor = (item: any) => item.activityType === 'drafting'
-    ? item.templateTitle || item.referenceFileName || 'Documento jurídico'
-    : item.files?.[0]?.name ? `Revisión fiscal · ${item.files[0].name}` : item.result?.documentType || 'Revisión fiscal';
+  const titleFor = (item: any) => {
+    if (item.activityType === 'drafting') {
+      return item.templateTitle || item.referenceFileName || 'Documento jurídico';
+    }
+    const areaLabel = item.module === 'fiscal' ? 'Revisión fiscal' : 'Análisis jurídico';
+    return item.files?.[0]?.name ? `${areaLabel} · ${item.files[0].name}` : item.result?.documentType || areaLabel;
+  };
 
   const bodyFor = (item: any) => {
     if (item.activityType === 'drafting') return item.generatedDoc || 'Sin contenido disponible.';
@@ -159,16 +162,16 @@ export const Portafolio: React.FC = () => {
       : '';
     return [
       `## Resumen\n${result.summary || 'Sin resumen.'}`,
-      `**Tipo:** ${result.documentType || 'Revisión fiscal'}  \n**Estado:** ${reviewStatus}  \n**Motor:** ${result.engine || 'No indicado'}`,
+      `**Tipo:** ${result.documentType || (item.module === 'fiscal' ? 'Revisión fiscal' : 'Análisis jurídico')}  \n**Estado:** ${reviewStatus}  \n**Motor:** ${result.engine || 'No indicado'}`,
       result.detectedParties?.length ? `## Participantes\n${bullets(result.detectedParties)}` : '',
       result.detectedObligations?.length ? `## Requisitos identificados\n${bullets(result.detectedObligations)}` : '',
-      risks ? `## Hallazgos\n${risks}` : '',
-      [...(result.missingClauses || []), ...(result.missingData || [])].length ? `## Información o evidencia pendiente\n${bullets([...(result.missingClauses || []), ...(result.missingData || [])])}` : '',
+      risks ? `## Hallazgos y riesgos\n${risks}` : '',
+      [...(result.missingClauses || []), ...(result.missingData || [])].length ? `## Información o cláusulas pendientes\n${bullets([...(result.missingClauses || []), ...(result.missingData || [])])}` : '',
       result.checklist?.length ? `## Lista de revisión\n${bullets(result.checklist)}` : '',
       categories ? `## Pilares\n${categories}` : '',
       evidenceMatrix ? `## Evidencia y pendientes\n${evidenceMatrix}` : '',
       foundations ? `## Referencias normativas\n${foundations}` : '',
-      result.recommendedActions?.length ? `## Siguientes acciones\n${bullets(result.recommendedActions)}` : '',
+      result.recommendedActions?.length ? `## Siguientes acciones recomendadas\n${bullets(result.recommendedActions)}` : '',
     ].filter(Boolean).join('\n\n');
   };
 
@@ -182,9 +185,13 @@ export const Portafolio: React.FC = () => {
         if (result.success) notify('Documento exportado en PDF.', 'success');
       } else {
         const result = selectedActivity.result || {};
+        const isFiscal = selectedActivity.module === 'fiscal';
+        const moduleName = isFiscal ? 'Lex Corporativo · Estrategia Fiscal & SAT' : 'Lex Corporativo · Ingeniería Jurídica';
+        const subtitle = isFiscal ? 'Estrategia Fiscal & SAT' : 'Ingeniería Jurídica';
+        const prefix = isFiscal ? 'Revision_Fiscal' : 'Analisis_Juridico';
         await generateAnalysisPDF({
           title: titleFor(selectedActivity),
-          subtitle: 'Fiscal',
+          subtitle,
           riskScore: Number(result.riskScore) || 0,
           summary: result.summary || 'Sin resumen.',
           pillars: [
@@ -194,10 +201,10 @@ export const Portafolio: React.FC = () => {
           ],
           risks: result.risks?.map((risk: any) => `${risk.title}: ${risk.explanation}`) || [],
           recommendation: result.recommendedActions?.join('\n') || 'Sin acciones registradas.',
-          moduleName: 'Lex Corporativo · Fiscal',
-          filenamePrefix: 'Revision_Fiscal',
+          moduleName,
+          filenamePrefix: prefix,
         });
-        notify('Revisión exportada en PDF.', 'success');
+        notify('Análisis exportado en PDF.', 'success');
       }
     } catch (error: any) {
       notify(error?.message || 'No se pudo exportar el documento.', 'error');
@@ -214,9 +221,9 @@ export const Portafolio: React.FC = () => {
       notify('No se pudo identificar el archivo generado.', 'error');
       return;
     }
-    const label = item.activityType === 'analysis' ? 'esta revisión fiscal' : 'este documento generado';
+    const label = item.activityType === 'analysis' ? 'este análisis' : 'este documento generado';
     const accepted = await confirm({
-      title: `Eliminar ${item.activityType === 'analysis' ? 'revisión fiscal' : 'documento'}`,
+      title: `Eliminar ${item.activityType === 'analysis' ? 'análisis' : 'documento'}`,
       message: `¿Eliminar ${label}? Se quitará permanentemente del Portafolio local.`,
       confirmLabel: 'Eliminar',
       cancelLabel: 'Cancelar',
@@ -232,7 +239,7 @@ export const Portafolio: React.FC = () => {
           await window.lexDesktop.cases.deleteAnalysis({
             caseId: item.caseId,
             analysisId: artifactId,
-            expectedModule: 'fiscal',
+            expectedModule: item.module === 'fiscal' ? 'fiscal' : 'engineering',
           });
         } else {
           await window.lexDesktop.cases.deleteDraft({
@@ -245,7 +252,7 @@ export const Portafolio: React.FC = () => {
       removeGeneratedArtifact(artifactId, item.activityType, item.module === 'fiscal' ? 'fiscal' : 'engineering', item.generatedDoc);
       setPersistedActivity((current) => current.filter((entry) => activityKey(entry) !== key));
       if (selectedActivity && activityKey(selectedActivity) === key) setSelectedActivity(null);
-      notify(item.activityType === 'analysis' ? 'Revisión eliminada del Portafolio.' : 'Documento eliminado del Portafolio.', 'success');
+      notify(item.activityType === 'analysis' ? 'Análisis eliminado del Portafolio.' : 'Documento eliminado del Portafolio.', 'success');
     } catch (error: any) {
       notify(error?.message || 'No se pudo eliminar el archivo generado.', 'error');
     } finally {
@@ -262,8 +269,8 @@ export const Portafolio: React.FC = () => {
             <div><h1 className="font-serif text-2xl font-bold text-slate-950">Actividad local</h1><p className="mt-0.5 text-sm text-slate-500">Trabajos, documentos y revisiones guardados en este equipo.</p></div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => { setActiveTab('drafting'); navigate('/ingenieria-juridica'); }} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-100"><FileSignature size={16} /> Nuevo documento</button>
-            <button type="button" onClick={() => { useCaseStore.getState().resetFiscalWork(); setActiveTab('fiscal-home'); navigate('/fiscal'); }} className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-slate-900 px-4 text-sm font-bold text-white hover:bg-slate-800"><Plus size={16} /> Abrir Fiscal</button>
+            <button type="button" onClick={() => { setActiveTab('drafting'); navigate('/ingenieria-juridica?tab=drafting'); }} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white hover:bg-slate-800 shadow-xs"><FileSignature size={15} /> Redactar documento</button>
+            <button type="button" onClick={() => { setActiveTab('analysis'); navigate('/ingenieria-juridica?tab=analysis'); }} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-xs"><ShieldAlert size={15} /> Auditar contrato</button>
           </div>
         </div>
       </header>
@@ -272,7 +279,7 @@ export const Portafolio: React.FC = () => {
         <section className="grid gap-3 sm:grid-cols-3" aria-label="Resumen del portafolio">
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-700"><Layers3 size={17} /></span><strong className="mt-3 block text-2xl font-black text-slate-950">{recentCases.length}</strong><span className="text-xs font-semibold text-slate-500">Trabajos guardados</span></div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-700"><FileSignature size={17} /></span><strong className="mt-3 block text-2xl font-black text-slate-950">{documentCount}</strong><span className="text-xs font-semibold text-slate-500">Documentos generados</span></div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><FileSearch size={17} /></span><strong className="mt-3 block text-2xl font-black text-slate-950">{reviewCount}</strong><span className="text-xs font-semibold text-slate-500">Revisiones fiscales</span></div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-700"><FileSearch size={17} /></span><strong className="mt-3 block text-2xl font-black text-slate-950">{reviewCount}</strong><span className="text-xs font-semibold text-slate-500">Revisiones corporativas</span></div>
         </section>
 
         {recentCases.length > 0 && (
@@ -284,8 +291,8 @@ export const Portafolio: React.FC = () => {
                 const fiscal = savedCase.module === 'fiscal';
                 return (
                   <button key={savedCase.id} type="button" onClick={() => void resumeCase(savedCase)} className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-slate-300 hover:shadow-md">
-                    <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', fiscal ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700')}>{fiscal ? <BriefcaseBusiness size={19} /> : <FileSignature size={19} />}</span>
-                    <span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-slate-900">{savedCase.name}</span><span className="mt-1 block text-xs text-slate-500">{fiscal ? 'Fiscal' : 'Ingeniería Jurídica'} · {itemCount} {itemCount === 1 ? 'entregable' : 'entregables'}</span></span>
+                    <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', fiscal ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700')}>{fiscal ? <BriefcaseBusiness size={19} /> : <FileSignature size={19} />}</span>
+                    <span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-slate-900">{savedCase.name}</span><span className="mt-1 block text-xs text-slate-500">{fiscal ? 'Corporativo' : 'Ingeniería Jurídica'} · {itemCount} {itemCount === 1 ? 'entregable' : 'entregables'}</span></span>
                     <ArrowRight size={16} className="text-slate-400 transition group-hover:translate-x-1" />
                   </button>
                 );
@@ -297,7 +304,7 @@ export const Portafolio: React.FC = () => {
         <section className="mt-8" aria-labelledby="portfolio-activity-title">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div><h2 id="portfolio-activity-title" className="text-sm font-bold text-slate-900">Entregables y revisiones</h2><div className="mt-3 inline-flex rounded-lg border border-slate-200 bg-white p-1">
-            {([['all', 'Todo'], ['drafting', 'Documentos'], ['analysis', 'Revisiones fiscales']] as const).map(([value, label]) => (
+            {([['all', 'Todo'], ['drafting', 'Documentos'], ['analysis', 'Revisiones corporativas']] as const).map(([value, label]) => (
               <button key={value} type="button" onClick={() => setFilter(value)} className={cn('rounded-md px-3 py-2 text-sm font-semibold transition', filter === value ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100')}>{label}</button>
             ))}
           </div></div>
@@ -310,16 +317,16 @@ export const Portafolio: React.FC = () => {
           <div className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-6 text-center">
             <FolderOpen size={32} className="text-slate-300" />
             <h2 className="mt-4 text-lg font-bold text-slate-950">{allActivity.length ? 'No hay resultados en este filtro' : 'Tu portafolio está vacío'}</h2>
-            <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">{allActivity.length ? 'Selecciona otro tipo de actividad.' : 'Abre Fiscal o Documentos y contratos para comenzar.'}</p>
+            <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">{allActivity.length ? 'Selecciona otro tipo de actividad.' : 'Abre Corporativo o Documentos y contratos para comenzar.'}</p>
           </div>
         ) : (
           <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
             {filtered.map((item, index) => (
               <motion.div key={`${item.caseId || 'memory'}:${item.activityType}:${item.id || index}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center transition hover:bg-slate-50">
                 <button type="button" onClick={() => setSelectedActivity(item)} className="flex min-w-0 flex-1 items-center gap-4 px-5 py-4 text-left">
-                  <span className={cn('rounded-lg p-2.5', item.activityType === 'drafting' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700')}>{item.activityType === 'drafting' ? <FileSignature size={20} /> : <FileSearch size={20} />}</span>
+                  <span className={cn('rounded-lg p-2.5', item.activityType === 'drafting' ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700')}>{item.activityType === 'drafting' ? <FileSignature size={20} /> : <FileSearch size={20} />}</span>
                   <span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-slate-900">{titleFor(item)}</span><span className="mt-1 flex items-center gap-1.5 text-xs text-slate-500"><Clock size={12} />{item.timestamp ? new Date(item.timestamp).toLocaleString() : 'Sin fecha'}</span></span>
-                  <span className="text-xs font-semibold text-slate-500">{item.activityType === 'drafting' ? (item.area || 'Documento') : 'Fiscal'}</span>
+                  <span className="text-xs font-semibold text-slate-500">{item.activityType === 'drafting' ? (item.area || 'Documento') : 'Corporativo'}</span>
                 </button>
                 <button type="button" onClick={() => void deleteActivity(item)} disabled={deletingKey === activityKey(item)} className="mr-4 rounded-lg p-2.5 text-slate-400 transition hover:bg-red-50 hover:text-red-700 disabled:opacity-40" aria-label={`Eliminar ${titleFor(item)}`} title="Eliminar del Portafolio">
                   {deletingKey === activityKey(item) ? <Loader2 size={17} className="animate-spin" /> : <Trash2 size={17} />}

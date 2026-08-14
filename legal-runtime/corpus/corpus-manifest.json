@@ -10,9 +10,9 @@
     "unknownDatesMustRemainNull": true
   },
   "summary": {
-    "configuredLaws": 9,
-    "corpusEntries": 4573,
-    "uniqueProvisionKeys": 4573,
+    "configuredLaws": 16,
+    "corpusEntries": 7348,
+    "uniqueProvisionKeys": 7348,
     "duplicateProvisionKeys": 0,
     "duplicateRows": 0,
     "conflictingDuplicateKeys": 0,
@@ -23,9 +23,9 @@
     "engine": "LanceDB",
     "table": "legal_knowledge",
     "exists": true,
-    "fileCount": 7,
-    "totalBytes": 10151045,
-    "sha256": "7f26e1167152417a0ae6475f1fd3354a98dc9127a2aa58b1a2c0b7dc1abe110d"
+    "fileCount": 12,
+    "totalBytes": 16829031,
+    "sha256": "25a93d312639dc02dbcd27c0560080a692113c8d62f21d90b1e15f4ce9f2739b"
   },
   "laws": [
     {
@@ -122,6 +122,251 @@
       "structure": {
         "entries": 440,
         "uniqueProvisionKeys": 440,
+        "duplicateProvisionKeys": 0,
+        "duplicateRows": 0,
+        "conflictingDuplicateKeys": 0,
+        "extractionArtifacts": {
+          "pageMarkers": 0,
+          "replacementCharacters": 0,
+          "total": 0
+        },
+        "duplicates": []
+      }
+    },
+    {
+      "code": "LFT",
+      "name": "Ley Federal del Trabajo",
+      "module": "laboral",
+      "jurisdiction": "MX-FED",
+      "corpusFile": "lft.md",
+      "source": {
+        "authority": "Cámara de Diputados del H. Congreso de la Unión",
+        "type": "official_pdf",
+        "url": "https://www.diputados.gob.mx/LeyesBiblio/pdf/LFT.pdf",
+        "provenance": "official_pdf_direct",
+        "verificationStatus": "verified_against_official_source",
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "officialLastCheckedAt": "2026-08-12"
+      },
+      "file": {
+        "exists": true,
+        "bytes": 1103227,
+        "sha256": "43046a8ab9e6b61ef1ae4087ac4900bbd570db533a5cd6191a42dc8b34519fb6"
+      },
+      "structure": {
+        "entries": 1266,
+        "uniqueProvisionKeys": 1266,
+        "duplicateProvisionKeys": 0,
+        "duplicateRows": 0,
+        "conflictingDuplicateKeys": 0,
+        "extractionArtifacts": {
+          "pageMarkers": 0,
+          "replacementCharacters": 0,
+          "total": 0
+        },
+        "duplicates": []
+      }
+    },
+    {
+      "code": "LCE",
+      "name": "Ley de Comercio Exterior",
+      "module": "comercio_exterior",
+      "jurisdiction": "MX-FED",
+      "corpusFile": "lce.md",
+      "source": {
+        "authority": "Cámara de Diputados del H. Congreso de la Unión",
+        "type": "official_pdf",
+        "url": "https://www.diputados.gob.mx/LeyesBiblio/pdf/LCE.pdf",
+        "provenance": "official_pdf_direct",
+        "verificationStatus": "verified_against_official_source",
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "officialLastCheckedAt": "2026-08-12"
+      },
+      "file": {
+        "exists": true,
+        "bytes": 89689,
+        "sha256": "fe96fa46cd8a28ee40197a12e8c104744368ecf31b17235938e2fab60b1650fb"
+      },
+      "structure": {
+        "entries": 98,
+        "uniqueProvisionKeys": 98,
+        "duplicateProvisionKeys": 0,
+        "duplicateRows": 0,
+        "conflictingDuplicateKeys": 0,
+        "extractionArtifacts": {
+          "pageMarkers": 0,
+          "replacementCharacters": 0,
+          "total": 0
+        },
+        "duplicates": []
+      }
+    },
+    {
+      "code": "RLCE",
+      "name": "Reglamento de la Ley de Comercio Exterior",
+      "module": "comercio_exterior",
+      "jurisdiction": "MX-FED",
+      "corpusFile": "rlce.md",
+      "source": {
+        "authority": "Cámara de Diputados del H. Congreso de la Unión",
+        "type": "official_pdf",
+        "url": "https://www.diputados.gob.mx/LeyesBiblio/regley/Reg_LCE.pdf",
+        "provenance": "official_pdf_direct",
+        "verificationStatus": "verified_against_official_source",
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "officialLastCheckedAt": "2026-08-12"
+      },
+      "file": {
+        "exists": true,
+        "bytes": 166714,
+        "sha256": "1068fcc60c533d065cebc9bb9cc140db25381b88dfa95dcd4cb7e8843f57eef6"
+      },
+      "structure": {
+        "entries": 215,
+        "uniqueProvisionKeys": 215,
+        "duplicateProvisionKeys": 0,
+        "duplicateRows": 0,
+        "conflictingDuplicateKeys": 0,
+        "extractionArtifacts": {
+          "pageMarkers": 0,
+          "replacementCharacters": 0,
+          "total": 0
+        },
+        "duplicates": []
+      }
+    },
+    {
+      "code": "LA",
+      "name": "Ley Aduanera",
+      "module": "aduanal",
+      "jurisdiction": "MX-FED",
+      "corpusFile": "ley_aduanera.md",
+      "source": {
+        "authority": "Cámara de Diputados del H. Congreso de la Unión",
+        "type": "official_pdf",
+        "url": "https://www.diputados.gob.mx/LeyesBiblio/pdf/LAdua.pdf",
+        "provenance": "official_pdf_direct",
+        "verificationStatus": "verified_against_official_source",
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "officialLastCheckedAt": "2026-08-12"
+      },
+      "file": {
+        "exists": true,
+        "bytes": 496755,
+        "sha256": "5a98f1773606bd2181402994301128471273f0f5ee0357743c2c4d09143c698b"
+      },
+      "structure": {
+        "entries": 268,
+        "uniqueProvisionKeys": 268,
+        "duplicateProvisionKeys": 0,
+        "duplicateRows": 0,
+        "conflictingDuplicateKeys": 0,
+        "extractionArtifacts": {
+          "pageMarkers": 0,
+          "replacementCharacters": 0,
+          "total": 0
+        },
+        "duplicates": []
+      }
+    },
+    {
+      "code": "RLA",
+      "name": "Reglamento de la Ley Aduanera",
+      "module": "aduanal",
+      "jurisdiction": "MX-FED",
+      "corpusFile": "rla.md",
+      "source": {
+        "authority": "Cámara de Diputados del H. Congreso de la Unión",
+        "type": "official_pdf",
+        "url": "https://www.diputados.gob.mx/LeyesBiblio/regley/Reg_LAdua.pdf",
+        "provenance": "official_pdf_direct",
+        "verificationStatus": "verified_against_official_source",
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "officialLastCheckedAt": "2026-08-12"
+      },
+      "file": {
+        "exists": true,
+        "bytes": 251025,
+        "sha256": "4e66d08d2157af8d130bdb485293640b2ea50388c30e4f804ba493cf246501ff"
+      },
+      "structure": {
+        "entries": 281,
+        "uniqueProvisionKeys": 281,
+        "duplicateProvisionKeys": 0,
+        "duplicateRows": 0,
+        "conflictingDuplicateKeys": 0,
+        "extractionArtifacts": {
+          "pageMarkers": 0,
+          "replacementCharacters": 0,
+          "total": 0
+        },
+        "duplicates": []
+      }
+    },
+    {
+      "code": "LIGIE",
+      "name": "Ley de los Impuestos Generales de Importación y de Exportación",
+      "module": "aduanal",
+      "jurisdiction": "MX-FED",
+      "corpusFile": "ligie.md",
+      "source": {
+        "authority": "Cámara de Diputados del H. Congreso de la Unión",
+        "type": "official_pdf",
+        "url": "https://www.diputados.gob.mx/LeyesBiblio/pdf/LIGIE_2022.pdf",
+        "provenance": "official_pdf_direct",
+        "verificationStatus": "verified_against_official_source",
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "officialLastCheckedAt": "2026-08-12"
+      },
+      "file": {
+        "exists": true,
+        "bytes": 1649588,
+        "sha256": "a9b4842998807183058ec7a30a4147bdcb0a96c920c2d81a28fcd75fe499424d"
+      },
+      "structure": {
+        "entries": 97,
+        "uniqueProvisionKeys": 97,
+        "duplicateProvisionKeys": 0,
+        "duplicateRows": 0,
+        "conflictingDuplicateKeys": 0,
+        "extractionArtifacts": {
+          "pageMarkers": 0,
+          "replacementCharacters": 0,
+          "total": 0
+        },
+        "duplicates": []
+      }
+    },
+    {
+      "code": "RGCE",
+      "name": "Reglas Generales de Comercio Exterior para 2026",
+      "module": "aduanal",
+      "jurisdiction": "MX-FED",
+      "corpusFile": "rgce_2026.md",
+      "source": {
+        "authority": "Servicio de Administración Tributaria",
+        "type": "official_pdf",
+        "url": "https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rgce/compiladas/1raRMRGCEpara2026.pdf",
+        "provenance": "official_sat_compilation_pdf",
+        "verificationStatus": "verified_against_official_source",
+        "effectiveFrom": null,
+        "effectiveTo": null,
+        "officialLastCheckedAt": "2026-08-12"
+      },
+      "file": {
+        "exists": true,
+        "bytes": 1578141,
+        "sha256": "fdc8e9f66a106179c6371d3f527a1017ca1d5d3e2cff2c1062ef02b99e223e8c"
+      },
+      "structure": {
+        "entries": 550,
+        "uniqueProvisionKeys": 550,
         "duplicateProvisionKeys": 0,
         "duplicateRows": 0,
         "conflictingDuplicateKeys": 0,
@@ -349,5 +594,5 @@
     "status": "pass",
     "failures": []
   },
-  "artifactSha256": "825356d7d3e985be4534dabdfd2f067be37501558fd38631b3dcd6f423dab5e0"
+  "artifactSha256": "14e0018e0e594641fefa38267f0972011281c2654f83bcc875f54cc7d9cdf66b"
 }
