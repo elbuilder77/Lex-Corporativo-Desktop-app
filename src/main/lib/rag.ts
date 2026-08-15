@@ -327,19 +327,6 @@ function synchronizePackagedLegalKnowledge(userDataPath: string, bundledPath: st
   }
 }
 
-async function listUserDocumentRows(table: lancedb.Table): Promise<any[]> {
-  return table.query().where('id IS NOT NULL').limit(1_000_000).toArray();
-}
-
-async function deleteUserDocumentRowsById(table: lancedb.Table, ids: string[]): Promise<void> {
-  for (let index = 0; index < ids.length; index += 100) {
-    const predicate = ids
-      .slice(index, index + 100)
-      .map(id => `id = '${escapeSqlLiteral(id)}'`)
-      .join(' OR ');
-    await table.delete(predicate);
-  }
-}
 
 export async function isLocalRagAvailable(): Promise<boolean> {
   const dbPath = getLocalRagPath();
@@ -715,14 +702,10 @@ export async function indexUserDocument(input: IndexUserDocumentInput): Promise<
   if (tableNames.includes('user_documents')) {
     const table = await db.openTable('user_documents');
     try {
-      const existingRows = await listUserDocumentRows(table);
-      const duplicateIds = existingRows
-        .filter((row: any) => row.requestId === input.requestId && row.contentHash === input.contentHash)
-        .map((row: any) => String(row.id));
-      await deleteUserDocumentRowsById(table, duplicateIds);
+      await table.delete(`requestId = '${escapeSqlLiteral(input.requestId)}' AND contentHash = '${escapeSqlLiteral(input.contentHash)}'`);
       await table.add(records);
     } catch (err: any) {
-      console.warn('[RAG Local] Recreating user_documents due to incompatible schema:', err.message || err);
+      console.warn('[RAG Local] Recreating user_documents due to incompatible schema or corrupted table:', err.message || err);
       await db.dropTable('user_documents');
       const recreated = await db.createTable('user_documents', records);
       await recreated.createIndex('requestId', { config: lancedb.Index.btree() }).catch(() => undefined);
@@ -752,16 +735,13 @@ export async function cleanupUserDocumentRequest(requestId: string): Promise<voi
   try {
     const db = await lancedb.connect(dbPath);
     const table = await db.openTable('user_documents');
-    const rows = await listUserDocumentRows(table);
-    const ids = rows
-      .filter((row: any) => row.requestId === requestId)
-      .map((row: any) => String(row.id));
-    await deleteUserDocumentRowsById(table, ids);
-    console.info(`[RAG Local] Cleared ${ids.length} temporary chunks for request ${requestId.slice(0, 8)}...`);
+    await table.delete(`requestId = '${escapeSqlLiteral(requestId)}'`);
+    console.info(`[RAG Local] Cleared temporary chunks for request ${requestId.slice(0, 8)}...`);
   } catch (err: any) {
     console.warn('[RAG Local] Failed to clear temporary user document chunks:', err.message || err);
   }
 }
+
 
 export async function purgeExpiredUserDocuments(
   maxAgeMs = USER_DOCUMENT_TTL_MS,
@@ -779,19 +759,12 @@ export async function purgeExpiredUserDocuments(
     const table = await db.openTable('user_documents');
     const cutoffMs = nowMs - maxAgeMs;
     const cutoff = new Date(cutoffMs).toISOString();
-    const rows = await listUserDocumentRows(table);
-    const expiredIds = rows
-      .filter((row: any) => {
-        const indexedAtMs = Date.parse(String(row.indexedAt || ''));
-        // Legacy rows without a trustworthy timestamp cannot prove they are
-        // within policy, so remove them instead of retaining them indefinitely.
-        return !Number.isFinite(indexedAtMs) || indexedAtMs < cutoffMs;
-      })
-      .map((row: any) => String(row.id));
 
-    await deleteUserDocumentRowsById(table, expiredIds);
+    const countBefore = await table.countRows();
+    await table.delete(`indexedAt < '${cutoff}' OR indexedAt IS NULL`);
+    const countAfter = await table.countRows();
+    const deleted = Math.max(0, countBefore - countAfter);
 
-    const deleted = expiredIds.length;
     if (deleted > 0) {
       console.info(`[RAG Local] Purged ${deleted} temporary user-document chunks older than ${cutoff}.`);
     }
@@ -801,3 +774,6 @@ export async function purgeExpiredUserDocuments(
     return 0;
   }
 }
+
+
+

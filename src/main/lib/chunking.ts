@@ -2,6 +2,7 @@ export interface ChunkOptions {
   chunkSize?: number;
   chunkOverlap?: number;
   separators?: string[];
+  preserveLegalBoundaries?: boolean;
 }
 
 export interface PageTextInput {
@@ -13,11 +14,15 @@ export interface DocumentChunk {
   chunkIndex: number;
   text: string;
   pageNumber?: number;
+  sectionHeading?: string;
 }
 
 const DEFAULT_SEPARATORS = ['\n\n', '\n', '. ', ' '];
-const DEFAULT_CHUNK_SIZE = 1000;
+const DEFAULT_CHUNK_SIZE = 1200;
 const DEFAULT_CHUNK_OVERLAP = 200;
+
+// Regex patterns to identify key Mexican legal section/clause boundaries
+const LEGAL_SECTION_SPLIT_REGEX = /(?=(?:^|\n)(?:(?:CL[AÁ]USULAS?|DECLARACIONES|ANTECEDENTES|CAP[IÍ]TULO|SECCI[OÓ]N|TRANSITORIOS?)\b|(?:(?:CL[AÁ]USULA\s+)?(?:PRIMERA|SEGUNDA|TERCERA|CUARTA|QUINTA|SEXTA|S[EÉ]PTIMA|OCTAVA|NOVENA|D[EÉ]CIMA(?:(?:\s+PRIMERA|\s+SEGUNDA|\s+TERCERA|\s+CUARTA|\s+QUINTA|\s+SEXTA|\s+S[EÉ]PTIMA|\s+OCTAVA|\s+NOVENA)?)|VIG[EÉ]SIMA(?:(?:\s+PRIMERA|\s+SEGUNDA|\s+TERCERA|\s+CUARTA|\s+QUINTA|\s+SEXTA|\s+S[EÉ]PTIMA|\s+OCTAVA|\s+NOVENA)?)|TRIG[EÉ]SIMA)|[A-Z0-9_.-]+)\s*[\.\:\-]|(?:ART[IÍ]CULO|REGLA)\s+\d+(?:[\.\-][A-Z0-9]+)?))/i;
 
 function resolveChunkOptions(options: ChunkOptions = {}): Required<ChunkOptions> {
   const chunkSize = Math.max(1, options.chunkSize ?? DEFAULT_CHUNK_SIZE);
@@ -27,17 +32,53 @@ function resolveChunkOptions(options: ChunkOptions = {}): Required<ChunkOptions>
     chunkSize,
     chunkOverlap: Math.min(requestedOverlap, Math.max(0, chunkSize - 1)),
     separators: options.separators ?? DEFAULT_SEPARATORS,
+    preserveLegalBoundaries: options.preserveLegalBoundaries ?? true,
   };
 }
 
 export function chunkText(text: string, options: ChunkOptions = {}): string[] {
   if (!text || !text.trim()) return [];
 
-  const { chunkSize, chunkOverlap, separators } = resolveChunkOptions(options);
+  const { chunkSize, chunkOverlap, separators, preserveLegalBoundaries } = resolveChunkOptions(options);
   const normalizedText = text.trim();
 
   if (normalizedText.length <= chunkSize) {
     return [normalizedText];
+  }
+
+  if (preserveLegalBoundaries) {
+    const rawSections = normalizedText
+      .split(LEGAL_SECTION_SPLIT_REGEX)
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+
+    if (rawSections.length > 1) {
+      const chunks: string[] = [];
+      let currentAcc: string[] = [];
+
+      for (const section of rawSections) {
+        const candidate = [...currentAcc, section].join('\n\n');
+        if (candidate.length <= chunkSize) {
+          currentAcc.push(section);
+        } else {
+          if (currentAcc.length > 0) {
+            chunks.push(currentAcc.join('\n\n'));
+            currentAcc = [];
+          }
+          if (section.length > chunkSize) {
+            chunks.push(...recursiveSplit(section, chunkSize, chunkOverlap, separators));
+          } else {
+            currentAcc = [section];
+          }
+        }
+      }
+
+      if (currentAcc.length > 0) {
+        chunks.push(currentAcc.join('\n\n'));
+      }
+
+      return chunks;
+    }
   }
 
   return recursiveSplit(normalizedText, chunkSize, chunkOverlap, separators);

@@ -10,15 +10,22 @@ export const EMBEDDING_TASK_TYPES = {
 } as const;
 
 // ── File Validation ──────────────────────────────────────
-export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+export const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 export const MAX_FILE_COUNT = 5;
 export const ALLOWED_FILE_TYPES = [
   'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword',
+  'application/xml',
+  'text/xml',
+  'text/plain',
+  'text/markdown',
   'image/jpeg',
   'image/png',
   'image/webp',
   'image/gif',
 ];
+
 
 // ── Default Chat Messages ─────────────────────────────────
 export const INITIAL_FISCAL_MESSAGE = {
@@ -176,6 +183,24 @@ export const MERCANTIL_DRAFTING_TEMPLATES: DraftingTemplate[] = [
     output: 'Cláusula de jurisdicción con sometimiento expreso.',
     intentGroup: 'Corregir / Blindar',
   },
+  {
+    id: 'mercantil-nda-bilateral',
+    title: 'Convenio de Confidencialidad (NDA Bilateral)',
+    description: 'Protección de secretos industriales, know-how y datos de negocio con penas por fuga.',
+    prompt: 'Convenio bilateral de confidencialidad y no divulgación (NDA) para intercambio de información técnica, societaria y financiera, con vigencia extendida, exclusiones estándar y pena convencional.',
+    requiredFields: ['Parte A', 'Parte B', 'Información Confidencial', 'Finalidad del intercambio', 'Plazo de protección', 'Pena por violación'],
+    output: 'Contrato de NDA bilateral con blindaje de secretos industriales.',
+    intentGroup: 'Proteger información',
+  },
+  {
+    id: 'mercantil-cesion-derechos',
+    title: 'Cesión de Derechos de Cobro',
+    description: 'Transmisión formal de derechos de crédito litigiosos o comerciales con notificación a deudor.',
+    prompt: 'Contrato de cesión de derechos de cobro y créditos mercantiles, con estipulación de precio de cesión, garantías sobre la existencia del crédito y modelo de notificación al deudor cedido.',
+    requiredFields: ['Cedente', 'Cesionario', 'Deudor cedido', 'Crédito o factura objeto', 'Precio de cesión', 'Obligación de notificación'],
+    output: 'Contrato de cesión de derechos mercantiles y formato anexo de notificación.',
+    intentGroup: 'Cobrar / Garantizar',
+  },
 ];
 
 // ── Laboral Drafting Templates ────────────────────────────
@@ -215,6 +240,24 @@ export const LABORAL_DRAFTING_TEMPLATES: DraftingTemplate[] = [
     requiredFields: ['Patrón', 'Persona trabajadora', 'Fecha de terminación', 'Conceptos de pago', 'Bienes a devolver', 'Ratificación o autoridad', 'Liberaciones'],
     output: 'Convenio de terminación laboral para revisión antes de firma.',
     intentGroup: 'Cerrar relación',
+  },
+  {
+    id: 'laboral-acta-administrativa',
+    title: 'Acta Administrativa Laboral',
+    description: 'Instrumento circunstanciado de hechos, pruebas y declaraciones por faltas laborales.',
+    prompt: 'Acta administrativa de hechos para documentar faltas de asistencia, desobediencia o incumplimientos contractuales conforme al Art. 47 de la LFT, con declaraciones de testigos y descargos.',
+    requiredFields: ['Patrón', 'Trabajador imputado', 'Lugar y fecha', 'Hechos circunstanciados', 'Testigos', 'Manifestaciones del trabajador'],
+    output: 'Acta administrativa circunstanciada lista para firmas.',
+    intentGroup: 'Disciplina y cumplimiento',
+  },
+  {
+    id: 'laboral-politica-prevencion-acoso',
+    title: 'Protocolo NOM-035 y No Discriminación',
+    description: 'Política interna obligatoria de prevención de factores de riesgo psicosocial y violencia.',
+    prompt: 'Protocolo y política corporativa interna para la prevención de violencia laboral, no discriminación y atención de factores de riesgo psicosocial en cumplimiento con la NOM-035-STPS.',
+    requiredFields: ['Razón social del centro de trabajo', 'Comité de atención', 'Mecanismo de denuncia confidencial', 'Medidas preventivas'],
+    output: 'Protocolo normativo institucional para implementación interna.',
+    intentGroup: 'Disciplina y cumplimiento',
   },
 ];
 
@@ -256,6 +299,15 @@ export const COMERCIO_EXTERIOR_DRAFTING_TEMPLATES: DraftingTemplate[] = [
     output: 'Carta de instrucciones clara para revisión interna y envío al agente aduanal.',
     intentGroup: 'Coordinar despacho',
   },
+  {
+    id: 'comercio_exterior-contrato-flete-internacional',
+    title: 'Contrato de Transporte y Logística Internacional',
+    description: 'Acuerdo con agente de carga (Freight Forwarder) con delimitación de responsabilidades y seguros.',
+    prompt: 'Contrato de prestación de servicios logísticos y transporte internacional de carga, estipulando rutas, tarifas, demoras, cobertura de póliza de seguro y responsabilidades del agente de carga.',
+    requiredFields: ['Usuario / Embarcador', 'Freight Forwarder', 'Ruta y modalidades de transporte', 'Tarifas y demoras', 'Póliza de seguro', 'Límites de responsabilidad'],
+    output: 'Contrato logístico internacional con clausulado operativo.',
+    intentGroup: 'Coordinar despacho',
+  },
 ];
 
 // ── Aduanal Drafting Templates ────────────────────────────
@@ -295,6 +347,15 @@ export const ADUANAL_DRAFTING_TEMPLATES: DraftingTemplate[] = [
     requiredFields: ['Autoridad', 'Expediente o folio', 'Contribuyente', 'Hechos', 'Documentos anexos', 'Petición concreta', 'Fecha límite'],
     output: 'Borrador de respuesta ordenado para revisión y firma.',
     intentGroup: 'Atender autoridad',
+  },
+  {
+    id: 'aduanal-anexo-24-22-control',
+    title: 'Auditoría y Control IMMEX (Anexo 24)',
+    description: 'Protocolo de revisión de descargos, mermas y temporalidad de mercancías importadas.',
+    prompt: 'Protocolo de control documental y auditoría interna para programa IMMEX, verificando temporalidad de permanencia, reporte de descargos bajo Anexo 24 y control de mermas.',
+    requiredFields: ['Empresa IMMEX', 'Número de programa', 'Período auditado', 'Insumos importados', 'Saldo pendiente de descargo'],
+    output: 'Protocolo y matriz de control aduanal IMMEX.',
+    intentGroup: 'Integrar expediente',
   },
 ];
 
@@ -372,9 +433,19 @@ export const FISCAL_DRAFTING_TEMPLATES: DraftingTemplate[] = [
     output: 'Convenio de dación en pago con cláusula de liberación y finiquito.',
     intentGroup: 'Garantizar / Cobrar',
   },
+  {
+    id: 'fiscal-servicios-repse',
+    title: 'Contrato de Servicios Especializados (REPSE)',
+    description: 'Contrato de servicios u obras especializadas con estricto apego al Art. 15 CFF y 13-15 LFT.',
+    prompt: 'Contrato de prestación de servicios especializados con registro REPSE vigente, delimitación de servicios que no forman parte del objeto social preponderante del cliente, reporte mensual de cuotas IMSS/INFONAVIT y CFDI.',
+    requiredFields: ['Contratista', 'Cliente', 'Folio de registro REPSE', 'Objeto de servicios especializados', 'Número aproximado de trabajadores asignados', 'Entregables mensuales'],
+    output: 'Contrato de servicios especializados con blindaje fiscal y laboral.',
+    intentGroup: 'Contratar / Operar',
+  },
 ];
 
 export type LegalEngineeringArea = 'mercantil' | 'laboral' | 'comercio_exterior' | 'aduanal' | 'fiscal';
+
 
 export const LEGAL_ENGINEERING_TEMPLATES: Record<LegalEngineeringArea, DraftingTemplate[]> = {
   mercantil: MERCANTIL_DRAFTING_TEMPLATES,

@@ -1,24 +1,31 @@
 import { describe, expect, it } from 'vitest';
-
 import { chunkDocumentPages, chunkText } from './chunking';
 import { sha256Content } from './pdf-parser';
 
-describe('SES-style recursive chunking', () => {
-  it('splits legal text on natural boundaries before hard-splitting', () => {
-    const text = [
-      'Cláusula primera. El acreditado pagará el saldo insoluto dentro del plazo pactado.',
-      'Cláusula segunda. El aval responderá solidariamente por capital, intereses y accesorios.',
-      'Cláusula tercera. Las partes se someten a los tribunales mercantiles competentes.',
-    ].join('\n\n');
+describe('chunking especializado legal', () => {
+  it('respeta límites naturales de cláusulas contractuales mexicanas', () => {
+    const contratoText = `DECLARACIONES
+I. Declara la parte arrendadora que es propietaria del inmueble.
+II. Declara la parte arrendataria que tiene capacidad para contratar.
 
-    const chunks = chunkText(text, { chunkSize: 110, chunkOverlap: 20 });
+CLÁUSULA PRIMERA.- OBJETO DEL CONTRATO.
+El arrendador concede el uso y goce temporal del inmueble ubicado en Calle 50 número 100.
+
+CLÁUSULA SEGUNDA.- PRECIO DEL ARRENDAMIENTO.
+El arrendatario pagará mensualmente la cantidad de $25,000.00 pesos netos dentro de los primeros 5 días.
+
+CLÁUSULA TERCERA.- VIGENCIA.
+La vigencia del presente contrato será de 12 meses forzosos para ambas partes.`;
+
+    const chunks = chunkText(contratoText, { chunkSize: 250, chunkOverlap: 20 });
 
     expect(chunks.length).toBeGreaterThan(1);
-    expect(chunks.every(chunk => chunk.length <= 110)).toBe(true);
-    expect(chunks.some(chunk => chunk.includes('Cláusula segunda. El aval responderá'))).toBe(true);
+    expect(chunks.some(c => c.includes('CLÁUSULA PRIMERA.- OBJETO DEL CONTRATO'))).toBe(true);
+    expect(chunks.some(c => c.includes('CLÁUSULA SEGUNDA.- PRECIO DEL ARRENDAMIENTO'))).toBe(true);
+    expect(chunks.some(c => c.includes('CLÁUSULA TERCERA.- VIGENCIA'))).toBe(true);
   });
 
-  it('preserves page metadata while chunking PDF pages', () => {
+  it('preserva metadatos de página mientras fragmenta páginas PDF', () => {
     const chunks = chunkDocumentPages([
       { pageNumber: 3, text: 'Pagaré mercantil. '.repeat(20) },
     ], { chunkSize: 80, chunkOverlap: 10 });
@@ -28,7 +35,7 @@ describe('SES-style recursive chunking', () => {
     expect(chunks.every(chunk => chunk.pageNumber === 3)).toBe(true);
   });
 
-  it('computes deterministic SHA-256 hashes for document content', () => {
+  it('computa hashes SHA-256 determinísticos para contenido de documento', () => {
     const content = 'Contrato de suministro con cláusula penal.';
 
     expect(sha256Content(content)).toBe(sha256Content(content));

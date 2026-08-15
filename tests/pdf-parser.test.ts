@@ -15,11 +15,15 @@ vi.mock('pdf-parse', () => ({
 }));
 
 import { PDFParse } from 'pdf-parse';
-import { extractTextContent, sha256Content } from '../src/main/lib/pdf-parser';
+import { extractTextContent, extractTextContentAsync, sha256Content, PDF_WORKER_TIMEOUT_MS } from '../src/main/lib/pdf-parser';
 
 describe('pdf-parser local', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('exporta constante de timeout por defecto de 30 segundos', () => {
+    expect(PDF_WORKER_TIMEOUT_MS).toBe(30_000);
   });
 
   it('extrae texto por páginas, limpia espacios y calcula SHA-256', async () => {
@@ -64,3 +68,4 @@ describe('pdf-parser local', () => {
     expect(sha256Content(content)).not.toBe(sha256Content(`${content} Ajuste.`));
   });
 });
+

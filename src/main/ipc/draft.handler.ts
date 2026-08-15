@@ -13,7 +13,7 @@ import {
 import * as crypto from 'crypto';
 import { getActiveByokConfig } from '../lib/byok-settings';
 import { composeLimitedByokPrompt, generateByokText } from '../lib/byok-client';
-import { extractTextContentAsync } from '../lib/pdf-parser';
+import { extractDocumentContent } from '../lib/document-parser';
 import { logLegalExecution } from '../lib/traceability';
 import {
   STRUCTURED_GROUNDED_OUTPUT_JSON_SCHEMA,
@@ -41,10 +41,11 @@ export const DraftPayloadSchema = z.object({
   }).optional(),
   referenceFile: z.object({
     name: z.string().trim().min(1).max(180),
-    mimeType: z.enum(['application/pdf', 'text/plain', 'text/markdown']),
+    mimeType: z.string().min(1),
     base64: z.string().min(1).max(21_000_000),
   }).optional(),
 }).superRefine((payload, ctx) => {
+
   const ecosystem = payload.ecosystem || payload.module;
 
   if (!ecosystem) {
@@ -117,17 +118,14 @@ async function extractReferenceFile(payload: DraftPayload): Promise<string> {
   if (!payload.referenceFile) return '';
 
   const buffer = Buffer.from(payload.referenceFile.base64, 'base64');
-  if (buffer.byteLength > 15 * 1024 * 1024) {
-    throw new Error('El archivo debe pesar 15 MB o menos.');
+  if (buffer.byteLength > 20 * 1024 * 1024) {
+    throw new Error('El archivo debe pesar 20 MB o menos.');
   }
 
-  if (payload.referenceFile.mimeType === 'application/pdf') {
-    const extracted = await extractTextContentAsync(buffer, payload.referenceFile.name);
-    return extracted.text.slice(0, 60_000);
-  }
-
-  return buffer.toString('utf8').slice(0, 60_000);
+  const extracted = await extractDocumentContent(buffer, payload.referenceFile.name, payload.referenceFile.mimeType);
+  return extracted.text.slice(0, 60_000);
 }
+
 
 interface SourceAnalysisSummary {
   summary: string;

@@ -48,9 +48,13 @@ import {
   type LegalEngineeringArea,
 } from '../lib/constants';
 import { DraftingTemplatePicker } from './DraftingTemplatePicker';
+import { UniversalDocumentBadge } from './UniversalDocumentBadge';
 import { ensureModuleActivity } from '../lib/case-access';
+
 import { generateDocumentPDF } from '../lib/pdf-export';
+import { generateDocumentDocx } from '../lib/docx-export';
 import { BRAND_CONTENT } from '../lib/product-content';
+
 import { useCaseStore } from '../store/useCaseStore';
 import { useUiStore } from '../store/useUiStore';
 import { cn } from '../lib/utils';
@@ -569,6 +573,25 @@ export const LegalEngineering: React.FC = () => {
     }
   };
 
+  const handleExportDocx = async () => {
+    if (!generatedDoc || isExporting) return;
+    setIsExporting(true);
+    try {
+      const result = await generateDocumentDocx(generatedDoc, {
+        title: selectedTemplate?.title || referenceFile?.name || 'Instrumento Jurídico',
+        subtitle: `Lex Corporativo · Ingeniería Jurídica (${areaContent.shortLabel})`,
+        filenamePrefix: `Documento_${areaContent.shortLabel}`,
+        ecosystem: areaContent.shortLabel,
+      });
+      if (result.success) notify('Documento exportado a Microsoft Word (.docx).', 'success');
+    } catch (error: any) {
+      notify(error?.message || 'No se pudo exportar el documento a Word.', 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+
   const resetDocument = () => {
     setGeneratedDoc('');
     setPrompt('');
@@ -1075,26 +1098,21 @@ export const LegalEngineering: React.FC = () => {
                       <input
                         ref={fileInputRef}
                         type="file"
-                        accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown"
+                        accept=".pdf,.docx,.doc,.xml,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/xml,text/xml,text/plain,text/markdown"
                         className="hidden"
                         onChange={(e) => { applyReferenceFile(e.target.files?.[0]); e.target.value = ''; }}
                       />
                       {referenceFile ? (
-                        <div className="flex items-center justify-between rounded-xl bg-white border border-slate-200 p-3 shadow-xs">
-                          <div className="flex items-center gap-3 text-left">
-                            <FileText size={20} className={areaTheme.text} />
-                            <div>
-                              <span className="block text-xs font-bold text-slate-900">{referenceFile.name}</span>
-                              <span className="text-[11px] text-slate-500">{(referenceFile.size / 1024 / 1024).toFixed(1)} MB</span>
-                            </div>
-                          </div>
-                          <button type="button" onClick={() => setReferenceFile(null)} className="text-slate-400 hover:text-slate-600 p-1"><X size={16} /></button>
-                        </div>
+                        <UniversalDocumentBadge
+                          file={referenceFile}
+                          area={area}
+                          onRemove={() => setReferenceFile(null)}
+                        />
                       ) : (
                         <div>
                           <Upload size={24} className="mx-auto mb-2 text-slate-400" />
-                          <p className="text-xs font-bold text-slate-900">Sube el documento base o machote a corregir</p>
-                          <p className="text-[11px] text-slate-500 mt-0.5">PDF, TXT o Markdown · hasta 15 MB</p>
+                          <p className="text-xs font-bold text-slate-900">Sube el documento base, machote o factura</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">PDF, Word (.docx), CFDI/XML, TXT o MD · hasta 20 MB</p>
                           <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
@@ -1107,6 +1125,7 @@ export const LegalEngineering: React.FC = () => {
                     </div>
                   )}
                 </section>
+
 
                 {/* Formulario de Instrucciones / Variables */}
                 <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-3 lg:sticky lg:top-5">
@@ -1168,11 +1187,20 @@ export const LegalEngineering: React.FC = () => {
                     </button>
                     <button
                       type="button"
+                      onClick={handleExportDocx}
+                      disabled={isExporting}
+                      className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-blue-200 bg-blue-50/60 text-blue-900 px-4 text-xs font-bold hover:bg-blue-100 transition disabled:opacity-50"
+                    >
+                      {isExporting ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} />} Exportar a Word (.docx)
+                    </button>
+                    <button
+                      type="button"
                       onClick={resetDocument}
                       className={cn('inline-flex min-h-10 items-center gap-2 rounded-xl px-4 text-xs font-bold text-white transition', areaTheme.button)}
                     >
                       <RefreshCw size={15} /> Nuevo documento
                     </button>
+
                   </div>
                 </div>
                 <article className="rounded-2xl border border-slate-200 bg-white p-8 shadow-xs">
@@ -1195,30 +1223,25 @@ export const LegalEngineering: React.FC = () => {
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 p-8 text-center">
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 p-6 text-center">
                   <input
                     ref={analysisInputRef}
                     type="file"
-                    accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown"
+                    accept=".pdf,.docx,.doc,.xml,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/xml,text/xml,text/plain,text/markdown"
                     className="hidden"
                     onChange={(e) => { applyAnalysisFile(e.target.files?.[0]); e.target.value = ''; }}
                   />
                   {analysisFile ? (
-                    <div className="flex items-center justify-between rounded-xl bg-white border border-slate-200 p-4 shadow-xs">
-                      <div className="flex items-center gap-3 text-left">
-                        <FileText size={22} className={areaTheme.text} />
-                        <div>
-                          <span className="block text-xs font-bold text-slate-900">{analysisFile.name}</span>
-                          <span className="text-[11px] text-slate-500">{(analysisFile.size / 1024 / 1024).toFixed(1)} MB · Listo para auditoría</span>
-                        </div>
-                      </div>
-                      <button type="button" onClick={() => setAnalysisFile(null)} className="text-slate-400 hover:text-slate-600 p-1"><X size={16} /></button>
-                    </div>
+                    <UniversalDocumentBadge
+                      file={analysisFile}
+                      area={area}
+                      onRemove={() => setAnalysisFile(null)}
+                    />
                   ) : (
                     <div>
                       <ShieldAlert size={32} className="mx-auto mb-2 text-slate-400" />
-                      <p className="text-sm font-bold text-slate-900">Carga el contrato o documento a auditar</p>
-                      <p className="text-xs text-slate-500 mt-1">Formatos compatibles: PDF, TXT o Markdown (hasta 15 MB)</p>
+                      <p className="text-sm font-bold text-slate-900">Carga el contrato, factura o instrumento a auditar</p>
+                      <p className="text-xs text-slate-500 mt-1">Formatos compatibles: PDF, Word (.docx), CFDI/XML, TXT o MD (hasta 20 MB)</p>
                       <button
                         type="button"
                         onClick={() => analysisInputRef.current?.click()}
@@ -1229,6 +1252,7 @@ export const LegalEngineering: React.FC = () => {
                     </div>
                   )}
                 </div>
+
 
                 <div>
                   <label className="mb-1 block text-xs font-bold text-slate-700">Enfoque específico de auditoría (opcional)</label>

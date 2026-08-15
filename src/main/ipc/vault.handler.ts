@@ -78,6 +78,12 @@ const ExportPdfSchema = z.object({
   defaultPath: z.string().min(1).max(260),
 });
 
+const ExportDocxSchema = z.object({
+  base64: z.string().min(1),
+  defaultPath: z.string().min(1).max(260),
+});
+
+
 const DeleteAllSchema = z.object({
   confirmation: z.literal('DELETE_ALL_LOCAL_DATA'),
 }).strict();
@@ -254,4 +260,28 @@ export function registerVaultHandlers(): void {
       throw new Error(`Error al exportar PDF: ${err.message}`);
     }
   });
+
+  // ── Export DOCX (Word) ────────────────────
+  ipcMain.handle('vault:export-docx', async (_event, rawPayload: unknown) => {
+    try {
+      const payload = ExportDocxSchema.parse(rawPayload);
+      
+      const { canceled, filePath } = await dialog.showSaveDialog({
+        defaultPath: payload.defaultPath,
+        filters: [{ name: 'Documento de Microsoft Word (.docx)', extensions: ['docx'] }]
+      });
+
+      if (!canceled && filePath) {
+        const parts = payload.base64.split('base64,');
+        const base64Data = parts.length > 1 ? parts[1] : payload.base64;
+        writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
+        return { success: true, filePath };
+      }
+      return { success: false, canceled: true };
+    } catch (err: any) {
+      console.error('[IPC Vault] export-docx error:', err);
+      throw new Error(`Error al exportar Word: ${err.message}`);
+    }
+  });
 }
+

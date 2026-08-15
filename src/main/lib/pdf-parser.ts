@@ -76,9 +76,18 @@ function cleanExtractedText(text: string): string {
     .trim();
 }
 
+export const PDF_WORKER_TIMEOUT_MS = 30_000;
+
 let workerInstance: Worker | null = null;
 let messageIdCounter = 0;
-const pendingRequests = new Map<number, { resolve: (val: any) => void, reject: (err: any) => void }>();
+const pendingRequests = new Map<
+  number,
+  {
+    resolve: (val: ExtractedPdfDocument) => void;
+    reject: (err: any) => void;
+    timer?: NodeJS.Timeout;
+  }
+>();
 
 function getWorker(): Worker {
   if (!workerInstance) {
@@ -86,7 +95,7 @@ function getWorker(): Worker {
     // In Vitest tests, __dirname points to src/main/lib directly so we need .ts extension.
     let workerPath = join(__dirname, 'pdf-worker.js');
     if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
-       workerPath = join(__dirname, 'pdf-worker.ts');
+      workerPath = join(__dirname, 'pdf-worker.ts');
     }
     workerInstance = new Worker(workerPath);
 
@@ -94,6 +103,7 @@ function getWorker(): Worker {
       const { id, result, error } = message;
       const handlers = pendingRequests.get(id);
       if (handlers) {
+        if (handlers.timer) clearTimeout(handlers.timer);
         pendingRequests.delete(id);
         if (error) {
           handlers.reject(new Error(error));
@@ -106,7 +116,10 @@ function getWorker(): Worker {
     workerInstance.on('error', (error) => {
       console.error('[PDF Worker] Falla inesperada:', error);
       workerInstance = null; // Reset to recreate next time
-      pendingRequests.forEach(({ reject }) => reject(new Error('PDF Worker falló inesperadamente')));
+      pendingRequests.forEach(({ reject, timer }) => {
+        if (timer) clearTimeout(timer);
+        reject(new Error('PDF Worker falló inesperadamente'));
+      });
       pendingRequests.clear();
     });
 
@@ -115,7 +128,10 @@ function getWorker(): Worker {
         console.error(`[PDF Worker] Terminó con código ${code}`);
       }
       workerInstance = null;
-      pendingRequests.forEach(({ reject }) => reject(new Error('PDF Worker fue terminado')));
+      pendingRequests.forEach(({ reject, timer }) => {
+        if (timer) clearTimeout(timer);
+        reject(new Error('PDF Worker fue terminado'));
+      });
       pendingRequests.clear();
     });
   }
@@ -124,15 +140,40 @@ function getWorker(): Worker {
 
 export function extractTextContentAsync(
   buffer: Buffer,
-  fileName: string
+  fileName: string,
+  timeoutMs: number = PDF_WORKER_TIMEOUT_MS
 ): Promise<ExtractedPdfDocument> {
   return new Promise((resolve, reject) => {
+    const id = ++messageIdCounter;
+    let timer: NodeJS.Timeout | undefined;
+
+    if (timeoutMs > 0 && Number.isFinite(timeoutMs)) {
+      timer = setTimeout(() => {
+        const handlers = pendingRequests.get(id);
+        if (handlers) {
+          pendingRequests.delete(id);
+          console.warn(`[PDF Worker] Timeout de ${timeoutMs}ms al procesar '${fileName}'. Reiniciando worker.`);
+          if (workerInstance) {
+            workerInstance.terminate().catch(() => undefined);
+            workerInstance = null;
+          }
+          handlers.reject(
+            new Error(
+              `El procesamiento del documento '${fileName}' excedió el tiempo límite de ${Math.round(timeoutMs / 1000)}s.`
+            )
+          );
+        }
+      }, timeoutMs);
+    }
+
+    pendingRequests.set(id, { resolve, reject, timer });
+
     try {
       const worker = getWorker();
-      const id = ++messageIdCounter;
-      pendingRequests.set(id, { resolve, reject });
       worker.postMessage({ id, buffer, fileName });
     } catch (err) {
+      if (timer) clearTimeout(timer);
+      pendingRequests.delete(id);
       console.error('[PDF Worker] Error al inicializar worker. Cayendo a parser síncrono.', err);
       // Fallback to synchronous extraction if worker creation fails
       extractTextContent(buffer, fileName).then(resolve).catch(reject);

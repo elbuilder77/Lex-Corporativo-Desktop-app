@@ -26,7 +26,7 @@ describe('temporary LanceDB document retention', () => {
     const dbPath = path.join(ragRoot, 'lance_data');
     fs.mkdirSync(dbPath, { recursive: true });
     const db = await lancedb.connect(dbPath);
-    await db.createTable('user_documents', [
+    const table = await db.createTable('user_documents', [
       {
         id: 'old',
         requestId: 'request-old',
@@ -45,9 +45,10 @@ describe('temporary LanceDB document retention', () => {
 
     const { cleanupUserDocumentRequest, purgeExpiredUserDocuments, USER_DOCUMENT_TTL_MS } = await import('./rag');
     const deleted = await purgeExpiredUserDocuments(USER_DOCUMENT_TTL_MS, Date.parse('2026-07-14T12:00:00.000Z'));
+
     const verificationDb = await lancedb.connect(dbPath);
-    const table = await verificationDb.openTable('user_documents');
-    const remaining = await table.query().where('id IS NOT NULL').limit(10).toArray();
+    const table2 = await verificationDb.openTable('user_documents');
+    const remaining = await table2.query().where('id IS NOT NULL').limit(10).toArray();
 
     expect(remaining.map(row => row.id)).toEqual(['fresh']);
     expect(deleted).toBe(1);

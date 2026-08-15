@@ -29,7 +29,9 @@ import { useNavigate } from 'react-router-dom';
 import { useCaseStore } from '../store/useCaseStore';
 import { useUiStore } from '../store/useUiStore';
 import { generateAnalysisPDF, generateDocumentPDF } from '../lib/pdf-export';
+import { generateDocumentDocx } from '../lib/docx-export';
 import { BRAND_CONTENT } from '../lib/product-content';
+
 import { cn } from '../lib/utils';
 import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import { ConfirmDialog } from './ui/ConfirmDialog';
@@ -240,6 +242,26 @@ export const Portafolio: React.FC = () => {
       setIsExportingPdf(false);
     }
   };
+
+  const exportItemDocx = async (item: any) => {
+    setIsExportingPdf(true);
+    try {
+      const area = areaFor(item);
+      const text = item.activityType === 'drafting' ? item.generatedDoc || '' : bodyFor(item);
+      const result = await generateDocumentDocx(text, {
+        title: titleFor(item),
+        subtitle: `Lex Corporativo · ${AREA_BADGES[area]?.label || area}`,
+        filenamePrefix: `${item.activityType === 'drafting' ? 'Documento' : 'Auditoria'}_${area}`,
+        ecosystem: AREA_BADGES[area]?.label || area,
+      });
+      if (result.success) notify('Documento exportado en Word (.docx).', 'success');
+    } catch (error: any) {
+      notify(error?.message || 'Error al exportar a Word.', 'error');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
 
   const openInDrafting = (item: any) => {
     const area = areaFor(item);
@@ -489,6 +511,16 @@ export const Portafolio: React.FC = () => {
                       >
                         <Download size={13} />
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => exportItemDocx(item)}
+                        disabled={isExportingPdf}
+                        title="Exportar a Word (.docx)"
+                        className="flex h-8 w-8 items-center justify-center rounded-xl border border-blue-200 bg-blue-50/50 text-blue-800 hover:bg-blue-100 transition disabled:opacity-50"
+                        aria-label="Exportar a Word (.docx)"
+                      >
+                        <FileText size={13} />
+                      </button>
                     </div>
 
                     <button
@@ -553,11 +585,20 @@ export const Portafolio: React.FC = () => {
                   </button>
                   <button
                     type="button"
+                    onClick={() => exportItemDocx(selectedActivity)}
+                    disabled={isExportingPdf}
+                    className="inline-flex min-h-8 items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-900 px-3 text-xs font-bold hover:bg-blue-100 transition disabled:opacity-50"
+                  >
+                    <FileText size={13} /> Word (.docx)
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => openInDrafting(selectedActivity)}
                     className="inline-flex min-h-8 items-center gap-1.5 rounded-xl bg-slate-950 px-3 text-xs font-bold text-white hover:bg-slate-800 transition shadow-xs"
                   >
                     <FileSignature size={13} /> Abrir en Redactor
                   </button>
+
                   <button
                     type="button"
                     onClick={() => setSelectedActivity(null)}

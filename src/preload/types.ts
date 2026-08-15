@@ -23,7 +23,9 @@ export interface LexDesktopAPI {
   documents: {
     selectFile: () => Promise<string[] | null>;
     exportPdf: (payload: { base64: string; defaultPath: string }) => Promise<{ success: boolean; canceled?: boolean; filePath?: string }>;
+    exportDocx: (payload: { base64: string; defaultPath: string }) => Promise<{ success: boolean; canceled?: boolean; filePath?: string }>;
   };
+
   analysis: {
     analyzeDocument: (payload: {
       caseId?: string;

@@ -20,7 +20,9 @@ const api: LexDesktopAPI = {
   documents: {
     selectFile: () => ipcRenderer.invoke('dialog:show-open-dialog'),
     exportPdf: (payload) => ipcRenderer.invoke('vault:export-pdf', payload),
+    exportDocx: (payload) => ipcRenderer.invoke('vault:export-docx', payload),
   },
+
   analysis: {
     analyzeDocument: (payload) => ipcRenderer.invoke('ipc:analyze', payload),
     onProgress: (cb) => {
