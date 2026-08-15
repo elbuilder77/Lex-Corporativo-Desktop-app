@@ -232,6 +232,9 @@ export const SYSTEM_INSTRUCTION = getSystemInstruction('mercantil');
 export const DRAFT_INSTRUCTION = getDraftInstruction('mercantil');
 
 export function getAnalysisInstruction(profile: string): string {
+  if (profile === 'integral_analysis' || profile.startsWith('integral_')) {
+    return 'TAREA: Realice un Dictamen de Auditoría Integral Multidisciplinaria 360°. Evalúe exhaustivamente las materias seleccionadas (Mercantil/Corporativo, Fiscal/Materialidad, Laboral, Comercio Exterior y Aduanal). Identifique tipo de documento, partes, obligaciones, cláusulas faltantes por materia, riesgos clasificados por severidad y materia, fundamentación legal oficial y plan de acción correctivo estructurado.';
+  }
   if (profile === 'mercantil_analysis') {
     return 'TAREA: Realice un dictamen de análisis documental mercantil/corporativo estructurado. Identifique tipo de documento, partes, obligaciones, cláusulas faltantes, datos faltantes, riesgos y acciones recomendadas. Sustente cada conclusión en los fundamentos legales recuperados y en la evidencia documental.';
   }

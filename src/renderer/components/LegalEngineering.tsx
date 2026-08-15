@@ -19,6 +19,7 @@ import {
   Globe2,
   History,
   House,
+  Landmark,
   Loader2,
   MessageSquareQuote,
   ReceiptText,
@@ -43,6 +44,8 @@ import { analyzeEngineeringDocument, draftLegalDocument, type UserReferenceFile 
 import type { LegalDraftingArea } from '../../shared/legal-contracts';
 import type { DocumentAnalysisResult, SavedCase } from '../types';
 import {
+  ALLOWED_FILE_TYPES,
+  MAX_FILE_SIZE,
   LEGAL_ENGINEERING_TEMPLATES,
   type DraftingTemplate,
   type LegalEngineeringArea,
@@ -218,8 +221,14 @@ const formatCaseDate = (value?: string) => {
     : new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: 'short' }).format(date);
 };
 
-const ACCEPTED_REFERENCE_TYPES = ['application/pdf', 'text/plain', 'text/markdown'];
-const MAX_REFERENCE_BYTES = 15 * 1024 * 1024;
+function isAllowedLegalFile(file: File): boolean {
+  const name = file.name.toLowerCase();
+  const allowedExtensions = ['.pdf', '.docx', '.doc', '.xml', '.txt', '.md'];
+  if (allowedExtensions.some((ext) => name.endsWith(ext))) {
+    return true;
+  }
+  return ALLOWED_FILE_TYPES.includes(file.type);
+}
 
 function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -262,15 +271,18 @@ export const LegalEngineering: React.FC = () => {
     saveEngineeringWork,
   } = useCaseStore();
 
-  const canRestoreEngineeringDraft = isEngineeringArea(engineeringDraftState.area);
-  const initialArea = normalizeEngineeringArea(engineeringDraftState.area);
-  const initialTemplate = canRestoreEngineeringDraft && LEGAL_ENGINEERING_TEMPLATES[initialArea].some((template) => template.id === engineeringDraftState.template?.id)
+  const canRestoreEngineeringDraft = Boolean(engineeringDraftState.prompt || engineeringDraftState.generatedDoc);
+  const initialArea = canRestoreEngineeringDraft && isEngineeringArea(engineeringDraftState.area)
+    ? engineeringDraftState.area
+    : 'mercantil';
+  const initialTemplate = canRestoreEngineeringDraft && engineeringDraftState.template && isEngineeringArea(engineeringDraftState.area)
     ? engineeringDraftState.template
     : null;
   const initialMode = canRestoreEngineeringDraft && engineeringDraftState.mode === 'analysis' ? 'analysis' : (canRestoreEngineeringDraft ? engineeringDraftState.mode : 'template');
 
   const [sourceMode, setSourceMode] = useState<SourceMode | 'analysis'>(initialMode);
   const [area, setArea] = useState<LegalEngineeringArea>(initialArea);
+  const [analysisAreas, setAnalysisAreas] = useState<LegalEngineeringArea[]>([initialArea]);
   const [prompt, setPrompt] = useState(canRestoreEngineeringDraft ? engineeringDraftState.prompt : '');
   const [selectedTemplate, setSelectedTemplate] = useState<DraftingTemplate | null>(initialTemplate);
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
@@ -367,6 +379,35 @@ export const LegalEngineering: React.FC = () => {
   const changeArea = (nextArea: LegalEngineeringArea) => {
     setArea(nextArea);
     setSelectedTemplate(null);
+    if (sourceMode === 'template') {
+      setPrompt('');
+    }
+    if (analysisAreas.length <= 1) {
+      setAnalysisAreas([nextArea]);
+    }
+  };
+
+  const toggleAnalysisArea = (targetArea: LegalEngineeringArea) => {
+    setAnalysisAreas((prev) => {
+      if (prev.includes(targetArea)) {
+        if (prev.length === 1) {
+          notify('Debes mantener al menos una materia seleccionada para la auditoría.', 'info', 'Materias de análisis');
+          return prev;
+        }
+        return prev.filter((a) => a !== targetArea);
+      } else {
+        return [...prev, targetArea];
+      }
+    });
+  };
+
+  const selectAllAnalysisAreas = () => {
+    const allAreas: LegalEngineeringArea[] = ['mercantil', 'fiscal', 'laboral', 'comercio_exterior', 'aduanal'];
+    if (analysisAreas.length === allAreas.length) {
+      setAnalysisAreas([area]);
+    } else {
+      setAnalysisAreas(allAreas);
+    }
   };
 
   const resetAnalysis = () => {
@@ -384,13 +425,12 @@ export const LegalEngineering: React.FC = () => {
 
   const applyReferenceFile = (file?: File) => {
     if (!file) return;
-    const normalizedMime = file.name.toLowerCase().endsWith('.md') ? 'text/markdown' : file.type;
-    if (!ACCEPTED_REFERENCE_TYPES.includes(normalizedMime)) {
-      notify('El archivo debe ser PDF, TXT o Markdown.', 'warning', 'Formato no compatible');
+    if (!isAllowedLegalFile(file)) {
+      notify('Formato no compatible. Admite PDF, Word (.docx), CFDI/XML, TXT o Markdown.', 'warning', 'Formato no compatible');
       return;
     }
-    if (file.size > MAX_REFERENCE_BYTES) {
-      notify('El archivo debe pesar 15 MB o menos.', 'warning', 'Archivo demasiado grande');
+    if (file.size > MAX_FILE_SIZE) {
+      notify('El archivo debe pesar 20 MB o menos.', 'warning', 'Archivo demasiado grande');
       return;
     }
     setReferenceFile(file);
@@ -399,13 +439,12 @@ export const LegalEngineering: React.FC = () => {
 
   const applyAnalysisFile = (file?: File) => {
     if (!file) return;
-    const normalizedMime = file.name.toLowerCase().endsWith('.md') ? 'text/markdown' : file.type;
-    if (!ACCEPTED_REFERENCE_TYPES.includes(normalizedMime)) {
-      notify('El archivo debe ser PDF, TXT o Markdown.', 'warning', 'Formato no compatible');
+    if (!isAllowedLegalFile(file)) {
+      notify('Formato no compatible. Admite PDF, Word (.docx), CFDI/XML, TXT o Markdown.', 'warning', 'Formato no compatible');
       return;
     }
-    if (file.size > MAX_REFERENCE_BYTES) {
-      notify('El archivo debe pesar 15 MB o menos.', 'warning', 'Archivo demasiado grande');
+    if (file.size > MAX_FILE_SIZE) {
+      notify('El archivo debe pesar 20 MB o menos.', 'warning', 'Archivo demasiado grande');
       return;
     }
     setAnalysisFile(file);
@@ -420,7 +459,7 @@ export const LegalEngineering: React.FC = () => {
     }
     if (!canGenerate()) return;
     setIsAnalyzing(true);
-    setAnalysisProgress('Extrayendo contenido y estructura del documento...');
+    setAnalysisProgress(analysisAreas.length > 1 ? `Iniciando auditoría integral en ${analysisAreas.length} materias...` : 'Extrayendo contenido y estructura del documento...');
     try {
       window.lexDesktop.analysis.onProgress((state) => setAnalysisProgress(state.label));
       const targetCaseId = await ensureModuleActivity('engineering', currentCaseId);
@@ -434,8 +473,8 @@ export const LegalEngineering: React.FC = () => {
         mimeType,
         base64: await readFileAsBase64(analysisFile),
       };
-      const instruction = analysisPrompt.trim() || 'Audita el documento identificando contingencias y evaluando riesgos normativos, cláusulas faltantes y fundamentos legales.';
-      const response = await analyzeEngineeringDocument([filePayload], instruction, area);
+      const instruction = analysisPrompt.trim() || `Auditoría ${analysisAreas.length > 1 ? 'integral multidisciplinaria 360°' : `en materia ${areaContent.label}`}. Identifica contingencias, omisiones y fundamentos aplicables.`;
+      const response = await analyzeEngineeringDocument([filePayload], instruction, analysisAreas);
       const result = typeof response.result === 'string' ? JSON.parse(response.result) : response.result;
       setAnalysisResult(result);
       setAnalysisId(response.requestId);
@@ -446,7 +485,7 @@ export const LegalEngineering: React.FC = () => {
         files: [{ name: analysisFile.name, type: mimeType }],
         result,
         module: 'engineering',
-        ecosystem: area,
+        ecosystem: analysisAreas.length === 1 ? analysisAreas[0] : ('integral' as any),
         promptProfile: response.promptProfile,
         currentDocumentOnly: true,
         customInstruction: instruction,
@@ -456,7 +495,7 @@ export const LegalEngineering: React.FC = () => {
       });
       await saveEngineeringWork();
       const provLabel = response.provider === 'openai' ? 'OpenAI' : response.provider === 'anthropic' ? 'Claude' : 'Gemini';
-      notify(`Auditoría documental completada con ${provLabel} BYOK.`, 'success', 'Ingeniería Jurídica');
+      notify(`Auditoría ${analysisAreas.length > 1 ? 'integral 360°' : 'documental'} completada con ${provLabel} BYOK.`, 'success', 'Ingeniería Jurídica');
     } catch (error: any) {
       notify(error?.message || 'No se pudo analizar el documento.', 'error', 'Ingeniería Jurídica');
     } finally {
@@ -472,18 +511,26 @@ export const LegalEngineering: React.FC = () => {
     const risks = analysisResult.risks?.map((r) => `${r.title} (${r.severity}): ${r.explanation}`).filter(Boolean);
     const actions = analysisResult.recommendedActions?.map((a) => `- ${a}`).join('\n');
 
+    const areaLabel = analysisAreas.length > 1
+      ? `integral (${analysisAreas.map(a => AREA_CONTENT[a].shortLabel).join(', ')})`
+      : areaContent.label;
+
     const lines = [
-      `Redactar adenda o convenio modificatorio correctivo para subsanar los hallazgos de la auditoría jurídica en materia ${areaContent.label}.`,
+      `Redactar adenda o convenio modificatorio correctivo para subsanar los hallazgos de la auditoría jurídica en materia ${areaLabel}.`,
       missing.length ? `CLÁUSULAS Y REQUISITOS FALTANTES OBLIGATORIOS A INCORPORAR:\n${missing.map((m) => `- ${m}`).join('\n')}` : '',
       risks?.length ? `CONTINGENCIAS Y RIESGOS A MITIGAR EN EL CLAUSULADO:\n${risks.map((r) => `- ${r}`).join('\n')}` : '',
       actions ? `ACCIONES CORRECTIVAS A ATENDER:\n${actions}` : '',
-      'Redactar con técnica jurídica formal, cláusulas numeradas, causales de rescisión claras, penas convencionales exigibles y fundamento normativo aplicable en la legislación mexicana.',
+      'Redactar con técnica jurídica formal, manteniendo la validez del documento original y subsanando las omisiones y riesgos detectados conforme a la legislación mexicana aplicable.',
     ].filter(Boolean).join('\n\n');
 
+    if (analysisFile) {
+      setReferenceFile(analysisFile);
+    }
+    setSelectedTemplate(null);
     setPrompt(lines);
     setSourceMode('analysis');
     switchWorkspaceTab('drafting');
-    notify('Instrucciones derivadas de la auditoría cargadas en el Redactor Contractual.', 'info', 'Redacción asistida');
+    notify('Documento auditado e instrucciones cargados en el Redactor Jurídico.', 'success', 'Redacción asistida');
   };
 
   const handleGenerate = async () => {
@@ -495,8 +542,12 @@ export const LegalEngineering: React.FC = () => {
       notify('Sube el archivo que quieres corregir o editar.', 'warning', 'Falta el archivo');
       return;
     }
+    if (sourceMode === 'analysis' && !referenceFile && !analysisFile && !analysisResult) {
+      notify('No hay un documento o dictamen de auditoría cargado como base.', 'warning', 'Falta documento auditado');
+      return;
+    }
     if (!prompt.trim()) {
-      notify(sourceMode === 'reference' ? 'Describe las correcciones o cambios que necesitas.' : 'Completa los datos e instrucciones del documento.', 'warning', 'Faltan instrucciones');
+      notify(sourceMode === 'reference' || sourceMode === 'analysis' ? 'Describe las correcciones o cambios que necesitas.' : 'Completa los datos e instrucciones del documento.', 'warning', 'Faltan instrucciones');
       return;
     }
     if (!canGenerate()) return;
@@ -506,14 +557,15 @@ export const LegalEngineering: React.FC = () => {
       setCurrentCaseId(targetCaseId);
 
       let userReference: UserReferenceFile | undefined;
-      if (referenceFile) {
-        const mimeType = referenceFile.name.toLowerCase().endsWith('.md')
+      const fileToUse = referenceFile || (sourceMode === 'analysis' ? analysisFile : null);
+      if (fileToUse) {
+        const mimeType = fileToUse.name.toLowerCase().endsWith('.md')
           ? 'text/markdown'
-          : referenceFile.type as UserReferenceFile['mimeType'];
+          : fileToUse.type as UserReferenceFile['mimeType'];
         userReference = {
-          name: referenceFile.name,
+          name: fileToUse.name,
           mimeType,
-          base64: await readFileAsBase64(referenceFile),
+          base64: await readFileAsBase64(fileToUse),
         };
       }
 
@@ -537,8 +589,8 @@ export const LegalEngineering: React.FC = () => {
         ecosystem: area,
         promptProfile: response.promptProfile,
         templateId: selectedTemplate?.id,
-        templateTitle: selectedTemplate?.title,
-        referenceFileName: referenceFile?.name,
+        templateTitle: sourceMode === 'analysis' ? `Adenda Correctiva (${fileToUse?.name || 'Auditoría'})` : selectedTemplate?.title,
+        referenceFileName: fileToUse?.name,
         sourceAnalysisId: analysisId || undefined,
         sourceDocumentAnalysis: analysisResult || undefined,
         generatedDoc: response.result,
@@ -553,16 +605,23 @@ export const LegalEngineering: React.FC = () => {
     } finally {
       setIsGenerating(false);
     }
+
   };
 
   const handleExport = async () => {
     if (!generatedDoc || isExporting) return;
     setIsExporting(true);
     try {
+      const firstLineTitle = generatedDoc.split('\n').find((l) => l.trim().length > 0)?.replace(/^#+\s*/, '').replace(/\*\*/g, '').trim();
+      const docTitle = selectedTemplate?.title
+        || (sourceMode === 'analysis' ? 'Adenda y Convenio Modificatorio' : undefined)
+        || firstLineTitle
+        || 'Instrumento Jurídico';
+
       const result = await generateDocumentPDF(
         generatedDoc,
-        BRAND_CONTENT.name,
-        `Ingeniería Jurídica · ${areaContent.shortLabel}`,
+        docTitle,
+        `Materia: ${areaContent.label} · ${new Date().toLocaleDateString('es-MX')}`,
         `Documento_${areaContent.shortLabel}`,
       );
       if (result.success) notify('Documento exportado en PDF.', 'success');
@@ -577,9 +636,15 @@ export const LegalEngineering: React.FC = () => {
     if (!generatedDoc || isExporting) return;
     setIsExporting(true);
     try {
+      const firstLineTitle = generatedDoc.split('\n').find((l) => l.trim().length > 0)?.replace(/^#+\s*/, '').replace(/\*\*/g, '').trim();
+      const docTitle = selectedTemplate?.title
+        || (sourceMode === 'analysis' ? 'Adenda y Convenio Modificatorio' : undefined)
+        || firstLineTitle
+        || 'Instrumento Jurídico';
+
       const result = await generateDocumentDocx(generatedDoc, {
-        title: selectedTemplate?.title || referenceFile?.name || 'Instrumento Jurídico',
-        subtitle: `Lex Corporativo · Ingeniería Jurídica (${areaContent.shortLabel})`,
+        title: docTitle,
+        subtitle: `Materia: ${areaContent.label}`,
         filenamePrefix: `Documento_${areaContent.shortLabel}`,
         ecosystem: areaContent.shortLabel,
       });
@@ -1060,9 +1125,9 @@ export const LegalEngineering: React.FC = () => {
                 <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-4">
                   <div>
                     <h2 className="text-sm font-bold text-slate-950">Modalidad de origen</h2>
-                    <p className="text-xs text-slate-500">Selecciona si partirás de una plantilla predefinida o cargarás un machote de referencia.</p>
+                    <p className="text-xs text-slate-500">Selecciona si partirás de una plantilla predefinida, un machote propio o un documento previamente auditado.</p>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-2 sm:grid-cols-3">
                     <button
                       type="button"
                       onClick={() => { setSourceMode('template'); setReferenceFile(null); }}
@@ -1075,13 +1140,28 @@ export const LegalEngineering: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => { setSourceMode('reference'); setSelectedTemplate(null); setPrompt(''); }}
+                      onClick={() => { setSourceMode('reference'); setSelectedTemplate(null); }}
                       className={cn(
                         'flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 text-xs font-bold transition shadow-xs',
                         sourceMode === 'reference' ? `${areaTheme.border} ${areaTheme.button} text-white` : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                       )}
                     >
-                      <Upload size={16} /> Documento propio de referencia
+                      <Upload size={16} /> Documento propio
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (analysisFile && !referenceFile) setReferenceFile(analysisFile);
+                        setSourceMode('analysis');
+                        setSelectedTemplate(null);
+                      }}
+                      className={cn(
+                        'flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 text-xs font-bold transition shadow-xs',
+                        sourceMode === 'analysis' ? 'border-emerald-600 bg-emerald-700 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      )}
+                    >
+                      <ShieldCheck size={16} className={sourceMode === 'analysis' ? 'text-white' : 'text-emerald-600'} />
+                      Documento Auditado {analysisResult ? '✓' : ''}
                     </button>
                   </div>
 
@@ -1093,6 +1173,55 @@ export const LegalEngineering: React.FC = () => {
                       onSelect={selectTemplate}
                       onClear={() => { setSelectedTemplate(null); setPrompt(''); }}
                     />
+                  ) : sourceMode === 'analysis' ? (
+                    <div className="space-y-3">
+                      {(referenceFile || analysisFile) ? (
+                        <UniversalDocumentBadge
+                          file={(referenceFile || analysisFile)!}
+                          area={area}
+                          onRemove={() => {
+                            setReferenceFile(null);
+                            setSourceMode('template');
+                          }}
+                        />
+                      ) : (
+                        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 p-6 text-center">
+                          <ShieldCheck size={28} className="mx-auto mb-2 text-emerald-600" />
+                          <p className="text-xs font-bold text-slate-900">Sin archivo físico vinculado a la auditoría</p>
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            Las instrucciones correctivas se basarán en el dictamen legal registrado.
+                          </p>
+                        </div>
+                      )}
+
+                      {analysisResult && (
+                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-950">
+                              <ShieldCheck size={16} className="text-emerald-700" />
+                              Base fijada desde auditoría previa
+                            </span>
+                            <span className="rounded-md bg-white border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-900">
+                              Riesgo inicial: {analysisResult.riskScore}/100
+                            </span>
+                          </div>
+                          <p className="text-xs text-emerald-900 leading-relaxed font-medium">
+                            El redactor utilizará las cláusulas del documento original como base y subsanará automáticamente las siguientes contingencias:
+                          </p>
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            <span className="inline-flex items-center gap-1 rounded-lg bg-white border border-emerald-200 px-2.5 py-1 text-[11px] font-semibold text-emerald-950">
+                              ⚠️ {(analysisResult.missingClauses?.length || 0)} cláusulas omitidas
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-lg bg-white border border-emerald-200 px-2.5 py-1 text-[11px] font-semibold text-emerald-950">
+                              🛡️ {(analysisResult.risks?.length || 0)} riesgos a mitigar
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-lg bg-white border border-emerald-200 px-2.5 py-1 text-[11px] font-semibold text-emerald-950">
+                              ⚖️ {(analysisResult.legalFoundations?.length || 0)} fundamentos normativos
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-6 text-center">
                       <input
@@ -1126,7 +1255,6 @@ export const LegalEngineering: React.FC = () => {
                   )}
                 </section>
 
-
                 {/* Formulario de Instrucciones / Variables */}
                 <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-3 lg:sticky lg:top-5">
                   <div>
@@ -1155,10 +1283,16 @@ export const LegalEngineering: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleGenerate}
-                    disabled={isGenerating || (sourceMode === 'analysis' && !analysisResult)}
+                    disabled={isGenerating || (sourceMode === 'analysis' && !analysisResult && !referenceFile && !analysisFile)}
                     className={cn('inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-6 text-xs font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50 shadow-xs', areaTheme.button)}
                   >
-                    {isGenerating ? <><Loader2 size={16} className="animate-spin" /> Redactando documento con IA...</> : <><FileSignature size={16} /> Generar documento legal</>}
+                    {isGenerating ? (
+                      <><Loader2 size={16} className="animate-spin" /> Redactando documento con IA...</>
+                    ) : sourceMode === 'analysis' ? (
+                      <><FileSignature size={16} /> Generar Adenda / Documento Corregido</>
+                    ) : (
+                      <><FileSignature size={16} /> Generar documento legal</>
+                    )}
                   </button>
                 </section>
               </div>
@@ -1167,8 +1301,13 @@ export const LegalEngineering: React.FC = () => {
                 <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
                   <div>
                     <p className={cn('text-xs font-bold uppercase tracking-wider', areaTheme.text)}>Documento legal generado</p>
-                    <h2 className="font-serif text-2xl font-bold text-slate-950">{selectedTemplate?.title || referenceFile?.name || 'Instrumento jurídico'}</h2>
+                    <h2 className="font-serif text-2xl font-bold text-slate-950">
+                      {sourceMode === 'analysis'
+                        ? `Adenda / Documento Corregido (${(referenceFile || analysisFile)?.name || 'Instrumento'})`
+                        : selectedTemplate?.title || referenceFile?.name || 'Instrumento jurídico'}
+                    </h2>
                   </div>
+
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -1221,6 +1360,46 @@ export const LegalEngineering: React.FC = () => {
                   <p className="text-xs text-slate-500 mt-0.5">
                     Sube un contrato o instrumento legal para auditar riesgos críticos, cláusulas faltantes y cotejo normativo oficial.
                   </p>
+                </div>
+
+                {/* Selector Multidisciplinario de Materias para la Auditoría */}
+                <div className="space-y-2.5 rounded-xl border border-slate-200/80 bg-slate-50/50 p-3.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800">
+                      Materias de Enfoque Normativo ({analysisAreas.length} seleccionada{analysisAreas.length > 1 ? 's' : ''})
+                    </label>
+                    <button
+                      type="button"
+                      onClick={selectAllAnalysisAreas}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 hover:text-blue-900 transition cursor-pointer"
+                    >
+                      <Sparkles size={13} className="text-amber-500" />
+                      {analysisAreas.length === 5 ? 'Restablecer a materia activa' : '✨ Auditoría Integral 360°'}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                    {(['mercantil', 'fiscal', 'laboral', 'comercio_exterior', 'aduanal'] as LegalEngineeringArea[]).map((a) => {
+                      const selected = analysisAreas.includes(a);
+                      const Icon = a === 'mercantil' ? Landmark : a === 'fiscal' ? ReceiptText : a === 'laboral' ? BriefcaseBusiness : a === 'comercio_exterior' ? Globe2 : ShipWheel;
+                      return (
+                        <button
+                          key={a}
+                          type="button"
+                          onClick={() => toggleAnalysisArea(a)}
+                          className={cn(
+                            'flex items-center gap-2 rounded-xl border p-2.5 text-left text-xs font-bold transition shadow-2xs cursor-pointer',
+                            selected
+                              ? `${AREA_THEMES[a].border} ${AREA_THEMES[a].button} text-white shadow-xs`
+                              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
+                          )}
+                        >
+                          <Icon size={14} className={selected ? 'text-white' : 'text-slate-500'} />
+                          <span className="truncate">{AREA_CONTENT[a].shortLabel}</span>
+                          {selected && <Check size={13} className="ml-auto text-white shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 p-6 text-center">
@@ -1297,6 +1476,19 @@ export const LegalEngineering: React.FC = () => {
                     <h2 className="text-base font-bold text-slate-950 mt-0.5">
                       Diagnóstico de Contingencias y Faltantes Normativos
                     </h2>
+                    <div className="flex flex-wrap items-center gap-1.5 pt-2">
+                      <span className="text-[11px] font-bold text-slate-500 mr-1">Materias evaluadas:</span>
+                      {analysisAreas.map((a) => (
+                        <span key={a} className={cn('rounded-md px-2 py-0.5 text-[10px] font-bold uppercase text-white', AREA_THEMES[a].button)}>
+                          {AREA_CONTENT[a].shortLabel}
+                        </span>
+                      ))}
+                      {analysisAreas.length > 1 && (
+                        <span className="rounded-md bg-purple-700 text-white px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider">
+                          ✨ 360° Integral
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <button

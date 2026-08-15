@@ -63,19 +63,24 @@ export const analyzeFiscalDocument = async (
 export const analyzeDocument = async (
   files: { base64: string; mimeType: string; name: string }[],
   prompt: string,
-  ecosystem: LegalAnalysisEcosystem = 'fiscal'
+  ecosystem: LegalAnalysisEcosystem[] | LegalAnalysisEcosystem = 'fiscal'
 ): Promise<AnalysisResponse> => {
   if (!isElectron) {
     throw new Error('Lex Corporativo requiere el runtime de escritorio local.');
   }
+  const ecoList = Array.isArray(ecosystem) ? ecosystem : [ecosystem];
+  const primaryEco = ecoList[0] || 'fiscal';
+  const promptProfile = ecoList.length > 1 ? ('integral_analysis' as any) : getAnalysisPromptProfile(primaryEco);
+
   return withTimeout(window.lexDesktop.analysis.analyzeDocument({
     caseId: 'temp',
     files,
     focusedInstruction: prompt,
-    ecosystem,
+    ecosystem: primaryEco,
+    ecosystems: ecoList,
     module: 'analysis',
     currentDocumentOnly: true,
-    promptProfile: getAnalysisPromptProfile(ecosystem),
+    promptProfile,
   })) as Promise<AnalysisResponse>;
 };
 
@@ -106,7 +111,7 @@ export const draftLegalDocument = async (
 export const analyzeEngineeringDocument = async (
   files: { base64: string; mimeType: string; name: string }[],
   prompt: string,
-  ecosystem: LegalAnalysisEcosystem = 'mercantil',
+  ecosystem: LegalAnalysisEcosystem[] | LegalAnalysisEcosystem = 'mercantil',
 ): Promise<AnalysisResponse> => {
   return analyzeDocument(files, prompt, ecosystem);
 };

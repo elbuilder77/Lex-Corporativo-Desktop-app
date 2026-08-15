@@ -199,9 +199,10 @@ export type SupportedEcosystem = 'mercantil' | 'laboral' | 'comercio_exterior' |
 
 export interface DeterministicAnalysisInput {
   files: { name: string; text: string; mimeType?: string }[];
-  ecosystem: SupportedEcosystem;
+  ecosystem?: SupportedEcosystem;
+  ecosystems?: SupportedEcosystem[] | SupportedEcosystem;
   ragSources: Array<{
-    id: string | number;
+    id?: string | number;
     title: string;
     law?: string;
     article?: string;
@@ -216,7 +217,15 @@ export interface DeterministicAnalysisInput {
  * Generates an exhaustive, structured legal audit without cloud reliance.
  */
 export function generateDeterministicLegalAudit(input: DeterministicAnalysisInput): Record<string, unknown> {
-  const { files, ecosystem, ragSources } = input;
+  const { files, ragSources } = input;
+  const targetEcosystems: SupportedEcosystem[] = Array.isArray(input.ecosystems) && input.ecosystems.length > 0
+    ? input.ecosystems
+    : typeof input.ecosystems === 'string'
+      ? [input.ecosystems as SupportedEcosystem]
+      : input.ecosystem
+        ? [input.ecosystem]
+        : ['mercantil'];
+
   const fullText = files.map(f => f.text).join('\n\n');
   const opDocs: OperationDocument[] = files.map((f, i) => ({
     documentId: `doc:${i + 1}`,
@@ -242,7 +251,6 @@ export function generateDeterministicLegalAudit(input: DeterministicAnalysisInpu
     detectedParties.push('Partes contractuales especificadas en el instrumento');
   }
 
-
   // Detect Key Obligations
   const detectedObligations: string[] = [];
   const clMatches = fullText.matchAll(/(?:CL[AÁ]USULA\s+[A-ZÁÉÍÓÚÑ\-]+|\bPRIMERA|\bSEGUNDA|\bTERCERA)[\.\:\-]?\s*([^\n\r]{20,160})/gi);
@@ -264,15 +272,10 @@ export function generateDeterministicLegalAudit(input: DeterministicAnalysisInpu
   const recommendedActions: string[] = [];
   const checklist: string[] = [];
 
-  const primaryLaw = ragSources[0]?.law || (
-    ecosystem === 'fiscal' ? 'Código Fiscal de la Federación' :
-    ecosystem === 'laboral' ? 'Ley Federal del Trabajo' :
-    ecosystem === 'aduanal' ? 'Ley Aduanera' :
-    ecosystem === 'comercio_exterior' ? 'Ley de Comercio Exterior' : 'Código de Comercio'
-  );
+  const primaryLaw = ragSources[0]?.law || 'Legislación Mexicana Aplicable';
   const primaryArticle = ragSources[0]?.article || 'Disposiciones aplicables';
 
-  if (ecosystem === 'fiscal') {
+  if (targetEcosystems.includes('fiscal')) {
     if (!/CFDI|UUID|Comprobante/i.test(fullText)) {
       missingClauses.push('Cláusula de emisión y validación de CFDI 4.0 con desglose de impuestos');
       findings.push({
@@ -280,7 +283,7 @@ export function generateDeterministicLegalAudit(input: DeterministicAnalysisInpu
         area: 'Deducibilidad e IVA',
         severity: 'high',
         description: 'No se acredita la vinculación de comprobantes fiscales digitales (CFDI) con UUID para soportar la deducción.',
-        legalFoundation: `${primaryLaw} ${primaryArticle}`,
+        legalFoundation: 'Código Fiscal de la Federación Art. 29 y 29-A',
         mitigatingAction: 'Incorporar folios fiscales y constancias de retención aplicables.',
       });
     }
@@ -297,10 +300,11 @@ export function generateDeterministicLegalAudit(input: DeterministicAnalysisInpu
     }
     recommendedActions.push('Integrar expediente de defensa con CFDI, estados de cuenta bancarios y evidencia de materialidad.');
     recommendedActions.push('Verificar que el prestador no se encuentre en listas restrictivas del SAT.');
-    checklist.push('Contrato con fecha cierta y firmas ratificadas');
     checklist.push('CFDI versión 4.0 con clave de producto/servicio correcta');
     checklist.push('Comprobante de pago bancario mediante transferencia');
-  } else if (ecosystem === 'laboral') {
+  }
+
+  if (targetEcosystems.includes('laboral')) {
     if (!/jornada|horario/i.test(fullText)) {
       missingClauses.push('Delimitación expresa de la jornada de trabajo máxima (Art. 59-61 LFT)');
       findings.push({
@@ -320,7 +324,9 @@ export function generateDeterministicLegalAudit(input: DeterministicAnalysisInpu
     checklist.push('Identificación completa de patrón y trabajador');
     checklist.push('Salario pactado expresado en moneda nacional');
     checklist.push('Cláusula de confidencialidad y entrega de herramientas');
-  } else if (ecosystem === 'comercio_exterior' || ecosystem === 'aduanal') {
+  }
+
+  if (targetEcosystems.includes('comercio_exterior') || targetEcosystems.includes('aduanal')) {
     if (!/incoterm/i.test(fullText)) {
       missingClauses.push('Definición del término internacional de comercio (Incoterm ICC 2020) y transmisión de riesgos');
       findings.push({
@@ -337,8 +343,9 @@ export function generateDeterministicLegalAudit(input: DeterministicAnalysisInpu
     checklist.push('Factura comercial y lista de empaque (Packing List)');
     checklist.push('Conocimiento de embarque (B/L) o Guía aérea');
     checklist.push('Certificado de origen bajo tratado aplicable (ej. T-MEC)');
-  } else {
-    // Mercantil / Corporativo
+  }
+
+  if (targetEcosystems.includes('mercantil')) {
     if (!/jurisdicci[oó]n|tribunal/i.test(fullText)) {
       missingClauses.push('Cláusula de sumisión expresa a tribunales competentes y ley aplicable');
       findings.push({
@@ -381,7 +388,7 @@ export function generateDeterministicLegalAudit(input: DeterministicAnalysisInpu
 
   const groundingClaims = [
     {
-      claimText: `Se auditó el instrumento '${files[0]?.name || 'documento'}' en materia ${ecosystem}. Se identificó un nivel de suficiencia probatoria ${support.level} (${support.score}/100).`,
+      claimText: `Se auditó el instrumento '${files[0]?.name || 'documento'}' en materia ${targetEcosystems.join(', ')}. Se identificó un nivel de suficiencia probatoria ${support.level} (${support.score}/100).`,
       sourceIds: ['doc:1', ...(formattedFoundations[0] ? [formattedFoundations[0].id] : [])],
     },
     ...findings.map(f => ({

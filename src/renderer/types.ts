@@ -143,8 +143,8 @@ export interface AnalyzedDocumentHistory {
   files: { name: string; type: string }[];
   result: DocumentAnalysisResult;
   module: 'fiscal' | 'engineering';
-  ecosystem?: 'fiscal' | 'mercantil' | 'laboral' | 'comercio_exterior' | 'aduanal';
-  promptProfile?: 'fiscal_analysis' | 'mercantil_analysis' | 'laboral_analysis' | 'comercio_exterior_analysis' | 'aduanal_analysis';
+  ecosystem?: 'fiscal' | 'mercantil' | 'laboral' | 'comercio_exterior' | 'aduanal' | 'integral';
+  promptProfile?: string;
   currentDocumentOnly?: true;
   customInstruction: string;
   executionMode?: 'local' | 'byok';

@@ -35,15 +35,16 @@ export interface LexDesktopAPI {
       focusedInstruction?: string;
       rules?: 'fiscal' | 'mercantil' | 'laboral' | 'comercio_exterior' | 'aduanal';
       ecosystem?: 'fiscal' | 'mercantil' | 'laboral' | 'comercio_exterior' | 'aduanal';
+      ecosystems?: Array<'fiscal' | 'mercantil' | 'laboral' | 'comercio_exterior' | 'aduanal'>;
       module?: 'analysis';
       currentDocumentOnly?: true;
-      promptProfile?: 'fiscal_analysis' | 'mercantil_analysis' | 'laboral_analysis' | 'comercio_exterior_analysis' | 'aduanal_analysis';
+      promptProfile?: string;
     }) => Promise<{
       result: any;
       requestId: string;
       ecosystem: 'fiscal' | 'mercantil' | 'laboral' | 'comercio_exterior' | 'aduanal';
       module: 'analysis';
-      promptProfile: 'fiscal_analysis' | 'mercantil_analysis' | 'laboral_analysis' | 'comercio_exterior_analysis' | 'aduanal_analysis';
+      promptProfile: string;
       currentDocumentOnly: true;
       engine: 'byok';
       requestedExecutionMode: 'byok';

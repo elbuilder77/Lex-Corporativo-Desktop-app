@@ -5,7 +5,7 @@ export type LegalEcosystem = LegalDraftingArea;
 export type LegalWorkflowModule = 'analysis' | 'drafting';
 export type AiExecutionMode = 'local' | 'byok';
 
-export type AnalysisPromptProfile = `${LegalAnalysisEcosystem}_analysis`;
+export type AnalysisPromptProfile = `${LegalAnalysisEcosystem}_analysis` | 'integral_analysis';
 export type DraftingPromptProfile = `${LegalDraftingArea}_drafting`;
 export type LegalPromptProfile = AnalysisPromptProfile | DraftingPromptProfile;
 
@@ -33,6 +33,8 @@ export function getDraftingPromptProfile(ecosystem: LegalDraftingArea): Drafting
   return DRAFTING_PROMPT_PROFILES[ecosystem];
 }
 
-export function isPromptProfileForEcosystem(profile: string | undefined, ecosystem: LegalEcosystem): boolean {
-  return !profile || profile.startsWith(`${ecosystem}_`);
+export function isPromptProfileForEcosystem(profile: string | undefined, ecosystem: LegalEcosystem | 'integral'): boolean {
+  if (!profile) return true;
+  if (profile === 'integral_analysis') return true;
+  return profile.startsWith(`${ecosystem}_`);
 }

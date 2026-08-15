@@ -67,5 +67,43 @@ CLÁUSULA SEGUNDA.- SALARIO. Percibirá un salario de $25,000 mensuales.`,
     expect((audit.missingClauses as string[]).some((c: string) => c.includes('jornada'))).toBe(true);
     expect(audit.groundingClaims).toBeDefined();
   });
+
+  it('genera una auditoría integral 360° evaluando múltiples materias simultáneamente', () => {
+    const audit = generateDeterministicLegalAudit({
+      files: [
+        {
+          name: 'Contrato_Suministro_Internacional.docx',
+          text: `CONTRATO DE SUMINISTRO MERCANTIL
+Comparece por una parte PROVEEDOR GLOBAL SA DE CV y por otra parte CLIENTE OPERATIVO SA DE CV.
+CLÁUSULA PRIMERA.- OBJETO. Venta de insumos industriales importados.
+CLÁUSULA SEGUNDA.- PRECIO. Se pagará la suma pactada en la orden de compra.`,
+          mimeType: 'docx',
+        },
+      ],
+      ecosystems: ['mercantil', 'fiscal', 'comercio_exterior'],
+      ragSources: [
+        {
+          id: 'leg:1',
+          title: 'Actos de Comercio',
+          law: 'Código de Comercio',
+          article: 'Artículo 75',
+          content: 'La ley reputa actos de comercio...',
+          relevanceScore: 0.9,
+        },
+      ],
+      userPrompt: 'Auditoría integral 360°',
+    });
+
+    expect(audit.summary).toBeDefined();
+    expect(audit.detectedParties).toContain('PROVEEDOR GLOBAL SA DE CV');
+    expect(Array.isArray(audit.risks)).toBe(true);
+    expect(Array.isArray(audit.missingClauses)).toBe(true);
+
+    const missing = audit.missingClauses as string[];
+    // Checks that clauses from fiscal, mercantil and comercio_exterior were evaluated
+    expect(missing.some((c: string) => c.includes('CFDI'))).toBe(true); // Fiscal check
+    expect(missing.some((c: string) => c.includes('Incoterm'))).toBe(true); // Comercio exterior check
+    expect(missing.some((c: string) => c.includes('sumisión') || c.includes('jurisdicción') || c.includes('pena'))).toBe(true); // Mercantil check
+  });
 });
 

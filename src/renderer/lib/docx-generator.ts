@@ -29,28 +29,30 @@ export interface LegalDocxOptions {
   parties?: string[];
 }
 
-function parseMarkdownLineToRuns(text: string): TextRun[] {
+const LEGAL_FONT = 'Georgia';
+
+function parseMarkdownLineToRuns(text: string, defaultBold: boolean = false): TextRun[] {
   const runs: TextRun[] = [];
   const regex = /(\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`|([^*`]+))/g;
   let match: RegExpExecArray | null;
 
   while ((match = regex.exec(text)) !== null) {
     if (match[2]) {
-      // Bold
-      runs.push(new TextRun({ text: match[2], bold: true, font: 'Georgia' }));
+      // Explicit bold
+      runs.push(new TextRun({ text: match[2], bold: true, font: LEGAL_FONT, size: 21, color: '0F172A' }));
     } else if (match[3]) {
       // Italic
-      runs.push(new TextRun({ text: match[3], italics: true, font: 'Georgia' }));
+      runs.push(new TextRun({ text: match[3], italics: true, bold: defaultBold, font: LEGAL_FONT, size: 21, color: '1E293B' }));
     } else if (match[4]) {
-      // Monospace / Code
-      runs.push(new TextRun({ text: match[4], font: 'Consolas', size: 18 }));
+      // Code / reference
+      runs.push(new TextRun({ text: match[4], font: 'Consolas', size: 18, color: '334155' }));
     } else if (match[5]) {
       // Normal text
-      runs.push(new TextRun({ text: match[5], font: 'Georgia' }));
+      runs.push(new TextRun({ text: match[5], bold: defaultBold, font: LEGAL_FONT, size: 21, color: '1E293B' }));
     }
   }
 
-  return runs.length > 0 ? runs : [new TextRun({ text, font: 'Georgia' })];
+  return runs.length > 0 ? runs : [new TextRun({ text, bold: defaultBold, font: LEGAL_FONT, size: 21, color: '1E293B' })];
 }
 
 export async function generateDocumentDocx(
@@ -67,46 +69,48 @@ export async function generateDocumentDocx(
 
   const paragraphs: (Paragraph | Table)[] = [];
 
-  // Document Title
+  // Document Title (Centered, Formal Bold Uppercase)
   paragraphs.push(
     new Paragraph({
       heading: HeadingLevel.TITLE,
       alignment: AlignmentType.CENTER,
-      spacing: { before: 200, after: 120 },
+      spacing: { before: 160, after: 80 },
       children: [
         new TextRun({
           text: title.toUpperCase(),
           bold: true,
-          size: 32, // 16pt
+          size: 26, // 13pt
           color: '0F172A',
-          font: 'Georgia',
+          font: LEGAL_FONT,
         }),
       ],
     })
   );
 
-  // Subtitle / Date / Reference
-  paragraphs.push(
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 300 },
-      children: [
-        new TextRun({
-          text: subtitle,
-          italics: true,
-          size: 20, // 10pt
-          color: '64748B',
-          font: 'Georgia',
-        }),
-        new TextRun({
-          text: `  |  Materia: ${ecosystem.toUpperCase()}  |  Fecha: ${new Date().toLocaleDateString('es-MX')}`,
-          size: 18,
-          color: '94A3B8',
-          font: 'Georgia',
-        }),
-      ],
-    })
-  );
+  // Subtitle / Date / Reference (Discreet)
+  if (subtitle) {
+    paragraphs.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 260 },
+        children: [
+          new TextRun({
+            text: subtitle,
+            italics: true,
+            size: 18, // 9pt
+            color: '64748B',
+            font: LEGAL_FONT,
+          }),
+          new TextRun({
+            text: `  ·  ${ecosystem.toUpperCase()}  ·  ${new Date().toLocaleDateString('es-MX')}`,
+            size: 17,
+            color: '94A3B8',
+            font: LEGAL_FONT,
+          }),
+        ],
+      })
+    );
+  }
 
   // Parse lines
   const lines = content.split('\n');
@@ -115,54 +119,45 @@ export async function generateDocumentDocx(
     const trimmed = rawLine.trim();
 
     if (!trimmed) {
-      paragraphs.push(new Paragraph({ spacing: { after: 120 } }));
+      paragraphs.push(new Paragraph({ spacing: { after: 100 } }));
       continue;
     }
 
-    if (trimmed.startsWith('# ')) {
+    // Section headings (DECLARACIONES, CLÁUSULAS, PROEMIO, etc.)
+    const isMainHeading = trimmed.startsWith('# ') || /^(?:DECLARACIONES|CL[AÁ]USULAS|TRANSITORIOS|PROEMIO|ANTECEDENTES|CAP[IÍ]TULO|FIRMAS)(?:[\s\.\:\-]|$)/i.test(trimmed);
+    const isSubHeading = trimmed.startsWith('## ') || trimmed.startsWith('### ');
+
+    if (isMainHeading) {
+      const headingText = trimmed.replace(/^#+\s*/, '').replace(/\*\*/g, '').toUpperCase();
       paragraphs.push(
         new Paragraph({
           heading: HeadingLevel.HEADING_1,
+          alignment: AlignmentType.CENTER,
           spacing: { before: 240, after: 120 },
           children: [
             new TextRun({
-              text: trimmed.replace(/^#\s+/, '').toUpperCase(),
+              text: headingText,
               bold: true,
-              size: 26,
-              color: '1E293B',
-              font: 'Georgia',
+              size: 23, // 11.5pt
+              color: '0F172A',
+              font: LEGAL_FONT,
             }),
           ],
         })
       );
-    } else if (trimmed.startsWith('## ')) {
+    } else if (isSubHeading) {
+      const headingText = trimmed.replace(/^#+\s*/, '').replace(/\*\*/g, '');
       paragraphs.push(
         new Paragraph({
           heading: HeadingLevel.HEADING_2,
-          spacing: { before: 200, after: 100 },
+          spacing: { before: 180, after: 80 },
           children: [
             new TextRun({
-              text: trimmed.replace(/^##\s+/, ''),
-              bold: true,
-              size: 24,
-              color: '334155',
-              font: 'Georgia',
-            }),
-          ],
-        })
-      );
-    } else if (trimmed.startsWith('### ')) {
-      paragraphs.push(
-        new Paragraph({
-          heading: HeadingLevel.HEADING_3,
-          spacing: { before: 160, after: 80 },
-          children: [
-            new TextRun({
-              text: trimmed.replace(/^###\s+/, ''),
+              text: headingText,
               bold: true,
               size: 22,
-              color: '475569',
-              font: 'Georgia',
+              color: '1E293B',
+              font: LEGAL_FONT,
             }),
           ],
         })
@@ -172,32 +167,48 @@ export async function generateDocumentDocx(
       paragraphs.push(
         new Paragraph({
           bullet: { level: 0 },
-          spacing: { after: 80 },
+          alignment: AlignmentType.JUSTIFIED,
+          spacing: { after: 70 },
           children: parseMarkdownLineToRuns(bulletText),
         })
       );
-    } else if (/^(?:CL[AÁ]USULA|DECLARACI[OÓ]N|PRIMERA|SEGUNDA|TERCERA|CUARTA|QUINTA|SEXTA|S[EÉ]PTIMA|OCTAVA|NOVENA|D[EÉ]CIMA|VIG[EÉ]SIMA)/i.test(trimmed)) {
-      paragraphs.push(
-        new Paragraph({
-          alignment: AlignmentType.JUSTIFIED,
-          spacing: { before: 140, after: 100 },
-          children: parseMarkdownLineToRuns(trimmed),
-        })
-      );
     } else {
-      paragraphs.push(
-        new Paragraph({
-          alignment: AlignmentType.JUSTIFIED,
-          spacing: { after: 100 },
-          children: parseMarkdownLineToRuns(trimmed),
-        })
-      );
-    }
+      // Check for Clause Header prefix (e.g. PRIMERA.- OBJETO, CLÁUSULA SEGUNDA.- ...)
+      const clauseMatch = trimmed.match(/^((?:CL[AÁ]USULA\s+[A-ZÁÉÍÓÚÑ\-]+|PRIMERA|SEGUNDA|TERCERA|CUARTA|QUINTA|SEXTA|S[EÉ]PTIMA|OCTAVA|NOVENA|D[EÉ]CIMA|VIG[EÉ]SIMA|TRIG[EÉ]SIMA|I\.|II\.|III\.|IV\.|V\.|A\)|B\)|C\))[\.\:\-]?\s*)(.*)$/i);
 
+      if (clauseMatch && !trimmed.startsWith('**')) {
+        const prefix = clauseMatch[1];
+        const rest = clauseMatch[2];
+        paragraphs.push(
+          new Paragraph({
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { before: 120, after: 90 },
+            children: [
+              new TextRun({
+                text: prefix,
+                bold: true,
+                font: LEGAL_FONT,
+                size: 21,
+                color: '0F172A',
+              }),
+              ...parseMarkdownLineToRuns(rest),
+            ],
+          })
+        );
+      } else {
+        paragraphs.push(
+          new Paragraph({
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { after: 90 },
+            children: parseMarkdownLineToRuns(trimmed),
+          })
+        );
+      }
+    }
   }
 
-  // Add Signatures Table if parties exist or default signature block
-  const signParties = parties.length > 0 ? parties : ['LA PARTE ACREDITADA / CONTRATANTE', 'LA PARTE PRESTADORA / AVAL'];
+  // Add Formal Signatures Table if parties exist or default signature block
+  const signParties = parties.length > 0 ? parties : ['LA PARTE CONTRATANTE / ACREDITADA', 'LA PARTE PRESTADORA / AVAL'];
   const signatureCells: TableCell[] = signParties.slice(0, 3).map((party) => {
     return new TableCell({
       width: { size: Math.floor(100 / signParties.length), type: WidthType.PERCENTAGE },
@@ -210,25 +221,25 @@ export async function generateDocumentDocx(
       children: [
         new Paragraph({
           alignment: AlignmentType.CENTER,
-          spacing: { before: 400, after: 60 },
+          spacing: { before: 360, after: 60 },
           children: [
             new TextRun({
               text: '________________________________________',
               color: '475569',
-              font: 'Georgia',
+              font: LEGAL_FONT,
             }),
           ],
         }),
         new Paragraph({
           alignment: AlignmentType.CENTER,
-          spacing: { after: 40 },
+          spacing: { after: 30 },
           children: [
             new TextRun({
               text: party,
               bold: true,
-              size: 18,
+              size: 19,
               color: '0F172A',
-              font: 'Georgia',
+              font: LEGAL_FONT,
             }),
           ],
         }),
@@ -240,7 +251,7 @@ export async function generateDocumentDocx(
               italics: true,
               size: 16,
               color: '94A3B8',
-              font: 'Georgia',
+              font: LEGAL_FONT,
             }),
           ],
         }),
@@ -250,14 +261,15 @@ export async function generateDocumentDocx(
 
   paragraphs.push(
     new Paragraph({
-      spacing: { before: 300, after: 100 },
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 280, after: 80 },
       children: [
         new TextRun({
           text: 'FIRMAS DE CONFORMIDAD Y RATIFICACIÓN',
           bold: true,
-          size: 20,
-          color: '334155',
-          font: 'Georgia',
+          size: 21,
+          color: '1E293B',
+          font: LEGAL_FONT,
         }),
       ],
     })
@@ -290,10 +302,10 @@ export async function generateDocumentDocx(
                 alignment: AlignmentType.RIGHT,
                 children: [
                   new TextRun({
-                    text: 'LEX CORPORATIVO | INGENIERÍA LEGAL Y DICTAMEN',
-                    size: 16,
+                    text: 'LEX CORPORATIVO  ·  INGENIERÍA JURÍDICA',
+                    size: 16, // 8pt
                     color: '94A3B8',
-                    font: 'Georgia',
+                    font: LEGAL_FONT,
                   }),
                 ],
               }),
@@ -310,25 +322,25 @@ export async function generateDocumentDocx(
                     text: `${title}  —  Confidencial  —  Página `,
                     size: 16,
                     color: '94A3B8',
-                    font: 'Georgia',
+                    font: LEGAL_FONT,
                   }),
                   new TextRun({
                     children: [PageNumber.CURRENT],
                     size: 16,
                     color: '94A3B8',
-                    font: 'Georgia',
+                    font: LEGAL_FONT,
                   }),
                   new TextRun({
                     text: ' de ',
                     size: 16,
                     color: '94A3B8',
-                    font: 'Georgia',
+                    font: LEGAL_FONT,
                   }),
                   new TextRun({
                     children: [PageNumber.TOTAL_PAGES],
                     size: 16,
                     color: '94A3B8',
-                    font: 'Georgia',
+                    font: LEGAL_FONT,
                   }),
                 ],
               }),
@@ -363,4 +375,3 @@ export async function generateDocumentDocx(
 
   return { success: true, filePath: fileName };
 }
-
