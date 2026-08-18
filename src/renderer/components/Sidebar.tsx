@@ -118,10 +118,10 @@ export const Sidebar: React.FC = () => {
         "from-slate-500/20 via-transparent to-transparent"
       )} />
 
-      <div className="p-4 border-b border-slate-800 h-[72px] flex items-center justify-between relative z-10">
+      <div className="p-4 border-b border-slate-800 h-[72px] flex items-center justify-between relative z-10 window-drag-region">
         <button
           type="button"
-          className="flex min-w-0 items-center gap-3 overflow-hidden text-left"
+          className="flex min-w-0 items-center gap-3 overflow-hidden text-left window-no-drag cursor-pointer"
           onClick={() => handleNavigate('/ingenieria-juridica')}
           aria-label="Ir a Inicio"
         >
@@ -149,7 +149,7 @@ export const Sidebar: React.FC = () => {
           <button
             type="button"
             onClick={() => setSidebarOpen(false)}
-            className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-800 hover:text-slate-300"
+            className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-800 hover:text-slate-300 window-no-drag"
             aria-label="Cerrar menú"
           >
             <X size={18} />

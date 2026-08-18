@@ -183,3 +183,84 @@ textarea:focus::placeholder {
 .notif-progress-bar {
   animation: notif-progress 5s linear forwards;
 }
+
+/* Electron Window Drag Regions */
+.window-drag-region {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.window-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* Legal Letterhead Paper Simulation */
+.legal-letterhead {
+  background: #ffffff;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03), 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+.prose-legal {
+  color: #1e293b;
+  font-size: 0.8125rem;
+  line-height: 1.75;
+}
+
+.prose-legal h1 {
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  text-align: center;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.prose-legal h2 {
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.25rem;
+}
+
+.prose-legal h3 {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-top: 1rem;
+  margin-bottom: 0.35rem;
+}
+
+.prose-legal p {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  text-align: justify;
+}
+
+.prose-legal ul, .prose-legal ol {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding-left: 1.25rem;
+}
+
+.prose-legal li {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.prose-legal strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.prose-legal hr {
+  border-color: #cbd5e1;
+  margin: 1.5rem 0;
+}

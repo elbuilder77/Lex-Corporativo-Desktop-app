@@ -263,15 +263,15 @@ export const Settings: React.FC = () => {
       <div className="mx-auto w-full max-w-7xl px-5 py-6 md:px-8">
         
         {/* Header Principal de Configuración */}
-        <header className="flex items-center justify-between border-b border-slate-200 bg-white p-5 rounded-2xl shadow-xs">
+        <header className="flex items-center justify-between border-b border-slate-200 bg-white p-5 rounded-2xl shadow-xs window-drag-region">
           <div className="flex items-center gap-3">
-            <img src={logoMarkUrl} alt="Lex Corporativo" className="h-9 w-9 rounded-lg object-contain" />
+            <img src={logoMarkUrl} alt="Lex Corporativo" className="h-9 w-9 rounded-lg object-contain window-no-drag" />
             <div>
               <h1 className="text-base font-bold text-slate-950">Configuración</h1>
               <p className="text-xs text-slate-500">Ajustes de IA, almacenamiento local y privacidad</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 window-no-drag">
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
               {byokEnabled ? `${BYOK_PROVIDER_LABELS[byokProvider]} Activo` : 'IA Desconectada'}
             </span>

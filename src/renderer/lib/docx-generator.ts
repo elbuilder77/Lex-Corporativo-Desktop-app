@@ -356,8 +356,7 @@ export async function generateDocumentDocx(
   const fileName = `${filenamePrefix}_${Date.now()}.docx`;
 
   if (typeof window !== 'undefined' && window.lexDesktop?.documents?.exportDocx) {
-    const arrayBuffer = await blob.arrayBuffer();
-    const base64 = Buffer.from(arrayBuffer).toString('base64');
+    const base64 = await blobToBase64(blob);
     return window.lexDesktop.documents.exportDocx({ base64, defaultPath: fileName });
   }
 
@@ -374,4 +373,30 @@ export async function generateDocumentDocx(
   }
 
   return { success: true, filePath: fileName };
+}
+
+async function blobToBase64(blob: Blob): Promise<string> {
+  if (typeof FileReader !== 'undefined') {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        resolve(result);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  const arrayBuffer = await blob.arrayBuffer();
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(arrayBuffer).toString('base64');
+  }
+
+  let binary = '';
+  const bytes = new Uint8Array(arrayBuffer);
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return typeof btoa !== 'undefined' ? btoa(binary) : '';
 }

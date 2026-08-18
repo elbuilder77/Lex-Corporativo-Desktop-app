@@ -244,9 +244,9 @@ export const BuscadorLegal: React.FC = () => {
       <div className="mx-auto w-full max-w-7xl px-5 pb-12 pt-6 md:px-8 space-y-6">
         
         {/* Header del Buscador */}
-        <header className="flex items-center justify-between border-b border-slate-200 bg-white p-5 rounded-2xl shadow-xs">
+        <header className="flex items-center justify-between border-b border-slate-200 bg-white p-5 rounded-2xl shadow-xs window-drag-region">
           <div className="flex items-center gap-3">
-            <div className={cn('rounded-xl border p-2.5', currentArea.badgeClass)}>
+            <div className={cn('rounded-xl border p-2.5 window-no-drag', currentArea.badgeClass)}>
               <FileSearch size={22} />
             </div>
             <div>
@@ -256,7 +256,7 @@ export const BuscadorLegal: React.FC = () => {
               </p>
             </div>
           </div>
-          <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
+          <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700 window-no-drag">
             <Database size={13} /> Corpus Oficial Local (LanceDB)
           </span>
         </header>

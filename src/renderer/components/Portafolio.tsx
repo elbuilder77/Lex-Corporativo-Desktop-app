@@ -328,9 +328,9 @@ export const Portafolio: React.FC = () => {
       <div className="mx-auto w-full max-w-7xl px-5 pb-12 pt-6 md:px-8 space-y-6">
         
         {/* Header con Contadores */}
-        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-white p-5 rounded-2xl shadow-xs">
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-white p-5 rounded-2xl shadow-xs window-drag-region">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-slate-800">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-slate-800 window-no-drag">
               <FolderOpen size={22} />
             </div>
             <div>
@@ -341,7 +341,7 @@ export const Portafolio: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold window-no-drag">
             <span className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-slate-700">
               <strong className="text-slate-950">{allActivity.length}</strong> entregables
             </span>
