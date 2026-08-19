@@ -6,6 +6,7 @@ import { ProcessingSetupDialog } from './components/ProcessingSetupDialog';
 import { Menu } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AppShell } from './components/AppShell';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const Introduction = lazy(() => import('./components/Introduction').then(m => ({ default: m.Introduction })));
 const NotificationHub = lazy(() => import('./components/NotificationHub').then(m => ({ default: m.NotificationHub })));
@@ -248,58 +249,60 @@ function App() {
             <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="w-8 h-8 border-2 border-legal-gold border-t-transparent rounded-full" />
           </div>
         }>
-          <Routes>
-            <Route path="/" element={<IntroductionWrapper />} />
-            <Route path="/portafolio" element={
-              <LocalStationRoute>
-                <CapabilityGate capability="vault">
-                <motion.div key="portafolio" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }} className="h-full w-full block">
-                  <Portafolio />
+          <ErrorBoundary>
+            <Routes>
+              <Route path="/" element={<IntroductionWrapper />} />
+              <Route path="/portafolio" element={
+                <LocalStationRoute>
+                  <CapabilityGate capability="vault">
+                  <motion.div key="portafolio" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }} className="h-full w-full block">
+                    <Portafolio />
+                  </motion.div>
+                  </CapabilityGate>
+                </LocalStationRoute>
+              } />
+              <Route path="/buscador" element={
+                <LocalStationRoute>
+                  <CapabilityGate capability="legalSearch">
+                  <motion.div key="buscador" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }} className="h-full w-full block">
+                    <BuscadorLegal />
+                  </motion.div>
+                  </CapabilityGate>
+                </LocalStationRoute>
+              } />
+              <Route path="/ingenieria-juridica" element={
+                <LocalStationRoute>
+                  <CapabilityGate capability="legalGeneration">
+                  <motion.div key="legal-engineering" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }} className="h-full w-full block">
+                    <LegalEngineering />
+                  </motion.div>
+                  </CapabilityGate>
+                </LocalStationRoute>
+              } />
+              <Route path="/documentos" element={<Navigate to="/ingenieria-juridica" replace />} />
+              <Route path="/corporativo" element={<Navigate to="/ingenieria-juridica" replace />} />
+              <Route path="/fiscal" element={<Navigate to="/ingenieria-juridica" replace />} />
+              <Route path="/privacy" element={
+                <motion.div key="privacy" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2, ease: "easeOut" }} className="absolute inset-0 z-50 bg-slate-50 text-slate-900">
+                  <PrivacyPolicy onBack={() => window.history.back()} />
                 </motion.div>
-                </CapabilityGate>
-              </LocalStationRoute>
-            } />
-            <Route path="/buscador" element={
-              <LocalStationRoute>
-                <CapabilityGate capability="legalSearch">
-                <motion.div key="buscador" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }} className="h-full w-full block">
-                  <BuscadorLegal />
+              } />
+              <Route path="/terms" element={
+                <motion.div key="terms" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2, ease: "easeOut" }} className="absolute inset-0 z-50 bg-slate-50 text-slate-900">
+                  <TermsConditions onBack={() => window.history.back()} />
                 </motion.div>
-                </CapabilityGate>
-              </LocalStationRoute>
-            } />
-            <Route path="/ingenieria-juridica" element={
-              <LocalStationRoute>
-                <CapabilityGate capability="legalGeneration">
-                <motion.div key="legal-engineering" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }} className="h-full w-full block">
-                  <LegalEngineering />
-                </motion.div>
-                </CapabilityGate>
-              </LocalStationRoute>
-            } />
-            <Route path="/documentos" element={<Navigate to="/ingenieria-juridica" replace />} />
-            <Route path="/corporativo" element={<Navigate to="/ingenieria-juridica" replace />} />
-            <Route path="/fiscal" element={<Navigate to="/ingenieria-juridica" replace />} />
-            <Route path="/privacy" element={
-              <motion.div key="privacy" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2, ease: "easeOut" }} className="absolute inset-0 z-50 bg-slate-50 text-slate-900">
-                <PrivacyPolicy onBack={() => window.history.back()} />
-              </motion.div>
-            } />
-            <Route path="/terms" element={
-              <motion.div key="terms" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2, ease: "easeOut" }} className="absolute inset-0 z-50 bg-slate-50 text-slate-900">
-                <TermsConditions onBack={() => window.history.back()} />
-              </motion.div>
-            } />
-            <Route path="/settings" element={
-              <LocalStationRoute>
-                <motion.div key="settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }} className="h-full w-full block bg-slate-50 relative z-40">
-                  <Settings />
-                </motion.div>
-              </LocalStationRoute>
-            } />
-            <Route path="/instructivo" element={<Navigate to="/ingenieria-juridica" replace />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+              } />
+              <Route path="/settings" element={
+                <LocalStationRoute>
+                  <motion.div key="settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }} className="h-full w-full block bg-slate-50 relative z-40">
+                    <Settings />
+                  </motion.div>
+                </LocalStationRoute>
+              } />
+              <Route path="/instructivo" element={<Navigate to="/ingenieria-juridica" replace />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </ErrorBoundary>
         </Suspense>
       </AppShell>
     </div>
