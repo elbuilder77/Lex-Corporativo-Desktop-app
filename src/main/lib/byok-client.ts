@@ -168,12 +168,10 @@ function describeEmptyGeminiResponse(payload: any): string {
 }
 
 export function normalizeModelName(provider: ByokProvider, model?: string): string {
-  const raw = model?.trim();
-  if (raw) return raw;
   if (provider === 'gemini') return 'gemini-3.7-flash';
   if (provider === 'openai') return 'gpt-4o-mini';
   if (provider === 'anthropic') return 'claude-3-5-sonnet-20241022';
-  return 'gemini-3.7-flash';
+  return (model || '').trim() || 'gemini-3.7-flash';
 }
 
 const GEMINI_UNSUPPORTED_KEYWORDS = new Set([

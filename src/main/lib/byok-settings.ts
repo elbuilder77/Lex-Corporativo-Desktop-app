@@ -18,7 +18,6 @@ export const MAX_BYOK_MAX_INPUT_CHARS = 200_000;
 
 export interface ByokProviderStatus {
   model: string;
-  modelVersion?: string;
   hasApiKey: boolean;
   keyStatus: ByokKeyStatus;
   requiresApiKeyReset: boolean;
@@ -46,7 +45,6 @@ export interface SaveByokSettingsInput {
   enabled: boolean;
   provider?: ByokProvider;
   model?: string;
-  modelVersion?: string;
   apiKey?: string;
   strictPrivacy?: boolean;
   automaticUpdatesEnabled?: boolean;
@@ -56,7 +54,6 @@ export interface SaveByokSettingsInput {
 
 interface StoredProviderSettings {
   model?: string;
-  modelVersion?: string;
   encryptedApiKey?: string;
   apiKeyFingerprint?: string;
   updatedAt?: string;
@@ -224,7 +221,6 @@ function providerStatus(provider: ByokProvider, stored?: StoredProviderSettings)
   const keyStatus = getKeyStatus(stored);
   return {
     model: stored?.model || DEFAULT_BYOK_MODELS[provider],
-    modelVersion: stored?.modelVersion,
     hasApiKey: keyStatus === 'ready',
     keyStatus,
     requiresApiKeyReset: keyStatus === 'unreadable',
@@ -261,7 +257,6 @@ export function getActiveByokConfig(): {
   enabled: boolean;
   provider: ByokProvider;
   model: string;
-  modelVersion?: string;
   apiKey: string | null;
   maxInputChars: number;
 } {
@@ -273,7 +268,6 @@ export function getActiveByokConfig(): {
     enabled: Boolean(stored.enabled && apiKey),
     provider: stored.provider,
     model: active?.model || DEFAULT_BYOK_MODELS[stored.provider],
-    modelVersion: active?.modelVersion,
     apiKey,
     maxInputChars: normalizeMaxInputChars(stored.maxInputChars),
   };
@@ -319,7 +313,6 @@ export function saveByokSettings(input: SaveByokSettingsInput): ByokSettings {
       ...current.providers,
       [provider]: {
         model: input.model?.trim() || previousProvider.model || DEFAULT_BYOK_MODELS[provider],
-        modelVersion: input.modelVersion || previousProvider.modelVersion,
         encryptedApiKey: nextApiKey ? encryptText(nextApiKey) : undefined,
         apiKeyFingerprint: nextApiKey ? fingerprintApiKey(nextApiKey) : undefined,
         updatedAt: now,

@@ -155,18 +155,12 @@ export const IaSettingsPanel: React.FC<IaSettingsPanelProps> = ({
             </label>
             <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-800 font-mono font-semibold">
               <Sparkles size={14} className="text-blue-600 shrink-0" />
-              <span>{byokModel || (byokProvider === 'gemini' ? 'gemini-3.7-flash' : byokProvider === 'openai' ? 'gpt-4o-mini' : 'claude-3-5-sonnet-20241022')}</span>
+              <span>
+                {byokProvider === 'gemini' && 'Gemini 3.7 Flash'}
+                {byokProvider === 'openai' && 'GPT-4o mini'}
+                {byokProvider === 'anthropic' && 'Claude 3.5 Sonnet'}
+              </span>
             </div>
-            <p className="mt-1 text-[11px] text-slate-500">
-              Se usa este modelo para generación. Déjalo vacío para usar el predeterminado del proveedor.
-            </p>
-            <input
-              type="text"
-              value={byokModel}
-              onChange={(e) => setByokModel(e.target.value)}
-              placeholder={byokProvider === 'gemini' ? 'gemini-3.7-flash' : byokProvider === 'openai' ? 'gpt-4o-mini' : 'claude-3-5-sonnet-20241022'}
-              className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs text-slate-900 outline-hidden transition focus:border-blue-600 focus:ring-2 focus:ring-blue-600/10"
-            />
           </div>
         </div>
 
@@ -226,11 +220,6 @@ export const IaSettingsPanel: React.FC<IaSettingsPanelProps> = ({
               {byokStatus === 'saving' ? 'Guardando...' : 'Guardar configuración'}
             </button>
           </div>
-
-          {/* Metadata note for test connection */}
-          <p className="text-[11px] text-slate-500 italic">
-            Al probar la conexión se envía una petición mínima al proveedor seleccionado para validar la clave.
-          </p>
         </div>
       </section>
 
