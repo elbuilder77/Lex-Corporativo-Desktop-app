@@ -38,6 +38,7 @@ export interface ByokSettings {
   apiKeyFingerprint?: string;
   updatedAt?: string;
   providers: Record<ByokProvider, ByokProviderStatus>;
+  updateConsentGiven: boolean;
 }
 
 export interface SaveByokSettingsInput {
@@ -48,6 +49,7 @@ export interface SaveByokSettingsInput {
   strictPrivacy?: boolean;
   automaticUpdatesEnabled?: boolean;
   maxInputChars?: number;
+  updateConsentGiven?: boolean;
 }
 
 interface StoredProviderSettings {
@@ -64,6 +66,7 @@ interface StoredByokSettings {
   strictPrivacy?: boolean;
   automaticUpdatesEnabled?: boolean;
   maxInputChars?: number;
+  updateConsentGiven?: boolean;
   providers: Partial<Record<ByokProvider, StoredProviderSettings>>;
 }
 
@@ -144,6 +147,7 @@ function emptyStoredSettings(): StoredByokSettings {
     strictPrivacy: true,
     automaticUpdatesEnabled: false,
     maxInputChars: DEFAULT_BYOK_MAX_INPUT_CHARS,
+    updateConsentGiven: false,
     providers: {},
   };
 }
@@ -170,6 +174,7 @@ function migrateSettings(raw: Partial<StoredByokSettings & LegacyGeminiSettings>
     strictPrivacy: raw.strictPrivacy !== false,
     automaticUpdatesEnabled: Boolean(raw.automaticUpdatesEnabled),
     maxInputChars: normalizeMaxInputChars(raw.maxInputChars),
+    updateConsentGiven: Boolean(raw.updateConsentGiven),
     providers,
   };
 }
@@ -244,6 +249,7 @@ export function getByokSettings(): ByokSettings {
     apiKeyFingerprint: active.apiKeyFingerprint,
     updatedAt: active.updatedAt,
     providers,
+    updateConsentGiven: Boolean(stored.updateConsentGiven),
   };
 }
 
@@ -302,6 +308,7 @@ export function saveByokSettings(input: SaveByokSettingsInput): ByokSettings {
     strictPrivacy: input.strictPrivacy ?? current.strictPrivacy ?? true,
     automaticUpdatesEnabled: input.automaticUpdatesEnabled ?? current.automaticUpdatesEnabled ?? false,
     maxInputChars: normalizeMaxInputChars(input.maxInputChars ?? current.maxInputChars),
+    updateConsentGiven: input.updateConsentGiven ?? current.updateConsentGiven ?? false,
     providers: {
       ...current.providers,
       [provider]: {

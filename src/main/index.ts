@@ -14,7 +14,7 @@ let mainWindow: BrowserWindow | null = null;
 
 function canCheckUpdatesAutomatically(): boolean {
   const settings = getByokSettings();
-  return app.isPackaged && settings.automaticUpdatesEnabled && !settings.strictPrivacy;
+  return app.isPackaged && settings.automaticUpdatesEnabled && !settings.strictPrivacy && settings.updateConsentGiven;
 }
 
 function setupUpdateHandlers(): void {

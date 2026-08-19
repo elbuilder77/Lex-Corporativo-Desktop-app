@@ -220,6 +220,11 @@ export const IaSettingsPanel: React.FC<IaSettingsPanelProps> = ({
               {byokStatus === 'saving' ? 'Guardando...' : 'Guardar configuración'}
             </button>
           </div>
+
+          {/* Metadata note for test connection */}
+          <p className="text-[11px] text-slate-500 italic">
+            Al probar la conexión se envía una petición mínima al proveedor seleccionado para validar la clave.
+          </p>
         </div>
       </section>
 

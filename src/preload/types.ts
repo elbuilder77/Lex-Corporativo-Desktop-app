@@ -126,6 +126,7 @@ export interface LexDesktopAPI {
         apiKeyFingerprint?: string;
         updatedAt?: string;
       }>;
+      updateConsentGiven: boolean;
     }>;
     saveSettings: (payload: {
       enabled: boolean;
@@ -135,6 +136,7 @@ export interface LexDesktopAPI {
       strictPrivacy?: boolean;
       automaticUpdatesEnabled?: boolean;
       maxInputChars?: number;
+      updateConsentGiven?: boolean;
     }) => Promise<{
       enabled: boolean;
       provider: 'gemini' | 'openai' | 'anthropic';
@@ -155,6 +157,7 @@ export interface LexDesktopAPI {
         apiKeyFingerprint?: string;
         updatedAt?: string;
       }>;
+      updateConsentGiven: boolean;
     }>;
     clearKey: (payload?: { provider?: 'gemini' | 'openai' | 'anthropic' }) => Promise<{
       enabled: boolean;
@@ -176,8 +179,10 @@ export interface LexDesktopAPI {
         apiKeyFingerprint?: string;
         updatedAt?: string;
       }>;
+      updateConsentGiven: boolean;
     }>;
     testConnection: (payload?: { provider?: 'gemini' | 'openai' | 'anthropic'; apiKey?: string; model?: string }) => Promise<{ ok: true; provider: 'gemini' | 'openai' | 'anthropic'; model: string }>;
+    setUpdateConsent: (consent: boolean) => Promise<{ updateConsentGiven: boolean }>;
   };
   settings: {
     getAppVersion: () => Promise<string>;
@@ -190,8 +195,11 @@ export interface LexDesktopAPI {
   navigation: {
     onSettings: (callback: () => void) => () => void;
   };
-  assistant: {
+assistant: {
     askInstructivo: (payload: { query: string; history?: Array<{ role: 'user' | 'model' | 'assistant'; text: string }> }) => Promise<{ result: string }>;
     askFiscal: (payload: { query: string; module?: 'mercantil' | 'laboral' | 'comercio_exterior' | 'aduanal' | 'fiscal'; history?: Array<{ role: 'user' | 'model' | 'assistant'; text: string }> }) => Promise<{ result: string; citationsAvailable: boolean; groundingStatus: 'grounded' | 'abstained' | 'rejected'; provider?: 'gemini' | 'openai' | 'anthropic' }>;
+  };
+  security: {
+    reportCspViolation: (report: unknown) => Promise<{ ok: boolean }>;
   };
 }

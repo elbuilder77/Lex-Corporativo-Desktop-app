@@ -150,9 +150,10 @@ describe('analysis double-lane RAG context', () => {
     mkdirSync(join(mockState.userDataPath, 'lance_data', 'user_documents.lance'), { recursive: true });
   });
 
-  it('uses LEX_ENGINE_LANCE_PATH as the authoritative legal vector path', () => {
-    process.env.LEX_ENGINE_LANCE_PATH = 'runtime-lance';
-    expect(getLegalKnowledgeRuntimePath()).toBe(resolve(process.cwd(), 'runtime-lance'));
+  it('uses LEX_ENGINE_LANCE_PATH as the authoritative legal vector path when within allowed roots', () => {
+    const allowedPath = join(mockState.userDataPath, 'lance_data');
+    process.env.LEX_ENGINE_LANCE_PATH = allowedPath;
+    expect(getLegalKnowledgeRuntimePath()).toBe(allowedPath);
   });
 
   it('recovers only current-request document chunks and module-allowed laws', async () => {

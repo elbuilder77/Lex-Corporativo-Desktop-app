@@ -20,6 +20,9 @@ export function sha256Content(content: string | Buffer | Uint8Array): string {
   return createHash('sha256').update(content).digest('hex');
 }
 
+const MAX_PDF_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_PDF_PAGES = 500;
+
 // Fallback synchronous/blocking extraction
 export async function extractTextContent(
   buffer: Buffer,
@@ -27,6 +30,9 @@ export async function extractTextContent(
 ): Promise<ExtractedPdfDocument> {
   if (buffer.length === 0) {
     throw new Error(`El PDF '${fileName}' está vacío.`);
+  }
+  if (buffer.length > MAX_PDF_SIZE) {
+    throw new Error(`El PDF '${fileName}' excede el tamaño máximo permitido (${MAX_PDF_SIZE / 1024 / 1024}MB).`);
   }
 
   const parser = new PDFParse({ data: new Uint8Array(buffer) });
@@ -36,6 +42,10 @@ export async function extractTextContent(
       lineEnforce: true,
       pageJoiner: '',
     });
+
+    if (result.total && result.total > MAX_PDF_PAGES) {
+      throw new Error(`El PDF '${fileName}' excede el número máximo de páginas permitidas (${MAX_PDF_PAGES}).`);
+    }
 
     const pages = result.pages
       .map(page => ({

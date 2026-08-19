@@ -1,7 +1,7 @@
-import { ipcMain, app, dialog } from 'electron';
+import { ipcMain, app, dialog, BrowserWindow } from 'electron';
 import { copyFileSync } from 'fs';
 import { existsSync } from 'fs';
-import { join } from 'path';
+import { join, resolve, basename } from 'path';
 import { registerAnalyzeHandlers } from './analyze.handler';
 import { registerDraftHandlers } from './draft.handler';
 import { registerRagHandlers } from './rag.handler';
@@ -10,18 +10,57 @@ import { registerAssistantHandlers } from './assistant.handler';
 import { registerByokHandlers } from './byok.handler';
 import { getLegalKnowledgeRuntimePath, isLocalRagAvailable } from '../lib/rag';
 import { getVaultProtectionStatus, listCases } from '../lib/case-vault';
-import { getByokSettings } from '../lib/byok-settings';
+import { getByokSettings, saveByokSettings } from '../lib/byok-settings';
 import { getTraceLedgerStatus } from '../lib/traceability';
+import { sanitizeForLogs } from '../lib/sanitizer';
+
+const ALLOWED_EXPORT_EXTS = ['json', 'pdf', 'docx', 'jsonl'];
+
+function sanitizeOpenDialogOptions(options: Electron.OpenDialogOptions): Electron.OpenDialogOptions {
+  const safeOptions = { ...options };
+  if (safeOptions.defaultPath) {
+    const fileName = basename(safeOptions.defaultPath);
+    safeOptions.defaultPath = resolve(app.getPath('downloads'), fileName);
+  } else {
+    safeOptions.defaultPath = app.getPath('downloads');
+  }
+  if (safeOptions.filters) {
+    safeOptions.filters = safeOptions.filters.map(filter => ({
+      ...filter,
+      extensions: filter.extensions?.filter(ext => ALLOWED_EXPORT_EXTS.includes(ext)) || []
+    })).filter(filter => filter.extensions.length > 0);
+  }
+  return safeOptions;
+}
+
+function sanitizeSaveDialogOptions(options: Electron.SaveDialogOptions): Electron.SaveDialogOptions {
+  const safeOptions = { ...options };
+  if (safeOptions.defaultPath) {
+    const fileName = basename(safeOptions.defaultPath);
+    safeOptions.defaultPath = resolve(app.getPath('downloads'), fileName);
+  } else {
+    safeOptions.defaultPath = app.getPath('downloads');
+  }
+  if (safeOptions.filters) {
+    safeOptions.filters = safeOptions.filters.map(filter => ({
+      ...filter,
+      extensions: filter.extensions?.filter(ext => ALLOWED_EXPORT_EXTS.includes(ext)) || []
+    })).filter(filter => filter.extensions.length > 0);
+  }
+  return safeOptions;
+}
 
 export function registerIpcHandlers(): void {
   // ── Shell Operations ───────────────────────
   ipcMain.handle('dialog:show-open-dialog', async (_event, options) => {
-    const result = await dialog.showOpenDialog(options);
+    const safeOptions = sanitizeOpenDialogOptions(options);
+    const result = await dialog.showOpenDialog(safeOptions);
     return result.canceled ? [] : result.filePaths;
   });
 
   ipcMain.handle('dialog:show-save-dialog', async (_event, options) => {
-    const result = await dialog.showSaveDialog(options);
+    const safeOptions = sanitizeSaveDialogOptions(options);
+    const result = await dialog.showSaveDialog(safeOptions);
     return result.canceled ? null : result.filePath;
   });
 
@@ -134,6 +173,32 @@ export function registerIpcHandlers(): void {
 
     copyFileSync(status.path, filePath);
     return { success: true, filePath, sourcePath: status.path };
+  });
+
+  // ── Update Consent ───────────────────────────
+  ipcMain.handle('settings:set-update-consent', async (_event, consent: boolean) => {
+    const settings = getByokSettings();
+    return saveByokSettings({
+      enabled: settings.enabled,
+      provider: settings.provider,
+      model: settings.model,
+      strictPrivacy: settings.strictPrivacy,
+      automaticUpdatesEnabled: settings.automaticUpdatesEnabled,
+      maxInputChars: settings.maxInputChars,
+      updateConsentGiven: consent,
+    });
+  });
+
+  // ── CSP Violation Reporting ─────────────────
+  ipcMain.handle('csp:report', async (_event, report: unknown) => {
+    try {
+      const cleanReport = sanitizeForLogs(report);
+      console.warn('[CSP Violation]', JSON.stringify(cleanReport));
+      // Could also append to traceability ledger
+      return { ok: true };
+    } catch {
+      return { ok: false };
+    }
   });
 
   // ── Modular Handler Registration ───────────
