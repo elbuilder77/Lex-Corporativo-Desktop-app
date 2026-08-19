@@ -168,7 +168,8 @@ function describeEmptyGeminiResponse(payload: any): string {
 }
 
 export function normalizeModelName(provider: ByokProvider, model?: string): string {
-  if (model && model.trim()) return model.trim();
+  const raw = model?.trim();
+  if (raw) return raw;
   if (provider === 'gemini') return 'gemini-3.7-flash';
   if (provider === 'openai') return 'gpt-4o-mini';
   if (provider === 'anthropic') return 'claude-3-5-sonnet-20241022';
