@@ -83,6 +83,26 @@ if (!rootElement) {
   throw new Error("Could not find root element to mount to");
 }
 
+// CSP Violation Reporting - sends violations to main process via preload API
+if (window.lexDesktop?.security?.reportCspViolation) {
+  document.addEventListener('securitypolicyviolation', (event) => {
+    const violation = {
+      'document-uri': event.documentURI,
+      'referrer': event.referrer,
+      'blocked-uri': event.blockedURI,
+      'violated-directive': event.violatedDirective,
+      'effective-directive': event.effectiveDirective,
+      'original-policy': event.originalPolicy,
+      'disposition': event.disposition,
+      'status-code': event.statusCode,
+      'line-number': event.lineNumber,
+      'column-number': event.columnNumber,
+      'source-file': event.sourceFile,
+    };
+    window.lexDesktop.security.reportCspViolation(violation).catch(() => undefined);
+  });
+}
+
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>

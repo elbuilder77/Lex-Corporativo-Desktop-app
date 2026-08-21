@@ -49,6 +49,13 @@ function getVaultRoot(): string {
   return root;
 }
 
+// DB factory for dependency injection (testing)
+let dbFactory: (dbPath: string) => Database.Database = (p) => new Database(p);
+
+export function setDbFactory(factory: (dbPath: string) => Database.Database): void {
+  dbFactory = factory;
+}
+
 let db: Database.Database | null = null;
 
 function getStorageBackend(): string {
@@ -104,7 +111,7 @@ function getDb(): Database.Database {
   if (db) return db;
   const vaultRoot = getVaultRoot();
   const dbPath = path.join(vaultRoot, 'vault.db');
-  db = new Database(dbPath);
+  db = dbFactory(dbPath);
 
   db.pragma('foreign_keys = ON');
   db.pragma('journal_mode = WAL');
@@ -491,4 +498,8 @@ export function closeDb(): void {
     db.close();
     db = null;
   }
+}
+
+export function resetDbFactory(): void {
+  dbFactory = (p) => new Database(p);
 }

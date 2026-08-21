@@ -20,6 +20,19 @@ function getConfiguredLancePath(): string | null {
   const configured = process.env.LEX_ENGINE_LANCE_PATH?.trim();
   if (!configured) return null;
   const resolved = resolveRuntimeOverride(configured);
+  
+  const allowedRoots = [
+    path.join(app.getPath('userData'), 'lance_data'),
+    app.isPackaged
+      ? path.join(process.resourcesPath, 'legal-runtime', 'lance_data')
+      : path.join(app.getAppPath(), 'legal-runtime', 'lance_data'),
+  ];
+  
+  if (!allowedRoots.some(root => resolved.startsWith(root))) {
+    console.warn('[RAG] LEX_ENGINE_LANCE_PATH outside allowed roots, ignoring');
+    return null;
+  }
+  
   return path.basename(resolved).toLowerCase() === 'legal_knowledge.lance'
     ? path.dirname(resolved)
     : resolved;

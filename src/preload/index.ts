@@ -48,6 +48,7 @@ const api: LexDesktopAPI = {
     saveSettings: (payload) => ipcRenderer.invoke('byok:save-settings', payload),
     clearKey: (payload) => ipcRenderer.invoke('byok:clear-key', payload),
     testConnection: (payload) => ipcRenderer.invoke('byok:test-connection', payload),
+    setUpdateConsent: (consent) => ipcRenderer.invoke('settings:set-update-consent', consent),
   },
   settings: {
     getAppVersion: () => ipcRenderer.invoke('app:version'),
@@ -73,6 +74,9 @@ const api: LexDesktopAPI = {
   assistant: {
     askInstructivo: (payload) => ipcRenderer.invoke('ipc:assistant-ask', payload),
     askFiscal: (payload) => ipcRenderer.invoke('ipc:fiscal-ask', payload),
+  },
+  security: {
+    reportCspViolation: (report) => ipcRenderer.invoke('csp:report', report),
   }
 };
 

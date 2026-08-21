@@ -39,6 +39,14 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/renderer/index.html')
+        },
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-ui': ['framer-motion', 'lucide-react'],
+            'vendor-ai': ['@xenova/transformers', 'onnxruntime-web'],
+            'vendor-doc': ['docx', 'jspdf', 'pdf-parse', 'mammoth'],
+          }
         }
       }
     }
