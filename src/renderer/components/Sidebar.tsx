@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { ModuleTab } from '../types';
-import { House, Landmark, FileSignature, BookOpen, X, Settings, FolderOpen, ChevronLeft, ChevronRight, Search, FileSearch, ShieldCheck, ClipboardList, ReceiptText } from 'lucide-react';
+import { House, Landmark, FileSignature, X, Settings, FolderOpen, ChevronLeft, ChevronRight, Search, BookOpenCheck, ShieldCheck } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { BRAND_CONTENT } from '../lib/product-content';
 import logoUrl from '../assets/logo-mark.png';
@@ -13,7 +13,6 @@ const engineeringSubItems = [
   { tab: 'estacion', label: 'Estación', icon: <House size={14} /> },
   { tab: 'drafting', label: 'Redactor & Plantillas', icon: <FileSignature size={14} /> },
   { tab: 'analysis', label: 'Auditoría de Riesgos', icon: <ShieldCheck size={14} /> },
-  { tab: 'consultation', label: 'Dictamen & Consultas RAG', icon: <BookOpen size={14} /> },
 ];
 
 export const Sidebar: React.FC = () => {
@@ -35,7 +34,7 @@ export const Sidebar: React.FC = () => {
     {
       path: '/ingenieria-juridica',
       label: 'Ingeniería Jurídica',
-      description: 'Estación, redactor, auditoría y consultas RAG',
+      description: 'Estación, redactor y auditoría jurídica',
       icon: <FileSignature size={18} />,
       badge: null,
       subItems: engineeringSubItems,
@@ -46,9 +45,21 @@ export const Sidebar: React.FC = () => {
     },
     {
       path: '/buscador',
-      label: 'Buscador normativo',
-      description: 'Corpus oficial mexicano',
+      label: 'Buscador Normativo Oficial',
+      description: '7,348 disposiciones verificadas',
       icon: <Search size={18} />,
+      badge: null,
+      subItems: null,
+      activeColor: 'text-blue-400',
+      activeBg: 'bg-blue-400/10',
+      activeBorder: 'border-blue-400/40',
+      dot: 'bg-blue-400',
+    },
+    {
+      path: '/corpus-normativo',
+      label: 'Corpus Normativo',
+      description: '16 ordenamientos para descargar',
+      icon: <BookOpenCheck size={18} />,
       badge: null,
       subItems: null,
       activeColor: 'text-blue-400',
@@ -187,6 +198,8 @@ export const Sidebar: React.FC = () => {
               ? runtimeHealth?.capabilities.vault
               : item.path === '/buscador'
                 ? runtimeHealth?.capabilities.legalSearch
+                : item.path === '/corpus-normativo'
+                  ? runtimeHealth?.capabilities.legalCorpus
                 : item.path === '/ingenieria-juridica'
                   ? runtimeHealth?.capabilities.legalGeneration
                   : null;

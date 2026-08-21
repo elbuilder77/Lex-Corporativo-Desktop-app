@@ -88,6 +88,10 @@ export const LegalSettingsPanel: React.FC<LegalSettingsPanelProps> = ({ onOpenTe
           <span className="text-slate-400 font-bold">•</span>
           <span><strong>Corpus Oficial:</strong> Las citas legales provienen de los textos oficiales de las leyes federales mexicanas indexadas localmente en la base de conocimientos.</span>
         </li>
+        <li className="flex items-start gap-2">
+          <span className="text-slate-400 font-bold">•</span>
+          <span><strong>Orden de Búsqueda:</strong> La IA BYOK, cuando está activa, sólo ordena IDs candidatos; los artículos impresos conservan literalmente el texto del corpus local.</span>
+        </li>
       </ul>
     </section>
   </div>

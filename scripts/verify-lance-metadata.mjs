@@ -27,9 +27,24 @@ async function main() {
   const db = await lancedb.connect(LANCEDB_DIR);
   const table = await db.openTable('legal_knowledge');
   const rows = await table.query().where('id IS NOT NULL').limit(20000).toArray();
+  const indices = await table.listIndices();
   const failures = [];
   const laws = [];
   const provisionKeys = new Set();
+  let ftsSmoke = { status: 'fail', resultCount: 0, expectedFound: false };
+
+  try {
+    const ftsRows = await table
+      .search('prestaciones trabajadores hogar', 'fts', ['content'])
+      .where("law_code = 'LFT'")
+      .limit(80)
+      .toArray();
+    const expectedFound = ftsRows.some(row => row.law_code === 'LFT' && row.article === 'Artículo 334 Bis');
+    ftsSmoke = { status: expectedFound ? 'pass' : 'fail', resultCount: ftsRows.length, expectedFound };
+    if (!expectedFound) failures.push('El índice FTS no recuperó LFT Artículo 334 Bis para la consulta breve de control.');
+  } catch (error) {
+    failures.push(`Falló la consulta de control del índice FTS: ${error.message || error}.`);
+  }
 
   for (const law of LAWS) {
     const lawRows = rows.filter(row => row.law_code === law.code);
@@ -57,12 +72,20 @@ async function main() {
     provisionKeys.add(row.provision_key);
   }
 
+  const requiredIndexColumns = ['law_code', 'article', 'provision_key', 'content'];
+  const indexedColumns = new Set(indices.flatMap(index => index.columns));
+  for (const column of requiredIndexColumns) {
+    if (!indexedColumns.has(column)) failures.push(`Falta el índice requerido para la columna ${column}.`);
+  }
+
   const report = {
     generatedAt: new Date().toISOString(),
     corpusVersion: CORPUS_VERSION,
     table: 'legal_knowledge',
     totalRows: rows.length,
     uniqueProvisionKeys: provisionKeys.size,
+    indices,
+    ftsSmoke,
     laws,
     status: failures.length === 0 ? 'pass' : 'fail',
     failures,

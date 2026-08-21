@@ -77,7 +77,7 @@ export const IaSettingsPanel: React.FC<IaSettingsPanelProps> = ({
       <div>
         <h2 className="text-base font-bold text-slate-950">Inteligencia Artificial y Modelos (BYOK)</h2>
         <p className="text-xs text-slate-500 mt-0.5 max-w-2xl leading-relaxed">
-          Conecta tu propia API key de Google Gemini, OpenAI o Anthropic Claude. La búsqueda RAG, el corpus legal y la base de datos permanecen en tu computadora.
+          Conecta tu propia API key de Google Gemini, OpenAI o Anthropic Claude. El corpus y la base de datos permanecen en tu computadora; en el Buscador, BYOK sólo reordena los fragmentos candidatos que recibe.
         </p>
       </div>
 
@@ -250,7 +250,7 @@ export const IaSettingsPanel: React.FC<IaSettingsPanelProps> = ({
           <div>
             <span className="block text-xs font-bold text-slate-900">Modo de Privacidad Estricta</span>
             <span className="block text-[11px] leading-relaxed text-slate-500 mt-0.5">
-              Bloquea cualquier comunicación de red en segundo plano. Únicamente se conecta con el proveedor de IA en el momento exacto en que solicitas redactar, auditar o consultar.
+              Bloquea cualquier comunicación de red en segundo plano. Únicamente se conecta con el proveedor de IA en el momento exacto en que solicitas redactar, auditar o buscar con reranking.
             </span>
           </div>
         </label>

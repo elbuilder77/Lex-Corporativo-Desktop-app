@@ -12,6 +12,18 @@ describe('legal search routing', () => {
     expect(suggestAlternativeLegalModule('Requisitos de un pagaré en la LGTOC', 'fiscal')).toBe('mercantil');
   });
 
+  it('recognizes labor, foreign-trade, and customs short queries', () => {
+    expect(detectLikelyLegalModule('prestaciones trabajadores del hogar')).toBe('laboral');
+    expect(detectLikelyLegalModule('cuotas compensatorias LCE')).toBe('comercio_exterior');
+    expect(detectLikelyLegalModule('rectificacion de pedimento')).toBe('aduanal');
+  });
+
+  it('suggests a different module across all supported subjects', () => {
+    expect(suggestAlternativeLegalModule('jornada y salario LFT', 'fiscal')).toBe('laboral');
+    expect(suggestAlternativeLegalModule('certificado de origen LCE', 'mercantil')).toBe('comercio_exterior');
+    expect(suggestAlternativeLegalModule('PAMA y embargo precautorio', 'laboral')).toBe('aduanal');
+  });
+
   it('does not redirect ambiguous language', () => {
     expect(detectLikelyLegalModule('obligaciones de las partes en un contrato')).toBeNull();
     expect(suggestAlternativeLegalModule('consulta sobre una operación', 'fiscal')).toBeNull();

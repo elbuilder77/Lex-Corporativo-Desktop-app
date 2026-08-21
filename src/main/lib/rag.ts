@@ -6,6 +6,9 @@ import * as path from 'path';
 import type { DocumentChunk } from './chunking';
 import { MODULE_ALLOWED_LAW_CODES, getModuleLabel, isLawAllowedForModule, normalizeLawCode, type LegalModule } from './prompts';
 import { assessLegalEvidence, getExplicitProvisionTarget, getPreferredLawCodes } from './legal-relevance';
+import { expandLegalQuery, type ExpandedLegalQuery } from './legal-query-expansion';
+
+export type LegalSearchScope = LegalModule | 'todos';
 
 function resolveRuntimeOverride(value: string): string {
   return path.isAbsolute(value) ? path.resolve(value) : path.resolve(app.getAppPath(), value);
@@ -49,8 +52,23 @@ export interface RAGMatch {
   article_number?: string;
   citation_label?: string;
   source_url?: string;
+  source_authority?: string;
+  source_type?: string;
+  last_checked_at?: string;
+  provision_key?: string;
   module?: LegalModule;
   verification_status?: 'verified_against_official_source';
+  retrieval_type?: 'direct' | 'hybrid' | 'lexical' | 'semantic';
+  matched_terms?: string[];
+  evidence_coverage?: number;
+  rerank_score?: number;
+}
+
+export interface LegalArticleSearchResult {
+  matches: RAGMatch[];
+  queryExpansion: ExpandedLegalQuery;
+  dbPath: string;
+  durationMs: number;
 }
 
 export interface UserDocumentMatch {
@@ -91,6 +109,51 @@ import { pipeline, env } from '@xenova/transformers';
 
 // Global cached model to avoid reloading on each query
 let extractorModel: any = null;
+const indexedLegalPaths = new Set<string>();
+const legalIndexPromises = new Map<string, Promise<void>>();
+
+async function ensureLegalKnowledgeIndices(table: lancedb.Table, dbPath: string): Promise<void> {
+  if (indexedLegalPaths.has(dbPath)) return;
+  if (typeof table.listIndices !== 'function' || typeof table.createIndex !== 'function') return;
+  const existingPromise = legalIndexPromises.get(dbPath);
+  if (existingPromise) return existingPromise;
+
+  const promise = (async () => {
+    const required = [
+      { column: 'law_code', config: lancedb.Index.bitmap() },
+      { column: 'article', config: lancedb.Index.btree() },
+      { column: 'provision_key', config: lancedb.Index.btree() },
+      {
+        column: 'content',
+        config: lancedb.Index.fts({
+          baseTokenizer: 'simple',
+          language: 'Spanish',
+          lowercase: true,
+          stem: true,
+          removeStopWords: true,
+          asciiFolding: true,
+          withPosition: true,
+        }),
+      },
+    ];
+    const existing = await table.listIndices();
+    const indexedColumns = new Set(existing.flatMap(index => index.columns));
+    for (const index of required) {
+      if (indexedColumns.has(index.column)) continue;
+      await table.createIndex(index.column, { config: index.config, replace: false });
+    }
+    const active = await table.listIndices();
+    const activeColumns = new Set(active.flatMap(index => index.columns));
+    if (required.every(index => activeColumns.has(index.column))) indexedLegalPaths.add(dbPath);
+  })().catch((error: any) => {
+    console.warn('[RAG Local] Could not create one or more optional retrieval indices:', error?.message || error);
+  }).finally(() => {
+    legalIndexPromises.delete(dbPath);
+  });
+
+  legalIndexPromises.set(dbPath, promise);
+  return promise;
+}
 
 async function getExtractor() {
   if (!extractorModel) {
@@ -157,18 +220,21 @@ function scoreLexicalMatch(row: any, terms: string[]): number {
   let score = 0;
 
   for (const term of terms) {
-    if (contentWords.has(term)) score += 4;
+    const contentHasTerm = contentWords.has(term) || (
+      term.length >= 6 && [...contentWords].some(word => word.length >= 6 && word.startsWith(term.slice(0, 6)))
+    );
+    if (contentHasTerm) score += 4;
     if (articleWords.has(term)) score += 2;
-    if (lawCode === 'LGTOC' && ['pagare', 'cheque', 'endoso', 'aval', 'letra'].includes(term)) score += 5;
-    if (lawCode === 'LGSM' && ['sociedad', 'sociedades', 'asamblea', 'accion', 'acciones', 'disolucion', 'liquidador', 'disolver'].includes(term)) score += 5;
-    if (lawCode === 'CFF' && ['materialidad', 'deducibilidad', 'cfdi', '69b', '69'].includes(term)) score += 5;
-    if (lawCode === 'LFT' && ['trabajador', 'trabajadora', 'patron', 'salario', 'jornada', 'prestaciones', 'laboral', 'contrato'].includes(term)) score += 5;
-    if (lawCode === 'LCE' && ['comercio', 'exterior', 'exportacion', 'importacion', 'cuota', 'compensatoria', 'arancelaria'].includes(term)) score += 5;
-    if (lawCode === 'RLCE' && ['comision', 'secretaria', 'permiso', 'cupo', 'certificado', 'origen'].includes(term)) score += 5;
-    if (lawCode === 'LA' && ['aduana', 'aduanal', 'pedimento', 'despacho', 'mercancias', 'regimen', 'valor'].includes(term)) score += 5;
-    if (lawCode === 'RLA' && ['aduana', 'aduanal', 'expediente', 'electronico', 'agente', 'mandatario', 'prevalidacion'].includes(term)) score += 5;
-    if (lawCode === 'RGCE' && ['rgce', 'regla', 'anexo', 'pedimento', 'aduana', 'valor', 'despacho'].includes(term)) score += 5;
-    if (lawCode === 'LIGIE' && ['ligie', 'tigie', 'fraccion', 'arancelaria', 'tarifa', 'capitulo', 'arancel'].includes(term)) score += 5;
+    if (contentHasTerm && lawCode === 'LGTOC' && ['pagare', 'cheque', 'endoso', 'aval', 'letra'].includes(term)) score += 5;
+    if (contentHasTerm && lawCode === 'LGSM' && ['sociedad', 'sociedades', 'asamblea', 'accion', 'acciones', 'disolucion', 'liquidador', 'disolver'].includes(term)) score += 5;
+    if (contentHasTerm && lawCode === 'CFF' && ['materialidad', 'deducibilidad', 'cfdi', '69b', '69'].includes(term)) score += 5;
+    if (contentHasTerm && lawCode === 'LFT' && ['trabajador', 'trabajadora', 'patron', 'salario', 'jornada', 'prestaciones', 'laboral', 'contrato'].includes(term)) score += 5;
+    if (contentHasTerm && lawCode === 'LCE' && ['comercio', 'exterior', 'exportacion', 'importacion', 'cuota', 'compensatoria', 'arancelaria'].includes(term)) score += 5;
+    if (contentHasTerm && lawCode === 'RLCE' && ['comision', 'secretaria', 'permiso', 'cupo', 'certificado', 'origen'].includes(term)) score += 5;
+    if (contentHasTerm && lawCode === 'LA' && ['aduana', 'aduanal', 'pedimento', 'despacho', 'mercancias', 'regimen', 'valor'].includes(term)) score += 5;
+    if (contentHasTerm && lawCode === 'RLA' && ['aduana', 'aduanal', 'expediente', 'electronico', 'agente', 'mandatario', 'prevalidacion'].includes(term)) score += 5;
+    if (contentHasTerm && lawCode === 'RGCE' && ['rgce', 'regla', 'anexo', 'pedimento', 'aduana', 'valor', 'despacho'].includes(term)) score += 5;
+    if (contentHasTerm && lawCode === 'LIGIE' && ['ligie', 'tigie', 'fraccion', 'arancelaria', 'tarifa', 'capitulo', 'arancel'].includes(term)) score += 5;
   }
 
   if (terms.includes('pagare') && lawCode === 'LGTOC' && articleWords.has('170')) score += 20;
@@ -184,7 +250,7 @@ function scoreLexicalMatch(row: any, terms: string[]): number {
 async function getLexicalMatches(
   table: lancedb.Table,
   query: string,
-  module: LegalModule,
+  module: LegalSearchScope,
   limit: number
 ): Promise<any[]> {
   const terms = getQueryTerms(query);
@@ -192,15 +258,28 @@ async function getLexicalMatches(
 
   try {
     const lawFilter = getModuleLawFilter(module);
-    const rows = await table
-      .query()
-      .where(lawFilter)
-      .limit(5000)
-      .toArray();
+    let rows: any[];
+    try {
+      const ftsQuery = terms.join(' ');
+      rows = await table
+        .search(ftsQuery, 'fts', ['content'])
+        .where(lawFilter)
+        .limit(Math.max(limit * 4, 80))
+        .toArray();
+    } catch (ftsError: any) {
+      console.info(`[RAG Local] FTS index unavailable for ${module}; using bounded lexical fallback:`, ftsError.message || ftsError);
+      rows = await table
+        .query()
+        .where(lawFilter)
+        .limit(10_000)
+        .toArray();
+    }
 
     return rows
       .map((row: any) => ({ row, score: scoreLexicalMatch(row, terms) }))
-      .filter(({ row, score }: { row: any; score: number }) => score > 0 && isLawAllowedForModule(row.law_code || row.title, module))
+      .filter(({ row, score }: { row: any; score: number }) => (
+        score > 0 && (module === 'todos' || isLawAllowedForModule(row.law_code || row.title, module))
+      ))
       .sort((a: { score: number }, b: { score: number }) => b.score - a.score)
       .slice(0, limit)
       .map(({ row, score }: { row: any; score: number }) => ({ ...row, _lexicalScore: score }));
@@ -262,8 +341,11 @@ function toStoredLawCode(code: string): string {
   return code === 'CCOM' ? 'CCom' : code;
 }
 
-function getModuleLawFilter(module: LegalModule): string {
-  return MODULE_ALLOWED_LAW_CODES[module]
+function getModuleLawFilter(module: LegalSearchScope): string {
+  const lawCodes = module === 'todos'
+    ? [...new Set(Object.values(MODULE_ALLOWED_LAW_CODES).flat())]
+    : MODULE_ALLOWED_LAW_CODES[module];
+  return lawCodes
     .map(code => `law_code = '${escapeSqlLiteral(toStoredLawCode(code))}'`)
     .join(' OR ');
 }
@@ -348,7 +430,8 @@ export async function isLocalRagAvailable(): Promise<boolean> {
 
   try {
     const db = await lancedb.connect(dbPath);
-    await db.openTable('legal_knowledge');
+    const table = await db.openTable('legal_knowledge');
+    await ensureLegalKnowledgeIndices(table, dbPath);
     return true;
   } catch (err: any) {
     console.warn('[RAG Local] LanceDB availability check failed:', err.message || err);
@@ -357,21 +440,23 @@ export async function isLocalRagAvailable(): Promise<boolean> {
 }
 
 async function searchLegalKnowledge(
-  query: string,
-  module: LegalModule,
+  evidenceQuery: string,
+  retrievalQuery: string,
+  module: LegalSearchScope,
   vector: number[],
   limit: number
 ): Promise<{ matches: RAGMatch[]; dbPath: string }> {
   const dbPath = getLocalRagPath();
   const db = await lancedb.connect(dbPath);
   const table = await db.openTable('legal_knowledge');
+  await ensureLegalKnowledgeIndices(table, dbPath);
   const verifiedLawCodes = getVerifiedLawCodes();
   if (verifiedLawCodes.size === 0) return { matches: [], dbPath };
   const rawLimit = Math.max(limit * 4, 20);
   const lawFilter = getModuleLawFilter(module);
 
-  const explicitTarget = getExplicitProvisionTarget(query);
-  const preferredLawCodes = getPreferredLawCodes(query);
+  const explicitTarget = getExplicitProvisionTarget(evidenceQuery);
+  const preferredLawCodes = getPreferredLawCodes(evidenceQuery);
   let explicitResults: any[] = [];
   if (explicitTarget.lawCode && explicitTarget.id) {
     const storedLawCode = toStoredLawCode(explicitTarget.lawCode);
@@ -401,43 +486,120 @@ async function searchLegalKnowledge(
       .toArray();
   }
 
-  const lexicalResults = (await getLexicalMatches(table, query, module, limit))
+  const lexicalResults = (await getLexicalMatches(table, retrievalQuery, module, rawLimit))
     .filter((row: any) => verifiedLawCodes.has(normalizeLawCode(row.law_code || row.title) || ''));
-  const combinedResults = [...explicitResults.map(row => ({ ...row, _explicitMatch: true })), ...lexicalResults, ...searchResults];
-  const seenIds = new Set<string>();
+  const candidateMap = new Map<string, any>();
+  const mergeCandidate = (row: any, signal: 'direct' | 'lexical' | 'semantic') => {
+    const id = String(row.id || `${row.law_code}-${row.article}`);
+    const current = candidateMap.get(id) || {};
+    candidateMap.set(id, {
+      ...current,
+      ...row,
+      _explicitMatch: current._explicitMatch || signal === 'direct',
+      _lexicalScore: Math.max(Number(current._lexicalScore || 0), Number(row._lexicalScore || 0)),
+      _distance: typeof row._distance === 'number' ? row._distance : current._distance,
+    });
+  };
+  explicitResults.forEach(row => mergeCandidate(row, 'direct'));
+  searchResults.forEach(row => mergeCandidate(row, 'semantic'));
+  lexicalResults.forEach(row => mergeCandidate(row, 'lexical'));
 
-  const matches: RAGMatch[] = combinedResults
+  const candidates = [...candidateMap.values()]
     .filter((r: any) => {
       const lawCode = r.law_code || r.title;
-      const id = String(r.id || `${r.law_code}-${r.article}`);
-      if (seenIds.has(id)) return false;
-      seenIds.add(id);
       const normalizedCode = normalizeLawCode(lawCode) || '';
       return verifiedLawCodes.has(normalizedCode)
-        && isLawAllowedForModule(lawCode, module)
+        && (module === 'todos' || isLawAllowedForModule(lawCode, module))
         && (preferredLawCodes.size === 0 || preferredLawCodes.has(normalizedCode));
     })
     .map((r: any) => {
       const normalizedCode = normalizeLawCode(r.law_code || r.title) || r.law_code || r.title;
-      return {
+      const semanticScore = typeof r._distance === 'number'
+        ? Math.max(0, Math.min(1, 1 - r._distance))
+        : 0;
+      const lexicalScore = Math.max(0, Number(r._lexicalScore || 0));
+      const normalizedLexicalScore = Math.min(1, lexicalScore / 40);
+      const retrievalType: RAGMatch['retrieval_type'] = r._explicitMatch
+        ? 'direct'
+        : semanticScore > 0 && lexicalScore > 0
+          ? 'hybrid'
+          : lexicalScore > 0
+            ? 'lexical'
+            : 'semantic';
+      const localScore = r._explicitMatch
+        ? 1
+        : retrievalType === 'hybrid'
+          ? Math.min(0.99, (semanticScore * 0.55) + (normalizedLexicalScore * 0.45) + 0.08)
+          : retrievalType === 'lexical'
+            ? Math.min(0.95, 0.45 + (normalizedLexicalScore * 0.5))
+            : semanticScore;
+      const match: RAGMatch = {
         id: r.id || crypto.randomUUID(),
         type: 'statute' as const,
         title: r.title,
         subtitle: r.article,
         content: r.content,
-        similarity: r._explicitMatch ? 1 : typeof r._distance === 'number' ? 1.0 - r._distance : Math.min(0.95, 0.35 + Number(r._lexicalScore || 0) / 100),
+        similarity: localScore,
         law_code: normalizedCode,
         article_number: r.article,
         citation_label: r.citation_label,
         source_url: r.source_url,
-        module,
+        source_authority: r.source_authority,
+        source_type: r.source_type,
+        last_checked_at: r.last_checked_at,
+        provision_key: r.provision_key,
+        module: module === 'todos' && ['mercantil', 'laboral', 'comercio_exterior', 'aduanal', 'fiscal'].includes(r.module)
+          ? r.module
+          : module === 'todos' ? undefined : module,
         verification_status: 'verified_against_official_source' as const,
+        retrieval_type: retrievalType,
+      };
+      const assessment = assessLegalEvidence(retrievalQuery, match);
+      return {
+        match: {
+          ...match,
+          matched_terms: assessment.matchedTerms,
+          evidence_coverage: assessment.coverage,
+        },
+        assessment,
       };
     })
-    .filter(match => assessLegalEvidence(query, match).sufficient)
+    .filter(({ assessment }) => assessment.sufficient)
+    .sort((left, right) => right.match.similarity - left.match.similarity);
+
+  const matches = candidates
+    .map(({ match }) => match)
     .slice(0, limit);
 
   return { matches, dbPath };
+}
+
+/**
+ * Returns extractive statute candidates for the official search UI. Controlled
+ * expansion improves short queries while the evidence gate evaluates only the
+ * user's corrected wording plus the controlled, module-scoped vocabulary.
+ */
+export async function searchLegalArticles(
+  query: string,
+  module: LegalSearchScope,
+  limit = 24,
+): Promise<LegalArticleSearchResult> {
+  const startedAt = Date.now();
+  const queryExpansion = expandLegalQuery(query, module);
+  const vector = await createEmbedding(queryExpansion.retrieval || queryExpansion.evidence);
+  const { matches, dbPath } = await searchLegalKnowledge(
+    queryExpansion.evidence,
+    queryExpansion.retrieval,
+    module,
+    vector,
+    limit,
+  );
+  return {
+    matches,
+    queryExpansion,
+    dbPath,
+    durationMs: Date.now() - startedAt,
+  };
 }
 
 /**
@@ -453,8 +615,7 @@ export async function getHybridLegalContext(
   const startMs = Date.now();
 
   try {
-    const vector = await createEmbedding(query);
-    const { matches, dbPath } = await searchLegalKnowledge(query, module, vector, limit);
+    const { matches, dbPath } = await searchLegalArticles(query, module, limit);
 
     console.info(`[RAG Local] Vector search resolved ${matches.length} ${module} sources in ${Date.now() - startMs}ms from ${dbPath}`);
 
@@ -520,7 +681,7 @@ export async function getAnalysisContext(
   try {
     const vector = await createEmbedding(query);
     const [legalResult, documentSources] = await Promise.all([
-      searchLegalKnowledge(query, module, vector, limit).catch((err: any) => {
+      searchLegalKnowledge(query, query, module, vector, limit).catch((err: any) => {
         console.warn(`[RAG Local] Analysis legal lane failed for ${module}:`, err.message || err);
         return { matches: [], dbPath: '' };
       }),
@@ -588,7 +749,7 @@ async function searchUserDocuments(
 /**
  * Formats structured RAG citations into an LLM context block
  */
-function formatRAGContext(matches: RAGMatch[], module: LegalModule, isDrafting = false): string {
+export function formatRAGContext(matches: RAGMatch[], module: LegalSearchScope, isDrafting = false): string {
   if (matches.length === 0) return '';
 
   const statuteLines = matches
@@ -608,7 +769,7 @@ function formatRAGContext(matches: RAGMatch[], module: LegalModule, isDrafting =
       '4. Redacta de forma formal, profesional y completa.',
     ];
   } else {
-    const moduleLabel = getModuleLabel(module);
+    const moduleLabel = module === 'todos' ? 'Todos los ordenamientos instalados' : getModuleLabel(module);
     instructionLines = [
       `1. Fundamenta tu respuesta únicamente con fuentes de ${moduleLabel} del contexto verificado.`,
       '2. Usa los artículos o reglas recuperadas como base principal de la explicación.',
@@ -619,7 +780,7 @@ function formatRAGContext(matches: RAGMatch[], module: LegalModule, isDrafting =
 
   return `
 <CONTEXTO LEGAL>
-ÁREA SOLICITADA: ${getModuleLabel(module)}
+ÁREA SOLICITADA: ${module === 'todos' ? 'Todos los ordenamientos instalados' : getModuleLabel(module)}
 
 --- LEYES Y REGLAMENTOS ---
 ${statuteLines.join('\n\n') || 'No se encontraron artículos específicos.'}
@@ -669,7 +830,7 @@ export async function getDynamicLawsForChunk(
 ): Promise<string> {
   try {
     const vector = await createEmbedding(chunkText);
-    const { matches } = await searchLegalKnowledge(chunkText, module, vector, limit);
+    const { matches } = await searchLegalKnowledge(chunkText, chunkText, module, vector, limit);
     if (matches.length === 0) return 'No se encontraron artículos específicos aplicables a este fragmento.';
     
     return matches.map(m => `- ${m.law_code || m.title} ${m.article_number || ''}: "${m.content.slice(0, 1500)}"`).join('\n\n');
@@ -787,6 +948,3 @@ export async function purgeExpiredUserDocuments(
     return 0;
   }
 }
-
-
-

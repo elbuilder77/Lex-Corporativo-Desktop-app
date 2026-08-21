@@ -84,14 +84,41 @@ export interface LexDesktopAPI {
     }>;
   };
   legalKnowledge: {
-    searchRAG: (payload: { query: string; module: 'mercantil' | 'fiscal' | 'laboral' | 'comercio_exterior' | 'aduanal'; limit?: number }) => Promise<any>;
+    searchRAG: (payload: {
+      query: string;
+      module: 'todos' | 'mercantil' | 'fiscal' | 'laboral' | 'comercio_exterior' | 'aduanal';
+      limit?: number;
+      useReranker?: boolean;
+    }) => Promise<any>;
+  };
+  legalCorpus: {
+    list: () => Promise<{
+      corpusVersion: string;
+      lawsCount: number;
+      provisionsCount: number;
+      laws: Array<{
+        code: string;
+        name: string;
+        module: 'mercantil' | 'laboral' | 'comercio_exterior' | 'aduanal' | 'fiscal';
+        provisions: number;
+        bytes: number;
+        sha256: string;
+      }>;
+    }>;
+    download: (payload: { code: string }) => Promise<{
+      success: boolean;
+      canceled: boolean;
+      filePath?: string;
+      code?: string;
+      sha256?: string;
+    }>;
   };
   runtime: {
     getHealth: () => Promise<{
       status: 'ready' | 'degraded' | 'blocked';
       checks: Array<{ id: string; label: string; ok: boolean; detail?: string }>;
       capabilities: Record<
-        'vault' | 'legalSearch' | 'legalGeneration' | 'rulesAssessment' | 'localAssistant',
+        'vault' | 'legalSearch' | 'legalCorpus' | 'legalGeneration' | 'rulesAssessment' | 'localAssistant',
         { ready: boolean; label: string; detail: string }
       >;
     }>;
@@ -197,7 +224,6 @@ export interface LexDesktopAPI {
   };
 assistant: {
     askInstructivo: (payload: { query: string; history?: Array<{ role: 'user' | 'model' | 'assistant'; text: string }> }) => Promise<{ result: string }>;
-    askFiscal: (payload: { query: string; module?: 'mercantil' | 'laboral' | 'comercio_exterior' | 'aduanal' | 'fiscal'; history?: Array<{ role: 'user' | 'model' | 'assistant'; text: string }> }) => Promise<{ result: string; citationsAvailable: boolean; groundingStatus: 'grounded' | 'abstained' | 'rejected'; provider?: 'gemini' | 'openai' | 'anthropic' }>;
   };
   security: {
     reportCspViolation: (report: unknown) => Promise<{ ok: boolean }>;

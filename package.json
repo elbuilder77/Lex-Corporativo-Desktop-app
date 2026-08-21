@@ -27,6 +27,7 @@
     "audit:legal-knowledge:strict": "node scripts/audit-legal-knowledge.mjs --write --strict",
     "audit:legal-retrieval": "node scripts/probe-legal-retrieval.mjs --write",
     "audit:lance-metadata": "node scripts/verify-lance-metadata.mjs --write",
+    "index:legal-knowledge": "node scripts/ensure-legal-indices.mjs",
     "eval:legal-rag": "node scripts/evaluate-legal-rag.mjs --write",
     "manifest:legal-corpus": "node scripts/generate-corpus-manifest.mjs --write",
     "audit:corpus-governance": "node scripts/generate-corpus-manifest.mjs --check",

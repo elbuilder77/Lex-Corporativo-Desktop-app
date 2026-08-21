@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
-  BookOpen,
+  AlertTriangle,
+  Bot,
   BriefcaseBusiness,
   Check,
   CheckCircle2,
@@ -15,7 +16,6 @@ import {
   ReceiptText,
   Scale,
   Search,
-  ShieldCheck,
   ShipWheel,
   Sparkles,
   X,
@@ -25,8 +25,10 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { useUiStore } from '../store/useUiStore';
 import { useCaseStore } from '../store/useCaseStore';
+import { suggestAlternativeLegalModule } from '../lib/legal-search-routing';
 
-type LegalSearchArea = 'mercantil' | 'laboral' | 'comercio_exterior' | 'aduanal' | 'fiscal';
+type LegalSubjectArea = 'mercantil' | 'laboral' | 'comercio_exterior' | 'aduanal' | 'fiscal';
+type LegalSearchArea = 'todos' | LegalSubjectArea;
 
 interface LegalSearchResult {
   id: string | number;
@@ -36,9 +38,7 @@ interface LegalSearchResult {
   similarity?: number;
   law_code?: string;
   article_number?: string;
-  citation_label?: string;
-  source_url?: string;
-  verification_status?: 'verified_against_official_source';
+  module?: LegalSubjectArea;
 }
 
 interface SearchAreaConfig {
@@ -58,6 +58,25 @@ interface SearchAreaConfig {
 
 const SEARCH_AREAS: SearchAreaConfig[] = [
   {
+    id: 'todos',
+    label: 'Todos los artículos',
+    shortLabel: 'Todos',
+    lawsIncluded: '16 ordenamientos · 7,348 disposiciones',
+    description: 'Búsqueda transversal en todo el corpus oficial instalado.',
+    icon: <Database size={16} />,
+    activeClass: 'border-slate-700 bg-slate-100 text-slate-950 ring-2 ring-slate-700/20',
+    badgeClass: 'border-slate-300 bg-slate-100 text-slate-800',
+    railClass: 'bg-slate-800',
+    buttonClass: 'bg-slate-900 hover:bg-slate-950 text-white',
+    ringClass: 'focus:border-slate-700 focus:ring-slate-700/15',
+    examples: [
+      { label: 'Trabajo del hogar', query: 'prestaciones trabajadores hogar' },
+      { label: 'Requisitos del pagaré', query: 'requisitos pagaré LGTOC' },
+      { label: 'Acreditamiento del IVA', query: 'acreditamiento IVA' },
+      { label: 'Rectificación de pedimento', query: 'rectificación datos pedimento' },
+    ],
+  },
+  {
     id: 'mercantil',
     label: 'Mercantil y Corporativo',
     shortLabel: 'Mercantil',
@@ -70,10 +89,10 @@ const SEARCH_AREAS: SearchAreaConfig[] = [
     buttonClass: 'bg-blue-600 hover:bg-blue-700 text-white',
     ringClass: 'focus:border-blue-600 focus:ring-blue-600/15',
     examples: [
-      { label: 'Art. 75 CCOM (Actos de comercio)', query: 'Actos de comercio articulo 75 Código de Comercio' },
-      { label: 'Art. 6 LGSM (Estatutos sociales)', query: 'Requisitos de la escritura constitutiva articulo 6 LGSM' },
-      { label: 'Art. 170 LGTOC (Requisitos pagaré)', query: 'Requisitos del pagare articulo 170 LGTOC' },
-      { label: 'Art. 78 CCOM (Libertad contractual)', query: 'Libertad contractual convenciones mercantiles articulo 78 CCOM' },
+      { label: 'Art. 75 CCOM (Actos de comercio)', query: 'actos comercio artículo 75' },
+      { label: 'Art. 6 LGSM (Estatutos sociales)', query: 'escritura constitutiva LGSM' },
+      { label: 'Art. 170 LGTOC (Requisitos pagaré)', query: 'requisitos pagaré LGTOC' },
+      { label: 'Art. 78 CCOM (Libertad contractual)', query: 'libertad contractual mercantil' },
     ],
   },
   {
@@ -89,10 +108,10 @@ const SEARCH_AREAS: SearchAreaConfig[] = [
     buttonClass: 'bg-amber-600 hover:bg-amber-700 text-white',
     ringClass: 'focus:border-amber-500 focus:ring-amber-500/15',
     examples: [
-      { label: 'Art. 20 LFT (Relación de trabajo)', query: 'Relacion y contrato individual de trabajo articulo 20 LFT' },
-      { label: 'Art. 25 LFT (Contenido del contrato)', query: 'Contenido obligatorio del contrato de trabajo articulo 25 LFT' },
-      { label: 'Art. 47 LFT (Causas de rescisión)', query: 'Causas de rescision de la relacion de trabajo sin responsabilidad patronal articulo 47 LFT' },
-      { label: 'Art. 330-A LFT (Teletrabajo)', query: 'Condiciones de teletrabajo home office articulo 330 LFT' },
+      { label: 'Art. 20 LFT (Relación de trabajo)', query: 'relación individual trabajo' },
+      { label: 'Art. 25 LFT (Contenido del contrato)', query: 'contenido contrato laboral' },
+      { label: 'Art. 47 LFT (Causas de rescisión)', query: 'rescisión sin responsabilidad patronal' },
+      { label: 'Art. 334 Bis LFT (Trabajo del hogar)', query: 'prestaciones trabajadores hogar' },
     ],
   },
   {
@@ -108,10 +127,10 @@ const SEARCH_AREAS: SearchAreaConfig[] = [
     buttonClass: 'bg-emerald-700 hover:bg-emerald-800 text-white',
     ringClass: 'focus:border-emerald-600 focus:ring-emerald-600/15',
     examples: [
-      { label: 'Art. 4 LCE (Facultades del Ejecutivo)', query: 'Facultades en materia de comercio exterior articulo 4 LCE' },
-      { label: 'Art. 15 LCE (Medidas no arancelarias)', query: 'Regulaciones y restricciones no arancelarias articulo 15 LCE' },
-      { label: 'Art. 28 LCE (Prácticas desleales)', query: 'Practicas desleales de comercio internacional discriminacion de precios articulo 28 LCE' },
-      { label: 'Certificados de origen', query: 'Certificados de origen y resoluciones en comercio exterior' },
+      { label: 'Art. 4 LCE (Facultades del Ejecutivo)', query: 'facultades comercio exterior' },
+      { label: 'Art. 15 LCE (Medidas no arancelarias)', query: 'restricciones no arancelarias' },
+      { label: 'Art. 28 LCE (Prácticas desleales)', query: 'prácticas desleales comercio' },
+      { label: 'Certificados de origen', query: 'certificados origen comercio exterior' },
     ],
   },
   {
@@ -127,10 +146,10 @@ const SEARCH_AREAS: SearchAreaConfig[] = [
     buttonClass: 'bg-purple-700 hover:bg-purple-800 text-white',
     ringClass: 'focus:border-purple-600 focus:ring-purple-600/15',
     examples: [
-      { label: 'Art. 36 Ley Aduanera (Pedimento)', query: 'Obligacion de transmitir pedimento y documentos articulo 36 Ley Aduanera' },
-      { label: 'Art. 59 Ley Aduanera (Control inventarios)', query: 'Obligaciones de quienes introducen mercancias articulo 59 Ley Aduanera' },
-      { label: 'Art. 89 Ley Aduanera (Rectificación)', query: 'Rectificacion de los datos del pedimento articulo 89 Ley Aduanera' },
-      { label: 'Art. 150 Ley Aduanera (PAMA)', query: 'Embargo precautorio y procedimiento en materia aduanera articulo 150 Ley Aduanera' },
+      { label: 'Art. 36 Ley Aduanera (Pedimento)', query: 'documentos pedimento aduanal' },
+      { label: 'Art. 59 Ley Aduanera (Control inventarios)', query: 'control inventarios importadores' },
+      { label: 'Art. 89 Ley Aduanera (Rectificación)', query: 'rectificación datos pedimento' },
+      { label: 'Art. 150 Ley Aduanera (PAMA)', query: 'embargo precautorio PAMA' },
     ],
   },
   {
@@ -146,20 +165,13 @@ const SEARCH_AREAS: SearchAreaConfig[] = [
     buttonClass: 'bg-teal-700 hover:bg-teal-800 text-white',
     ringClass: 'focus:border-teal-600 focus:ring-teal-600/15',
     examples: [
-      { label: 'Art. 27 LISR (Requisitos deducciones)', query: 'Requisitos de las deducciones autorizadas articulo 27 LISR' },
-      { label: 'Art. 29-A CFF (Requisitos CFDI)', query: 'Requisitos de los comprobantes fiscales digitales CFDI articulo 29-A CFF' },
-      { label: 'Art. 69-B CFF (Operaciones inexistentes)', query: 'Presuncion de inexistencia de operaciones comprobantes fiscales articulo 69-B CFF' },
-      { label: 'Art. 5 LIVA (Acreditamiento del IVA)', query: 'Requisitos para que el impuesto al valor agregado sea acreditable articulo 5 LIVA' },
+      { label: 'Art. 27 LISR (Requisitos deducciones)', query: 'deducciones autorizadas LISR' },
+      { label: 'Art. 29-A CFF (Requisitos CFDI)', query: 'requisitos CFDI CFF' },
+      { label: 'Art. 69-B CFF (Operaciones inexistentes)', query: 'operaciones inexistentes 69-B' },
+      { label: 'Art. 5 LIVA (Acreditamiento del IVA)', query: 'acreditamiento IVA LIVA' },
     ],
   },
 ];
-
-const retrievalLabel = (result: LegalSearchResult) => {
-  const score = Number(result.similarity) || 0;
-  if (score >= 0.99) return 'Coincidencia directa';
-  if (score >= 0.75) return 'Relevancia alta';
-  return 'Relevancia contextual';
-};
 
 export const BuscadorLegal: React.FC = () => {
   const navigate = useNavigate();
@@ -170,15 +182,32 @@ export const BuscadorLegal: React.FC = () => {
   const [summary, setSummary] = useState('');
   const [expandedArticles, setExpandedArticles] = useState<Set<number>>(new Set());
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-  const [selectedArea, setSelectedArea] = useState<LegalSearchArea>('mercantil');
+  const [selectedArea, setSelectedArea] = useState<LegalSearchArea>('todos');
+  const [pendingRouting, setPendingRouting] = useState<{ query: string; suggestedArea: LegalSearchArea } | null>(null);
 
   const currentArea = SEARCH_AREAS.find((a) => a.id === selectedArea) || SEARCH_AREAS[0];
 
-  const runSearch = async (searchValue = query) => {
+  const runSearch = async (
+    searchValue = query,
+    options: { skipRouting?: boolean; area?: LegalSearchArea } = {},
+  ) => {
     const normalizedQuery = searchValue.trim();
     if (!normalizedQuery) return;
+    const searchArea = options.area || selectedArea;
+    const suggestedArea = searchArea === 'todos'
+      ? null
+      : suggestAlternativeLegalModule(normalizedQuery, searchArea);
+    if (!options.skipRouting && suggestedArea) {
+      setQuery(normalizedQuery);
+      setPendingRouting({ query: normalizedQuery, suggestedArea });
+      return;
+    }
+
+    const areaConfig = SEARCH_AREAS.find((item) => item.id === searchArea) || SEARCH_AREAS[0];
 
     setQuery(normalizedQuery);
+    setSelectedArea(searchArea);
+    setPendingRouting(null);
     setIsSearching(true);
     setResults(null);
     setSummary('');
@@ -190,15 +219,16 @@ export const BuscadorLegal: React.FC = () => {
       }
       const ragResponse = await window.lexDesktop.legalKnowledge.searchRAG({
         query: normalizedQuery,
-        module: selectedArea,
+        module: searchArea,
         limit: 8,
+        useReranker: true,
       });
       const citations = (ragResponse.citations || []) as LegalSearchResult[];
       setResults(citations);
       if (citations.length > 0) {
-        setSummary(`Se recuperaron ${citations.length} artículos del corpus oficial de ${currentArea.label}.`);
+        setSummary(`Se recuperaron ${citations.length} artículos del corpus oficial de ${areaConfig.label}.`);
       } else {
-        setSummary(`No se encontraron disposiciones que coincidan con la búsqueda en ${currentArea.label}. Prueba con otra palabra clave.`);
+        setSummary(`No se encontraron disposiciones suficientemente relacionadas en ${areaConfig.label}. Prueba con sujeto + tema o cambia de materia.`);
       }
     } catch (error: any) {
       notify(error?.message || 'Error al buscar en el corpus legal local.', 'error');
@@ -228,12 +258,16 @@ export const BuscadorLegal: React.FC = () => {
     const currentPrompt = useCaseStore.getState().engineeringDraftState.prompt || '';
     const newPrompt = currentPrompt ? `${currentPrompt}\n\n${textToCarry}` : textToCarry;
 
+    const draftingArea: LegalSubjectArea = result.module
+      || (selectedArea === 'todos' ? 'mercantil' : selectedArea);
+    const draftingAreaConfig = SEARCH_AREAS.find(item => item.id === draftingArea) || SEARCH_AREAS[1];
+
     useCaseStore.getState().setEngineeringDraftState({
       prompt: newPrompt,
-      area: selectedArea,
+      area: draftingArea,
     });
 
-    notify(`Artículo transferido al Redactor Contractual en materia ${currentArea.shortLabel}.`, 'info');
+    notify(`Artículo transferido al Redactor Contractual en materia ${draftingAreaConfig.shortLabel}.`, 'info');
     navigate('/ingenieria-juridica?tab=drafting');
   };
 
@@ -257,7 +291,7 @@ export const BuscadorLegal: React.FC = () => {
             </div>
           </div>
           <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700 window-no-drag">
-            <Database size={13} /> Corpus Oficial Local (LanceDB)
+            <Database size={13} /> Corpus normativo instalado
           </span>
         </header>
 
@@ -272,7 +306,7 @@ export const BuscadorLegal: React.FC = () => {
             </span>
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
             {SEARCH_AREAS.map((area) => {
               const active = area.id === selectedArea;
               return (
@@ -283,6 +317,7 @@ export const BuscadorLegal: React.FC = () => {
                     setSelectedArea(area.id);
                     setResults(null);
                     setSummary('');
+                    setPendingRouting(null);
                     setExpandedArticles(new Set());
                   }}
                   className={cn(
@@ -352,6 +387,64 @@ export const BuscadorLegal: React.FC = () => {
             </button>
           </form>
 
+          <p className="text-[11px] leading-relaxed text-slate-500">
+            <strong className="text-slate-700">Formato recomendado:</strong> sujeto + tema en 2–4 palabras, por ejemplo
+            {' '}<span className="font-semibold text-slate-800">prestaciones trabajadores hogar</span>. No necesitas escribir la ley ni el artículo.
+          </p>
+          <p className="flex items-start gap-1.5 text-[10px] leading-relaxed text-slate-400">
+            <Bot size={12} className="mt-0.5 shrink-0" />
+            Con BYOK activo, el proveedor configurado puede ayudar a ordenar resultados. El texto mostrado siempre proviene del corpus instalado.
+          </p>
+
+          <AnimatePresence initial={false}>
+            {pendingRouting && (() => {
+              const suggested = SEARCH_AREAS.find(area => area.id === pendingRouting.suggestedArea) || SEARCH_AREAS[0];
+              return (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-950">
+                    <div className="flex items-start gap-2.5">
+                      <AlertTriangle size={17} className="mt-0.5 shrink-0 text-amber-700" />
+                      <div className="flex-1">
+                        <p className="text-xs font-bold">La consulta parece corresponder a {suggested.label}.</p>
+                        <p className="mt-0.5 text-[11px] leading-relaxed text-amber-800">
+                          Elegiste {currentArea.label}. Buscar en esa materia puede omitir el artículo aplicable.
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void runSearch(pendingRouting.query, { skipRouting: true, area: pendingRouting.suggestedArea })}
+                            className="rounded-lg bg-amber-900 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-amber-950"
+                          >
+                            Cambiar a {suggested.shortLabel} y buscar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void runSearch(pendingRouting.query, { skipRouting: true, area: selectedArea })}
+                            className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-[11px] font-bold text-amber-900 hover:bg-amber-100"
+                          >
+                            Continuar en {currentArea.shortLabel}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPendingRouting(null)}
+                            className="rounded-lg px-3 py-1.5 text-[11px] font-bold text-amber-800 hover:bg-amber-100"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })()}
+          </AnimatePresence>
+
           {/* Sugerencias Rápidas */}
           <div className="flex flex-wrap items-center gap-1.5 pt-1">
             <span className="text-[11px] font-bold text-slate-400 mr-1">Artículos clave:</span>
@@ -374,7 +467,7 @@ export const BuscadorLegal: React.FC = () => {
           <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-xs space-y-3">
             <Loader2 size={32} className="animate-spin mx-auto text-slate-700" />
             <p className="text-sm font-bold text-slate-900">Consultando leyes oficiales en {currentArea.label}...</p>
-            <p className="text-xs text-slate-500">Recuperando artículos y fragmentos normativos del motor local.</p>
+            <p className="text-xs text-slate-500">Localizando las disposiciones más relacionadas.</p>
           </div>
         )}
 
@@ -383,14 +476,14 @@ export const BuscadorLegal: React.FC = () => {
           <div className="space-y-4">
             
             {/* Banner Informativo de Resultados */}
-            <div className={cn('flex items-center justify-between rounded-2xl border p-4 shadow-xs', results.length > 0 ? currentArea.badgeClass : 'bg-amber-50 border-amber-200 text-amber-950')}>
+            <div className={cn('flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-4 shadow-xs', results.length > 0 ? currentArea.badgeClass : 'bg-amber-50 border-amber-200 text-amber-950')}>
               <div className="flex items-center gap-2.5">
                 <CheckCircle2 size={17} className="shrink-0" />
                 <span className="text-xs font-bold">{summary}</span>
               </div>
-              <span className="text-[11px] font-mono font-semibold opacity-80">
-                Materia: {currentArea.shortLabel}
-              </span>
+              <div className="flex flex-wrap items-center justify-end gap-1.5 text-[10px] font-bold">
+                <span className="rounded-full bg-white/70 px-2.5 py-1">Materia: {currentArea.shortLabel}</span>
+              </div>
             </div>
 
             {/* Grid de Artículos */}
@@ -409,18 +502,20 @@ export const BuscadorLegal: React.FC = () => {
                     >
                       <div className="space-y-3">
                         {/* Cabecera del Artículo */}
-                        <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
-                          <div>
-                            <span className={cn('inline-block rounded-lg px-2 py-0.5 text-[11px] font-bold', currentArea.badgeClass)}>
-                              {item.article_number || item.subtitle || 'Artículo'}
+                        <div className="flex items-start gap-3 border-b border-slate-100 pb-3">
+                          <div className="flex items-start gap-2.5">
+                            <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-slate-950 px-1.5 text-[10px] font-bold text-white">
+                              {index + 1}
                             </span>
+                            <div>
+                              <span className={cn('inline-block rounded-lg px-2 py-0.5 text-[11px] font-bold', currentArea.badgeClass)}>
+                                {item.article_number || item.subtitle || 'Artículo'}
+                              </span>
                             <h3 className="mt-1 text-xs font-bold text-slate-950">
                               {item.law_code || item.title || 'Normativa'}
                             </h3>
+                            </div>
                           </div>
-                          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold text-slate-600">
-                            {retrievalLabel(item)}
-                          </span>
                         </div>
 
                         {/* Contenido del Artículo */}
@@ -433,7 +528,7 @@ export const BuscadorLegal: React.FC = () => {
 
                       {/* Footer de Acciones */}
                       <div className="mt-4 pt-3 border-t border-slate-100 space-y-2.5">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center">
                           <button
                             type="button"
                             onClick={() => {
@@ -449,10 +544,6 @@ export const BuscadorLegal: React.FC = () => {
                             {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                             {isExpanded ? 'Ver menos' : 'Leer artículo completo'}
                           </button>
-
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-700">
-                            <ShieldCheck size={13} /> Fuente oficial DOF
-                          </div>
                         </div>
 
                         <div className="flex items-center gap-2">

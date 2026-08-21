@@ -73,9 +73,10 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
 
           <section>
             <h2 className="text-lg font-serif font-bold text-legal-950 mb-3">IV. Transferencias de Datos</h2>
-            <p className="text-sm text-slate-600 leading-relaxed mb-3">Las funciones generativas requieren BYOK. Al ejecutarlas, la aplicación transmite al proveedor elegido la instrucción y los extractos necesarios; la bóveda completa no se transmite.</p>
+            <p className="text-sm text-slate-600 leading-relaxed mb-3">Las funciones generativas y el reranking opcional del Buscador requieren BYOK. Al ejecutarlas, la aplicación transmite al proveedor elegido la instrucción o consulta y los extractos necesarios; la bóveda completa no se transmite.</p>
             <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1">
               <li>En BYOK se envían por HTTPS al proveedor elegido la instrucción, una selección limitada del texto extraído y los fundamentos locales recuperados.</li>
+              <li>En el Buscador Normativo, BYOK sólo recibe la consulta y fragmentos candidatos para ordenar sus identificadores; no genera ni modifica el texto legal mostrado.</li>
               <li>El archivo original, la bóveda completa y los historiales no seleccionados no se transmiten al proveedor.</li>
               <li>El tratamiento, registro y retención del contenido enviado dependen de la cuenta, contrato y políticas del proveedor elegido por el usuario.</li>
               <li>La compra, descarga o soporte comercial se atienden fuera de esta aplicación instalada.</li>

@@ -16,6 +16,7 @@ const TermsConditions = lazy(() => import('./components/TermsConditions').then(m
 const Settings = lazy(() => import('./components/Settings').then(m => ({ default: m.Settings })));
 const Portafolio = lazy(() => import('./components/Portafolio').then(m => ({ default: m.Portafolio })));
 const BuscadorLegal = lazy(() => import('./components/BuscadorLegal').then(m => ({ default: m.BuscadorLegal })));
+const CorpusNormativo = lazy(() => import('./components/CorpusNormativo').then(m => ({ default: m.CorpusNormativo })));
 
 import { useAuthStore } from './store/useAuthStore';
 import { useUiStore } from './store/useUiStore';
@@ -266,6 +267,15 @@ function App() {
                   <CapabilityGate capability="legalSearch">
                   <motion.div key="buscador" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }} className="h-full w-full block">
                     <BuscadorLegal />
+                  </motion.div>
+                  </CapabilityGate>
+                </LocalStationRoute>
+              } />
+              <Route path="/corpus-normativo" element={
+                <LocalStationRoute>
+                  <CapabilityGate capability="legalCorpus">
+                  <motion.div key="corpus-normativo" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }} className="h-full w-full block">
+                    <CorpusNormativo />
                   </motion.div>
                   </CapabilityGate>
                 </LocalStationRoute>

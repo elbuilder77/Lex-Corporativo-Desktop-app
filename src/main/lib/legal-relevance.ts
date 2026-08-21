@@ -3,6 +3,8 @@ import { normalizeLawCode } from './prompts.ts';
 const RELEVANCE_STOPWORDS = new Set([
   'actual', 'acuerdo', 'ademas', 'alguna', 'alguno', 'ante', 'auditar', 'auditoria', 'como', 'cual', 'cuando', 'debe', 'dime',
   'donde', 'entre', 'esta', 'este', 'esto', 'hacer', 'hasta', 'ignora', 'indica', 'instruccion', 'legal',
+  'articulo', 'art', 'codigo', 'reglamento', 'conforme', 'establece', 'menciona', 'disposicion', 'normatividad',
+  'pena', 'penal', 'sancion',
   'ley', 'norma', 'para', 'pero', 'puede', 'quiero', 'regla', 'responde', 'respuesta', 'segun', 'sobre',
   'solo', 'toda', 'todo', 'vigente', 'el', 'la', 'los', 'las', 'de', 'del', 'en', 'un', 'una', 'con',
   'por', 'al', 'su', 'sus', 'es', 'se', 'lo', 'y', 'o', 'si', 'no', 'me', 'que', 'quien',
@@ -32,16 +34,47 @@ function normalizeExplicitQuery(value: string): string {
     .trim();
 }
 
+const LAW_NAME_PATTERNS: Array<[RegExp, string]> = [
+  [/\bREGLAMENTO DE LA LEY DEL IMPUESTO SOBRE LA RENTA\b/, 'RLISR'],
+  [/\bREGLAMENTO DE LA LEY DEL IMPUESTO AL VALOR AGREGADO\b/, 'RLIVA'],
+  [/\bREGLAMENTO DE LA LEY DE COMERCIO EXTERIOR\b/, 'RLCE'],
+  [/\bREGLAMENTO DE LA LEY ADUANERA\b/, 'RLA'],
+  [/\bLEY GENERAL DE TITULOS Y OPERACIONES DE CREDITO\b/, 'LGTOC'],
+  [/\bLEY GENERAL DE SOCIEDADES MERCANTILES\b/, 'LGSM'],
+  [/\bCODIGO FISCAL DE LA FEDERACION\b/, 'CFF'],
+  [/\bLEY DEL IMPUESTO SOBRE LA RENTA\b/, 'LISR'],
+  [/\bLEY DEL IMPUESTO AL VALOR AGREGADO\b/, 'LIVA'],
+  [/\bLEY FEDERAL DEL TRABAJO\b/, 'LFT'],
+  [/\bLEY DE COMERCIO EXTERIOR\b/, 'LCE'],
+  [/\bLEY DE LOS IMPUESTOS GENERALES DE IMPORTACION Y DE EXPORTACION\b/, 'LIGIE'],
+  [/\bREGLAS GENERALES DE COMERCIO EXTERIOR\b/, 'RGCE'],
+  [/\bRESOLUCION MISCELANEA FISCAL\b/, 'RMF'],
+  [/\bCODIGO DE COMERCIO\b/, 'CCOM'],
+  [/\bLEY ADUANERA\b/, 'LA'],
+];
+
 function getExplicitLawCode(query: string, normalized: string): string | null {
   const generalCode = normalized.match(/\b(CFF|LISR|RLISR|LIVA|RLIVA|RMF|CCOM|LGSM|LGTOC|LFT|LCE|RLCE|RLA|LIGIE|TIGIE|RGCE)\b/)?.[1] || null;
   if (generalCode) return generalCode === 'TIGIE' ? 'LIGIE' : generalCode;
-  if (/\bREGLAMENTO DE LA LEY ADUANERA\b/.test(normalized)) return 'RLA';
-  if (/\bLEY ADUANERA\b/.test(normalized) || /\bLA\b/.test(query)) return 'LA';
+
+  const namedLaw = LAW_NAME_PATTERNS.find(([pattern]) => pattern.test(normalized))?.[1];
+  if (namedLaw) return namedLaw;
+  if (/\bLA\b/.test(query)) return 'LA';
   return null;
 }
 
 function termMatches(queryTerm: string, evidenceTerms: Set<string>): boolean {
   if (evidenceTerms.has(queryTerm)) return true;
+  if (queryTerm === 'cfdi') {
+    return [...evidenceTerms].some(term => term.startsWith('comprobant'))
+      && [...evidenceTerms].some(term => term.startsWith('fiscal'))
+      && [...evidenceTerms].some(term => term.startsWith('digital'));
+  }
+  if (queryTerm === 'iva') {
+    return evidenceTerms.has('liva') || evidenceTerms.has('rliva')
+      || (evidenceTerms.has('impuesto') && evidenceTerms.has('valor') && evidenceTerms.has('agregado'));
+  }
+  if (queryTerm === 'isr') return evidenceTerms.has('lisr') || evidenceTerms.has('rlisr');
   if (queryTerm.length < 6) return false;
   const prefix = queryTerm.slice(0, 6);
   return [...evidenceTerms].some(term => term.length >= 6 && term.startsWith(prefix));
@@ -50,12 +83,21 @@ function termMatches(queryTerm: string, evidenceTerms: Set<string>): boolean {
 export function getExplicitProvisionTarget(query: string): { lawCode: string | null; kind: 'article' | 'rule' | null; id: string | null } {
   const normalized = normalizeExplicitQuery(query);
   const law = getExplicitLawCode(query, normalized);
-  const labeled = normalized.match(/\b(ARTICULO|REGLA)\s+(\d+(?:\.\d+){0,3}(?:-[A-Z]+)?)/);
-  const compact = law ? normalized.match(new RegExp(`\\b${law}\\s+(\\d+(?:\\.\\d+){0,3}(?:-[A-Z]+)?)`)) : null;
+  const identifier = String.raw`(\d+(?:\.\d+){0,3}(?:\s*-\s*[A-Z]+)?(?:\s+(?:BIS|TER|QUATER|QUINQUIES|SEXIES|SEPTIES|OCTIES|NONIES))?)`;
+  const labeled = normalized.match(new RegExp(`\\b(ART(?:ICULO)?\\.?|REGLA)\\s+${identifier}`));
+  const compact = law ? normalized.match(new RegExp(`\\b${law}\\s+${identifier}`)) : null;
+  const rawId = labeled?.[2] || compact?.[1] || null;
+  const id = rawId
+    ?.replace(/\s*-\s*/g, '-')
+    .replace(/\s+(BIS|TER|QUATER|QUINQUIES|SEXIES|SEPTIES|OCTIES|NONIES)\b/, (_match, suffix: string) => (
+      ` ${suffix.charAt(0)}${suffix.slice(1).toLowerCase()}`
+    ))
+    || null;
+
   return {
     lawCode: law,
-    kind: labeled?.[1] === 'REGLA' ? 'rule' : labeled?.[1] === 'ARTICULO' ? 'article' : null,
-    id: labeled?.[2] || compact?.[1] || null,
+    kind: labeled?.[1] === 'REGLA' ? 'rule' : labeled?.[1] ? 'article' : null,
+    id,
   };
 }
 
@@ -79,6 +121,9 @@ export interface EvidenceAssessment {
 export function getPreferredLawCodes(query: string): Set<string> {
   const value = normalize(query);
   const preferred = new Set<string>();
+  const explicitLawCode = getExplicitLawCode(query, normalizeExplicitQuery(query));
+  if (explicitLawCode) preferred.add(explicitLawCode);
+
   if (/\b(?:iva|acredita\w*)\b/u.test(value) || value.includes('impuesto al valor agregado')) {
     preferred.add('LIVA');
     preferred.add('RLIVA');
@@ -104,7 +149,7 @@ export function getPreferredLawCodes(query: string): Set<string> {
 
 export function assessLegalEvidence(query: string, candidate: EvidenceCandidate): EvidenceAssessment {
   const queryTerms = terms(query);
-  const evidenceTerms = new Set(terms(`${candidate.title || ''} ${candidate.article_number || ''} ${candidate.content || ''}`));
+  const evidenceTerms = new Set(terms(`${candidate.law_code || ''} ${candidate.title || ''} ${candidate.article_number || ''} ${candidate.content || ''}`));
   const matchedTerms = queryTerms.filter(term => termMatches(term, evidenceTerms));
   const coverage = queryTerms.length ? matchedTerms.length / queryTerms.length : 0;
   const similarity = Number.isFinite(candidate.similarity) ? Number(candidate.similarity) : 0;

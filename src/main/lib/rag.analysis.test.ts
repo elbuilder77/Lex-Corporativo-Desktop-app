@@ -24,6 +24,24 @@ const mockState = vi.hoisted(() => ({
       _distance: 0.05,
       module: 'fiscal',
     },
+    {
+      id: 'lft-334-bis',
+      title: 'Ley Federal del Trabajo',
+      law_code: 'LFT',
+      article: 'Artículo 334 Bis',
+      content: 'Las personas trabajadoras del hogar contarán con prestaciones: vacaciones, prima vacacional, aguinaldo y acceso obligatorio a la seguridad social.',
+      _distance: 0.15,
+      module: 'laboral',
+    },
+    {
+      id: 'lft-generic',
+      title: 'Ley Federal del Trabajo',
+      law_code: 'LFT',
+      article: 'Artículo 10',
+      content: 'Patrón es la persona física o moral que utiliza los servicios de uno o varios trabajadores.',
+      _distance: 0.05,
+      module: 'laboral',
+    },
   ],
   userRows: [
     {
@@ -141,7 +159,7 @@ vi.mock('@lancedb/lancedb', () => {
   };
 });
 
-import { getAnalysisContext, getLegalKnowledgeRuntimePath } from './rag';
+import { getAnalysisContext, getLegalKnowledgeRuntimePath, searchLegalArticles } from './rag';
 
 describe('analysis double-lane RAG context', () => {
   beforeEach(() => {
@@ -154,6 +172,13 @@ describe('analysis double-lane RAG context', () => {
     const allowedPath = join(mockState.userDataPath, 'lance_data');
     process.env.LEX_ENGINE_LANCE_PATH = allowedPath;
     expect(getLegalKnowledgeRuntimePath()).toBe(allowedPath);
+  });
+
+  it('ranks the household-worker benefits provision from a three-word all-corpus search', async () => {
+    const result = await searchLegalArticles('prestaciones trabajadores hogar', 'todos', 8);
+    expect(result.queryExpansion.addedTerms).toContain('personas trabajadoras del hogar');
+    expect(result.matches[0]?.id).toBe('lft-334-bis');
+    expect(result.matches[0]?.retrieval_type).toBe('hybrid');
   });
 
   it('recovers only current-request document chunks and module-allowed laws', async () => {

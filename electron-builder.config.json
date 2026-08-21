@@ -35,6 +35,13 @@
       "to": "legal-runtime/corpus-manifest.json"
     },
     {
+      "from": "legal-runtime/corpus",
+      "to": "legal-runtime/corpus",
+      "filter": [
+        "**/*.md"
+      ]
+    },
+    {
       "from": "plantillas",
       "to": "plantillas",
       "filter": [

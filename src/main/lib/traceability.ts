@@ -9,8 +9,8 @@ import type { LegalEcosystem } from '../../shared/legal-contracts';
 export interface QueryTrace {
   requestId: string;
   operation: 'search' | 'consultation' | 'analysis' | 'drafting';
-  moduleUsed: LegalEcosystem;
-  ecosystemLegal: LegalEcosystem;
+  moduleUsed: LegalEcosystem | 'todos';
+  ecosystemLegal: LegalEcosystem | 'todos';
   primaryModel: string;
   finalModelUsed: string;
   hasFallback: boolean;

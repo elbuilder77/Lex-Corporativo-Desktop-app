@@ -8,7 +8,9 @@ import { registerRagHandlers } from './rag.handler';
 import { registerVaultHandlers } from './vault.handler';
 import { registerAssistantHandlers } from './assistant.handler';
 import { registerByokHandlers } from './byok.handler';
+import { registerCorpusHandlers } from './corpus.handler';
 import { getLegalKnowledgeRuntimePath, isLocalRagAvailable } from '../lib/rag';
+import { isLegalCorpusAvailable } from '../lib/legal-corpus';
 import { getVaultProtectionStatus, listCases } from '../lib/case-vault';
 import { getByokSettings, saveByokSettings } from '../lib/byok-settings';
 import { getTraceLedgerStatus } from '../lib/traceability';
@@ -71,6 +73,7 @@ export function registerIpcHandlers(): void {
     let vaultReady = false;
     let vaultDetail = 'No se pudo abrir la bóveda local.';
     let ragReady = false;
+    let legalCorpusReady = false;
 
     try {
       await listCases();
@@ -91,6 +94,8 @@ export function registerIpcHandlers(): void {
       ragReady = false;
     }
 
+    legalCorpusReady = isLegalCorpusAvailable();
+
     const byokSettings = getByokSettings();
     const embeddingModelPath = app.isPackaged
       ? join(process.resourcesPath, 'legal-runtime', 'models', 'Xenova', 'all-MiniLM-L6-v2', 'onnx', 'model_quantized.onnx')
@@ -102,6 +107,7 @@ export function registerIpcHandlers(): void {
     const checks = [
       { id: 'vault', label: 'Bóveda SQLite cifrada', ok: vaultReady, detail: vaultDetail },
       { id: 'rag', label: 'Base legal LanceDB', ok: ragReady, detail: getLegalKnowledgeRuntimePath() },
+      { id: 'corpus', label: 'Corpus normativo íntegro', ok: legalCorpusReady, detail: legalCorpusReady ? 'Los 16 ordenamientos están disponibles.' : 'Faltan archivos del corpus instalado.' },
       { id: 'embeddings', label: 'Modelo local de búsqueda', ok: embeddingsReady, detail: embeddingModelPath },
       { id: 'byok', label: 'API propia del usuario', ok: byokGenerationReady, detail: byokGenerationReady ? `${byokSettings.provider}:${byokSettings.model}` : 'Agrega y activa una API key' },
       { id: 'privacy', label: 'Privacidad estricta', ok: byokSettings.strictPrivacy || !byokSettings.automaticUpdatesEnabled },
@@ -129,6 +135,13 @@ export function registerIpcHandlers(): void {
           detail: legalSearchReady
             ? 'LanceDB y el modelo de embeddings local están disponibles.'
             : 'Requiere la base LanceDB verificada y el modelo de embeddings local.',
+        },
+        legalCorpus: {
+          ready: legalCorpusReady,
+          label: 'Corpus normativo',
+          detail: legalCorpusReady
+            ? 'Los textos íntegros instalados están disponibles para descarga.'
+            : 'No se encontraron todos los textos normativos instalados.',
         },
         legalGeneration: {
           ready: legalGenerationReady,
@@ -208,4 +221,5 @@ export function registerIpcHandlers(): void {
   registerVaultHandlers();
   registerAssistantHandlers();
   registerByokHandlers();
+  registerCorpusHandlers();
 }

@@ -36,6 +36,10 @@ const api: LexDesktopAPI = {
   legalKnowledge: {
     searchRAG: (payload) => ipcRenderer.invoke('ipc:rag-search', payload),
   },
+  legalCorpus: {
+    list: () => ipcRenderer.invoke('corpus:list'),
+    download: (payload) => ipcRenderer.invoke('corpus:download', payload),
+  },
   runtime: {
     getHealth: () => ipcRenderer.invoke('runtime:get-health'),
   },
@@ -73,7 +77,6 @@ const api: LexDesktopAPI = {
   },
   assistant: {
     askInstructivo: (payload) => ipcRenderer.invoke('ipc:assistant-ask', payload),
-    askFiscal: (payload) => ipcRenderer.invoke('ipc:fiscal-ask', payload),
   },
   security: {
     reportCspViolation: (report) => ipcRenderer.invoke('csp:report', report),

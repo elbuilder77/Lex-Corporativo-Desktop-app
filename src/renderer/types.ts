@@ -21,7 +21,6 @@ export enum AppView {
 export type ModuleTab =
   | 'fiscal-home'
   | 'analysis'
-  | 'fiscal-consultation'
   | 'fiscal-preparation'
   | 'fiscal-materiality'
   | 'fiscal-deductibility'

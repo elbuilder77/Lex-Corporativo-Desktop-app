@@ -6,6 +6,7 @@ import { pipeline } from '@xenova/transformers';
 import { PDFParse } from 'pdf-parse';
 import * as lancedb from '@lancedb/lancedb';
 import { CORPUS_DIR, CORPUS_VERSION, EMBEDDING_MODEL, LANCEDB_DIR, LAWS } from './legal-corpus-config.mjs';
+import { ensureLegalLanceIndices } from './legal-lance-indices.mjs';
 
 const args = new Set(process.argv.slice(2));
 const offlineOnly = args.has('--offline');
@@ -316,6 +317,11 @@ async function main() {
 
     await db.createTable('legal_knowledge', data);
   }
+
+  const indexedTable = await db.openTable('legal_knowledge');
+  console.log('Creando índices de recuperación...');
+  const indexResult = await ensureLegalLanceIndices(indexedTable, { replace: true });
+  console.log(`Índices activos: ${indexResult.indices.map(index => `${index.columns.join('+')} (${index.indexType})`).join(', ')}`);
 
   console.log('Ingesta completada.');
   console.log(`LanceDB: ${LANCEDB_DIR}`);

@@ -26,7 +26,6 @@ import {
   Landmark,
   ListFilter,
   Loader2,
-  MessageSquareQuote,
   ReceiptText,
   RefreshCw,
   RotateCcw,
@@ -70,7 +69,7 @@ import { cn } from '../lib/utils';
 import { useProcessingGuard } from '../hooks/useProcessingGuard';
 import logoMarkUrl from '../assets/logo-mark.png';
 
-type WorkspaceTab = 'estacion' | 'drafting' | 'analysis' | 'consultation';
+type WorkspaceTab = 'estacion' | 'drafting' | 'analysis';
 type SourceMode = 'template' | 'reference' | 'analysis';
 
 interface GuideMessage {
@@ -88,7 +87,6 @@ const AREA_CONTENT: Record<LegalEngineeringArea, {
   tone: 'blue' | 'amber' | 'emerald';
   activeClass: string;
   focusPlaceholder: string;
-  consultationTopicSuggestions: string[];
 }> = {
   mercantil: {
     label: 'Mercantil y corporativo',
@@ -98,12 +96,6 @@ const AREA_CONTENT: Record<LegalEngineeringArea, {
     tone: 'blue',
     activeClass: 'border-blue-300 bg-blue-50 text-blue-950 ring-blue-500/20',
     focusPlaceholder: 'Indica partes, objeto, montos, vigencia, obligaciones y condiciones que debe contener el documento.',
-    consultationTopicSuggestions: [
-      '¿Qué requisitos exige la LGSM para convocar a asamblea extraordinaria de accionistas?',
-      '¿Cuáles son los límites legales para pactar penas convencionales según el Código de Comercio?',
-      '¿Qué formalidades requiere el endoso en procuración de un pagaré conforme a la LGTOC?',
-      '¿Cómo regular el derecho de preferencia y drag-along en estatutos de una SAPI?',
-    ],
   },
   laboral: {
     label: 'Laboral y relaciones de trabajo',
@@ -113,12 +105,6 @@ const AREA_CONTENT: Record<LegalEngineeringArea, {
     tone: 'amber',
     activeClass: 'border-amber-300 bg-amber-50 text-amber-950 ring-amber-500/20',
     focusPlaceholder: 'Indica patrón, persona trabajadora, puesto, salario, jornada, prestaciones, centro de trabajo y modalidad.',
-    consultationTopicSuggestions: [
-      '¿Cuáles son los requisitos de validez del aviso de rescisión laboral según el Art. 47 LFT?',
-      '¿Qué obligaciones patronales aplican para el teletrabajo (home office) en la NOM-037?',
-      '¿Cómo estructurar un convenio de terminación voluntaria para evitar nulidad ante el Centro de Conciliación?',
-      '¿Cuáles son los límites de la jornada extraordinaria y su remuneración en México?',
-    ],
   },
   comercio_exterior: {
     label: 'Comercio exterior y contratos globales',
@@ -128,12 +114,6 @@ const AREA_CONTENT: Record<LegalEngineeringArea, {
     tone: 'emerald',
     activeClass: 'border-emerald-300 bg-emerald-50 text-emerald-950 ring-emerald-500/20',
     focusPlaceholder: 'Indica partes, mercancías, Incoterm, país de origen, entrega, pago, documentos y permisos aplicables.',
-    consultationTopicSuggestions: [
-      '¿Qué diferencias legales existen entre los Incoterms FOB, CIF y DDP en transmisión de riesgos?',
-      '¿Qué cláusulas de resolución de controversias y ley aplicable convienen en contratos transfronterizos?',
-      '¿Cuáles son los requisitos de certificación de origen bajo el T-MEC?',
-      '¿Cómo mitigar riesgos en contratos de distribución internacional exclusiva?',
-    ],
   },
   aduanal: {
     label: 'Aduanal y despacho',
@@ -143,12 +123,6 @@ const AREA_CONTENT: Record<LegalEngineeringArea, {
     tone: 'blue',
     activeClass: 'border-slate-300 bg-slate-50 text-slate-950 ring-slate-500/20',
     focusPlaceholder: 'Indica pedimento, régimen, aduana, importador/exportador, mercancía, valor y documentos soporte.',
-    consultationTopicSuggestions: [
-      '¿Qué supuestos permiten la rectificación de pedimento conforme al Art. 89 de la Ley Aduanera?',
-      '¿Cuáles son los elementos que integran los incrementables en la manifestación de valor?',
-      '¿Qué causales detonan el embargo precautorio en un PAMA (Art. 150 Ley Aduanera)?',
-      '¿Qué documentos integran el expediente electrónico aduanal obligatorio?',
-    ],
   },
   fiscal: {
     label: 'Fiscal y patrimonial',
@@ -158,12 +132,6 @@ const AREA_CONTENT: Record<LegalEngineeringArea, {
     tone: 'emerald',
     activeClass: 'border-emerald-300 bg-emerald-50 text-emerald-950 ring-emerald-500/20',
     focusPlaceholder: 'Indica partes, objeto de la operación, contraprestación, comprobantes (CFDI), retenciones, pagos y obligaciones de cumplimiento.',
-    consultationTopicSuggestions: [
-      '¿Qué requisitos debe reunir un contrato de mutuo para acreditar fecha cierta y origen de fondos?',
-      '¿Cuáles son los elementos de estricta indispensabilidad del gasto conforme al Art. 27 LISR?',
-      '¿Qué formalidades requiere un escrito de aclaración ante requerimiento de autoridad en términos del CFF?',
-      '¿Cómo pactar adecuadamente las obligaciones de retención de IVA e ISR en servicios profesionales?',
-    ],
   },
 };
 
@@ -254,14 +222,14 @@ export const LegalEngineering: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const rawTab = searchParams.get('tab');
   const initialWorkspaceTab: WorkspaceTab =
-    rawTab === 'drafting' || rawTab === 'analysis' || rawTab === 'consultation'
+    rawTab === 'drafting' || rawTab === 'analysis'
       ? rawTab
       : 'estacion';
 
   const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>(initialWorkspaceTab);
 
   const { notify, runtimeHealth, refreshRuntimeHealth, requestProcessingSetup } = useUiStore();
-  const canGenerate = useProcessingGuard('legalGeneration', 'generar este documento o consulta');
+  const canGenerate = useProcessingGuard('legalGeneration', 'generar este documento');
   const {
     currentCaseId,
     setCurrentCaseId,
@@ -307,11 +275,6 @@ export const LegalEngineering: React.FC = () => {
   const [documentViewMode, setDocumentViewMode] = useState<'letterhead' | 'edit' | 'raw'>('letterhead');
   const [auditFilter, setAuditFilter] = useState<'all' | 'high' | 'medium' | 'low' | 'missing' | 'foundations' | 'actions'>('all');
 
-  // Consultation Tab State
-  const [consultationQuery, setConsultationQuery] = useState('');
-  const [consultationHistory, setConsultationHistory] = useState<Array<{ role: 'user' | 'model'; text: string; citationsAvailable?: boolean }>>([]);
-  const [isConsulting, setIsConsulting] = useState(false);
-
   // Estación Hub Guide State
   const [guideMessages, setGuideMessages] = useState<GuideMessage[]>([
     { role: 'model', text: 'Puedo ayudarte a usar las herramientas de Ingeniería Jurídica paso a paso.' },
@@ -323,7 +286,6 @@ export const LegalEngineering: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const analysisInputRef = useRef<HTMLInputElement>(null);
-  const consultationEndRef = useRef<HTMLDivElement>(null);
   const guideMessagesEndRef = useRef<HTMLDivElement>(null);
 
   const templates = useMemo(() => LEGAL_ENGINEERING_TEMPLATES[area] || [], [area]);
@@ -358,7 +320,13 @@ export const LegalEngineering: React.FC = () => {
   }, [fetchRecentCases, refreshRuntimeHealth]);
 
   useEffect(() => {
-    if (rawTab && (rawTab === 'estacion' || rawTab === 'analysis' || rawTab === 'consultation' || rawTab === 'drafting') && rawTab !== workspaceTab) {
+    if (rawTab === 'consultation') {
+      navigate('/buscador', { replace: true });
+    }
+  }, [navigate, rawTab]);
+
+  useEffect(() => {
+    if (rawTab && (rawTab === 'estacion' || rawTab === 'analysis' || rawTab === 'drafting') && rawTab !== workspaceTab) {
       setWorkspaceTab(rawTab);
     }
   }, [rawTab, workspaceTab]);
@@ -714,43 +682,6 @@ export const LegalEngineering: React.FC = () => {
     setAnalysisId(null);
     setAnalysisPrompt('');
   };
-
-  // Consultation Handler
-  const handleSendConsultation = async (queryText: string) => {
-    const textToSend = queryText.trim();
-    if (!textToSend || isConsulting) return;
-    if (!canGenerate()) return;
-
-    const newHistory = [...consultationHistory, { role: 'user' as const, text: textToSend }];
-    setConsultationHistory(newHistory);
-    setConsultationQuery('');
-    setIsConsulting(true);
-
-    try {
-      const response = await window.lexDesktop.assistant.askFiscal({
-        query: textToSend,
-        module: area,
-        history: consultationHistory.slice(-8).map((m) => ({ role: m.role, text: m.text })),
-      });
-      setConsultationHistory((prev) => [
-        ...prev,
-        { role: 'model', text: response.result, citationsAvailable: response.citationsAvailable },
-      ]);
-      if (!response.citationsAvailable) {
-        notify('Respuesta emitida con abstención debido a falta de fundamento oficial recuperado.', 'warning', 'Dictamen RAG');
-      }
-    } catch (error: any) {
-      setConsultationHistory((prev) => [
-        ...prev,
-        { role: 'model', text: 'No se pudo procesar la consulta jurídica. Verifica que BYOK esté habilitado y que el corpus local esté disponible.' },
-      ]);
-      notify(error?.message || 'Error en consulta jurídica', 'error');
-    } finally {
-      setIsConsulting(false);
-      setTimeout(() => consultationEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-    }
-  };
-
   // Guide Assistant Handler (for Estación Hub)
   const handleSendGuide = async (textToSend: string) => {
     if (!textToSend.trim() || isGuideGenerating) return;
@@ -804,15 +735,8 @@ export const LegalEngineering: React.FC = () => {
       action: () => switchWorkspaceTab('analysis'),
     },
     {
-      title: 'Consultas con leyes',
-      description: 'Preguntas y respuestas fundamentadas con artículos de leyes mexicanas oficiales.',
-      icon: BookOpen,
-      iconBg: 'bg-amber-50 text-amber-700',
-      action: () => switchWorkspaceTab('consultation'),
-    },
-    {
-      title: 'Buscador normativo',
-      description: 'Búsqueda directa de artículos en el Código de Comercio, LFT, Ley Aduanera y CFF.',
+      title: 'Buscador Normativo Oficial',
+      description: 'Localiza y ordena artículos oficiales por materia, concepto, ley o número de artículo.',
       icon: Search,
       iconBg: 'bg-emerald-50 text-emerald-700',
       action: () => navigate('/buscador'),
@@ -860,7 +784,7 @@ export const LegalEngineering: React.FC = () => {
           </div>
         </header>
 
-        {/* Pestañas Principales: Estación (Carátula) + 3 Modos de Trabajo */}
+        {/* Pestañas Principales: Estación (Carátula) + 2 Modos de Trabajo */}
         <nav className="mt-5 flex flex-wrap gap-2 border-b border-slate-200 pb-3" aria-label="Navegación de Ingeniería Jurídica">
           <button
             type="button"
@@ -900,19 +824,6 @@ export const LegalEngineering: React.FC = () => {
           >
             <ShieldAlert size={15} />
             Auditoría de Riesgos
-          </button>
-          <button
-            type="button"
-            onClick={() => switchWorkspaceTab('consultation')}
-            className={cn(
-              'inline-flex min-h-10 items-center gap-2 rounded-xl px-4 text-xs font-bold transition shadow-xs',
-              workspaceTab === 'consultation'
-                ? 'bg-slate-950 text-white'
-                : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
-            )}
-          >
-            <BookOpen size={15} />
-            Dictamen & Consultas RAG
           </button>
         </nav>
 
@@ -2140,96 +2051,6 @@ export const LegalEngineering: React.FC = () => {
                 </div>
               </div>
             )}
-          </div>
-        )}
-
-        {/* PESTAÑA: DICTAMEN & CONSULTAS JURÍDICAS RAG */}
-        {workspaceTab === 'consultation' && (
-          <div className="mt-5 space-y-6">
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
-              <div>
-                <h2 className="text-base font-bold text-slate-950">Dictamen & Consultas Normativas con RAG Local</h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Formula consultas técnicas en materia <strong>{areaContent.label}</strong>. Las respuestas se anclan estrictamente en el corpus legal oficial instalado (LanceDB).
-                </p>
-              </div>
-
-              <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Consultas frecuentes sugeridas</span>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  {areaContent.consultationTopicSuggestions.map((topic, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => handleSendConsultation(topic)}
-                      disabled={isConsulting}
-                      className="rounded-xl border border-slate-200 bg-slate-50/60 p-2.5 text-left text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-100 transition focus:outline-hidden disabled:opacity-50"
-                    >
-                      <Sparkles size={13} className="inline mr-1.5 text-legal-gold" />
-                      {topic}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 min-h-64 max-h-[480px] overflow-y-auto space-y-4">
-                {consultationHistory.length === 0 ? (
-                  <div className="py-12 text-center text-slate-400">
-                    <MessageSquareQuote size={32} className="mx-auto mb-2 opacity-50" />
-                    <p className="text-xs font-bold text-slate-600">No hay consultas activas en esta sesión.</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">Escribe una duda jurídica o selecciona una de las sugerencias para iniciar el dictamen.</p>
-                  </div>
-                ) : (
-                  consultationHistory.map((msg, index) => (
-                    <div
-                      key={index}
-                      className={cn(
-                        'rounded-2xl p-4 text-xs leading-relaxed max-w-4xl',
-                        msg.role === 'user'
-                          ? 'ml-auto bg-slate-900 text-white'
-                          : 'mr-auto bg-white border border-slate-200 text-slate-800 shadow-xs space-y-2'
-                      )}
-                    >
-                      {msg.role === 'model' && (
-                        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-2">
-                          <BookOpen size={14} className={areaTheme.text} />
-                          Dictamen Jurídico Fundamentado
-                        </div>
-                      )}
-                      <div className="prose prose-xs max-w-none">
-                        <ReactMarkdown>{msg.text}</ReactMarkdown>
-                      </div>
-                    </div>
-                  ))
-                )}
-                {isConsulting && (
-                  <div className="mr-auto rounded-2xl bg-white border border-slate-200 p-4 text-xs text-slate-600 shadow-xs flex items-center gap-2">
-                    <Loader2 size={16} className="animate-spin text-blue-600" />
-                    <span>Recuperando fundamentos del corpus oficial y redactando dictamen...</span>
-                  </div>
-                )}
-                <div ref={consultationEndRef} />
-              </div>
-
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={consultationQuery}
-                  onChange={(e) => setConsultationQuery(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleSendConsultation(consultationQuery); }}
-                  placeholder={`Formula tu consulta jurídica en materia ${areaContent.shortLabel}...`}
-                  className={cn('flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-xs text-slate-900 outline-hidden focus:ring-2', areaTheme.ring)}
-                />
-                <button
-                  type="button"
-                  onClick={() => handleSendConsultation(consultationQuery)}
-                  disabled={isConsulting || !consultationQuery.trim()}
-                  className={cn('inline-flex min-h-11 items-center gap-2 rounded-xl px-5 text-xs font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50 shadow-xs', areaTheme.button)}
-                >
-                  <Send size={15} /> Consultar
-                </button>
-              </div>
-            </section>
           </div>
         )}
 
