@@ -15,6 +15,7 @@ import {
   Clipboard,
   Code2,
   Download,
+  Edit3,
   Eye,
   FileSignature,
   FileText,
@@ -54,6 +55,7 @@ import {
   type DraftingTemplate,
   type LegalEngineeringArea,
 } from '../lib/constants';
+import { getFullTemplateBody } from '../lib/template-bodies';
 import { DraftingTemplatePicker } from './DraftingTemplatePicker';
 import { UniversalDocumentBadge } from './UniversalDocumentBadge';
 import { ensureModuleActivity } from '../lib/case-access';
@@ -302,7 +304,7 @@ export const LegalEngineering: React.FC = () => {
   const [analysisId, setAnalysisId] = useState<string | null>(null);
   const [isDraggingDraft, setIsDraggingDraft] = useState(false);
   const [isDraggingAnalysis, setIsDraggingAnalysis] = useState(false);
-  const [documentViewMode, setDocumentViewMode] = useState<'letterhead' | 'raw'>('letterhead');
+  const [documentViewMode, setDocumentViewMode] = useState<'letterhead' | 'edit' | 'raw'>('letterhead');
   const [auditFilter, setAuditFilter] = useState<'all' | 'high' | 'medium' | 'low' | 'missing' | 'foundations' | 'actions'>('all');
 
   // Consultation Tab State
@@ -659,6 +661,43 @@ export const LegalEngineering: React.FC = () => {
       if (result.success) notify('Documento exportado a Microsoft Word (.docx).', 'success');
     } catch (error: any) {
       notify(error?.message || 'No se pudo exportar el documento a Word.', 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleOpenTemplateDirectly = (template: DraftingTemplate) => {
+    setSelectedTemplate(template);
+    const fullBody = getFullTemplateBody(template);
+    setGeneratedDoc(fullBody);
+    setDocumentViewMode('letterhead');
+    notify(`Machote "${template.title}" cargado en el editor. Puedes modificarlo o exportarlo directamente sin IA.`, 'success', 'Plantilla Lista');
+  };
+
+  const handleExportTemplateDirectly = async (template: DraftingTemplate, format: 'pdf' | 'docx') => {
+    const fullBody = getFullTemplateBody(template);
+    const docTitle = template.title || 'Plantilla Jurídica';
+    setIsExporting(true);
+    try {
+      if (format === 'pdf') {
+        const result = await generateDocumentPDF(
+          fullBody,
+          docTitle,
+          `Materia: ${areaContent.label} · ${new Date().toLocaleDateString('es-MX')}`,
+          `Plantilla_${areaContent.shortLabel}`,
+        );
+        if (result.success) notify('Plantilla exportada en PDF.', 'success');
+      } else {
+        const result = await generateDocumentDocx(fullBody, {
+          title: docTitle,
+          subtitle: `Materia: ${areaContent.label}`,
+          filenamePrefix: `Plantilla_${areaContent.shortLabel}`,
+          ecosystem: areaContent.shortLabel,
+        });
+        if (result.success) notify('Plantilla exportada a Microsoft Word (.docx).', 'success');
+      }
+    } catch (error: any) {
+      notify(error?.message || 'Error al exportar plantilla.', 'error');
     } finally {
       setIsExporting(false);
     }
@@ -1174,13 +1213,33 @@ export const LegalEngineering: React.FC = () => {
                   </div>
 
                   {sourceMode === 'template' ? (
-                    <DraftingTemplatePicker
-                      templates={templates}
-                      selectedTemplate={selectedTemplate}
-                      tone={areaContent.tone}
-                      onSelect={selectTemplate}
-                      onClear={() => { setSelectedTemplate(null); setPrompt(''); }}
-                    />
+                    <div className="space-y-3">
+                      <DraftingTemplatePicker
+                        templates={templates}
+                        selectedTemplate={selectedTemplate}
+                        tone={areaContent.tone}
+                        onSelect={selectTemplate}
+                        onClear={() => { setSelectedTemplate(null); setPrompt(''); }}
+                        onOpenDirectly={handleOpenTemplateDirectly}
+                        onExportDirectly={handleExportTemplateDirectly}
+                      />
+                      {selectedTemplate && (
+                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs">
+                          <div className="flex items-center gap-2 text-emerald-950 font-semibold">
+                            <Sparkles size={14} className="text-emerald-700" />
+                            <span>¿Deseas editar el machote base directamente sin procesar con IA?</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenTemplateDirectly(selectedTemplate)}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 font-bold text-emerald-900 shadow-2xs hover:bg-emerald-100 transition cursor-pointer"
+                          >
+                            <Edit3 size={13} />
+                            Abrir y Editar en Documento
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   ) : sourceMode === 'analysis' ? (
                     <div className="space-y-3">
                       {(referenceFile || analysisFile) ? (
@@ -1372,6 +1431,20 @@ export const LegalEngineering: React.FC = () => {
                       </button>
                       <button
                         type="button"
+                        onClick={() => setDocumentViewMode('edit')}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer',
+                          documentViewMode === 'edit'
+                            ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
+                            : 'text-slate-600 hover:text-slate-900'
+                        )}
+                        title="Editar texto y cláusulas del documento en vivo"
+                      >
+                        <Edit3 size={13} />
+                        <span>Editar</span>
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setDocumentViewMode('raw')}
                         className={cn(
                           'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer',
@@ -1379,7 +1452,7 @@ export const LegalEngineering: React.FC = () => {
                             ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
                             : 'text-slate-600 hover:text-slate-900'
                         )}
-                        title="Vista Texto Plano / Código"
+                        title="Vista Código / Markdown Plano"
                       >
                         <Code2 size={13} />
                         <span>Texto</span>
@@ -1419,7 +1492,7 @@ export const LegalEngineering: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Hoja Membretada vs Texto Plano */}
+                {/* Hoja Membretada vs Editor Directo vs Texto Plano */}
                 {documentViewMode === 'letterhead' ? (
                   <div className="rounded-2xl border border-slate-200/80 bg-slate-100/70 p-4 sm:p-8">
                     <article className="legal-letterhead mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-8 sm:p-14 shadow-lg">
@@ -1458,6 +1531,25 @@ export const LegalEngineering: React.FC = () => {
                       </footer>
                     </article>
                   </div>
+                ) : documentViewMode === 'edit' ? (
+                  <article className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
+                      <span className="font-bold text-slate-800">
+                        Editor de Instrumento Jurídico (edita el texto y reemplaza los corchetes [ ]):
+                      </span>
+                      <span>{generatedDoc.length} caracteres</span>
+                    </div>
+                    <textarea
+                      value={generatedDoc}
+                      onChange={(e) => setGeneratedDoc(e.target.value)}
+                      rows={26}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 p-4 font-mono text-xs leading-relaxed text-slate-900 focus:border-blue-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      placeholder="Escribe o personaliza el contenido del documento..."
+                    />
+                    <p className="text-[11px] text-slate-400 font-medium">
+                      * Todos los cambios que realices se actualizan en tiempo real para la vista formal membretada y las descargas en PDF y Word (.docx).
+                    </p>
+                  </article>
                 ) : (
                   <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
                     <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-slate-800 bg-slate-50 p-4 rounded-xl border border-slate-200 overflow-x-auto">
