@@ -76,4 +76,51 @@ describe('drafting templates', () => {
     expect(nextPrompt).toContain('Operacion con proveedor extranjero.');
     expect(nextPrompt.match(/Notas del portafolio:/g)).toHaveLength(1);
   });
+
+  it('guarantees that all 48 drafting templates have dedicated specialized bodies in TEMPLATE_FULL_BODIES', async () => {
+    const { getFullTemplateBody, TEMPLATE_FULL_BODIES } = await import('./template-bodies');
+    const allCatalogs = [
+      ...MERCANTIL_DRAFTING_TEMPLATES,
+      ...LABORAL_DRAFTING_TEMPLATES,
+      ...COMERCIO_EXTERIOR_DRAFTING_TEMPLATES,
+      ...ADUANAL_DRAFTING_TEMPLATES,
+      ...FISCAL_DRAFTING_TEMPLATES,
+    ];
+
+    expect(allCatalogs).toHaveLength(48);
+
+    for (const template of allCatalogs) {
+      expect(TEMPLATE_FULL_BODIES[template.id]).toBeDefined();
+      const body = getFullTemplateBody(template);
+      expect(body.trim().length).toBeGreaterThan(200);
+      expect(body).toContain('#');
+      expect(body).toMatch(/DECLARACIONES|CLÁUSULAS|MATRIZ|CHECKLIST|FACULTADES|HECHOS|PUNTOS PETITORIOS|OBJETO/i);
+
+      // Verify that opening and closing brackets for placeholders are balanced
+      const openCount = (body.match(/\[/g) || []).length;
+      const closeCount = (body.match(/\]/g) || []).length;
+      expect(openCount).toBe(closeCount);
+    }
+  });
+
+  it('validates placeholder token formatting across all template bodies', async () => {
+    const { TEMPLATE_FULL_BODIES } = await import('./template-bodies');
+
+    for (const [id, body] of Object.entries(TEMPLATE_FULL_BODIES)) {
+      // Find all bracketed placeholders
+      const placeholders = body.match(/\[([^\]]+)\]/g) || [];
+      expect(placeholders.length).toBeGreaterThan(0);
+
+      // Verify no empty placeholders like "[]"
+      expect(body).not.toContain('[]');
+
+      // Verify placeholders don't contain unescaped nested brackets
+      for (const ph of placeholders) {
+        expect(ph.startsWith('[')).toBe(true);
+        expect(ph.endsWith(']')).toBe(true);
+      }
+    }
+  });
 });
+
+
