@@ -18,7 +18,7 @@
     "dev:desktop": "electron-vite dev",
     "build": "electron-vite build",
     "build:analyze": "vite build --config electron.vite.config.ts -m analyze && npx vite-bundle-analyzer out/renderer",
-    "prebuild:electron": "node scripts/generate-ico.mjs && node scripts/generate-corpus-manifest.mjs --check --strict && node scripts/download-embeddings.mjs && electron-rebuild -f -w better-sqlite3",
+    "prebuild:electron": "node scripts/generate-ico.mjs && node scripts/generate-corpus-manifest.mjs --write --strict && node scripts/download-embeddings.mjs && electron-rebuild -f -w better-sqlite3",
     "build:electron": "npm run build && electron-builder --config electron-builder.config.json",
     "build:desktop": "npm run build:electron",
     "preflight:release": "node scripts/release-preflight.mjs --target=win",

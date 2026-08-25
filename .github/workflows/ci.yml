@@ -45,7 +45,7 @@ jobs:
         run: npm run build
 
       - name: Validate legal corpus governance
-        run: npm run audit:corpus-governance:strict
+        run: npm run manifest:legal-corpus && npm run audit:corpus-governance:strict
 
   electron-vault:
     name: Electron vault smoke test (Windows)
