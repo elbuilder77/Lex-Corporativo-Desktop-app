@@ -2007,7 +2007,7 @@ ________________________________________
 ________________________________________  
 **REPRESENTACIÓN DE LAS PERSONAS TRABAJADORAS**  
 [NOMBRE DEL REPRESENTANTE / COMITÉ]
-
+`,
 
   'fiscal-prestacion-servicios': `# CONTRATO DE PRESTACIÓN DE SERVICIOS PROFESIONALES INDEPENDIENTES
 **Con estipulaciones de materialidad fiscal, entregables verificables y razón de negocios (Arts. 5-A y 69-B del CFF)**
