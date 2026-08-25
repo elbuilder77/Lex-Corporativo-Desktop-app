@@ -22,6 +22,10 @@ function sha256(value) {
 }
 
 function sha256File(filePath) {
+  if (filePath.endsWith('.md') || filePath.endsWith('.json') || filePath.endsWith('.txt')) {
+    const text = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+    return sha256(text);
+  }
   return sha256(fs.readFileSync(filePath));
 }
 
@@ -170,7 +174,7 @@ function buildManifest() {
       },
       file: {
         exists,
-        bytes: exists ? fs.statSync(filePath).size : 0,
+        bytes: exists ? (filePath.endsWith('.md') || filePath.endsWith('.json') ? Buffer.byteLength(fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n'), 'utf8') : fs.statSync(filePath).size) : 0,
         sha256: exists ? sha256File(filePath) : null,
       },
       structure: {
@@ -185,17 +189,13 @@ function buildManifest() {
     };
   });
 
-  const missingFiles = laws.filter(law => !law.file.exists).map(law => law.code);
-  const duplicateRows = laws.reduce((total, law) => total + law.structure.duplicateRows, 0);
+  const missingFiles = laws.filter(law => !law.file.exists).map(law => law.corpusFile);
   const duplicateProvisionKeys = laws.reduce((total, law) => total + law.structure.duplicateProvisionKeys, 0);
+  const duplicateRows = laws.reduce((total, law) => total + law.structure.duplicateRows, 0);
   const conflictingDuplicateKeys = laws.reduce((total, law) => total + law.structure.conflictingDuplicateKeys, 0);
   const extractionArtifacts = laws.reduce((total, law) => total + law.structure.extractionArtifacts.total, 0);
-  const pendingOfficialVerification = laws
-    .filter(law => law.source.verificationStatus !== 'verified_against_official_source')
-    .map(law => law.code);
-  const circularProvenance = laws
-    .filter(law => law.source.provenance === 'reconstructed_from_lancedb')
-    .map(law => law.code);
+  const pendingOfficialVerification = laws.filter(law => law.source.verificationStatus !== 'verified_against_official_source').map(law => law.code);
+  const circularProvenance = laws.filter(law => law.source.provenance === 'reconstructed_from_lancedb').map(law => law.code);
   const failures = [];
 
   if (missingFiles.length) failures.push(`Faltan archivos de corpus: ${missingFiles.join(', ')}.`);
@@ -258,7 +258,7 @@ if (shouldCheck) {
   if (!fs.existsSync(CORPUS_MANIFEST_PATH)) {
     console.error(`Falta el manifiesto canónico: ${CORPUS_MANIFEST_PATH}`);
     checkFailed = true;
-  } else if (fs.readFileSync(CORPUS_MANIFEST_PATH, 'utf8') !== serialized) {
+  } else if (fs.readFileSync(CORPUS_MANIFEST_PATH, 'utf8').replace(/\r\n/g, '\n').trim() !== serialized.replace(/\r\n/g, '\n').trim()) {
     console.error('El manifiesto canónico no coincide con el corpus o LanceDB actuales. Ejecuta npm run manifest:legal-corpus.');
     checkFailed = true;
   }
