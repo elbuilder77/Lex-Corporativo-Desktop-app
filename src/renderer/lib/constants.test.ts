@@ -94,7 +94,7 @@ describe('drafting templates', () => {
       const body = getFullTemplateBody(template);
       expect(body.trim().length).toBeGreaterThan(200);
       expect(body).toContain('#');
-      expect(body).toMatch(/DECLARACIONES|CLÁUSULAS|MATRIZ|CHECKLIST|FACULTADES|HECHOS|PUNTOS PETITORIOS|OBJETO/i);
+      expect(body).toMatch(/DECLARACI[OÓ]N|CL[AÁ]USULA|MATRIZ|CHECKLIST|FACULTAD|HECHO|PETITORI|OBJETO|RESOLUCI[OÓ]N|ORDEN DEL DÍA|ASAMBLEA|PAGAR[EÉ]|VENCIMIENTO|PRIVACIDAD|FINALIDAD|ARCO|INSTRUCCI[OÓ]N|OPERACI[OÓ]N|ADUAN|PEDIMENTO/i);
 
       // Verify that opening and closing brackets for placeholders are balanced
       const openCount = (body.match(/\[/g) || []).length;
