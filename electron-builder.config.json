@@ -88,7 +88,7 @@
   },
   "publish": {
     "provider": "github",
-    "owner": "JPatronC92",
-    "repo": "Lex-Corp-Electron"
+    "owner": "elbuilder77",
+    "repo": "Lex-Corporativo-Desktop-app"
   }
 }
