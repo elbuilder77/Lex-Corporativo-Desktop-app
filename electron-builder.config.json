@@ -89,6 +89,8 @@
   "publish": {
     "provider": "github",
     "owner": "elbuilder77",
-    "repo": "Lex-Corporativo-Desktop-app"
+    "repo": "Lex-Corporativo-Desktop-app",
+    "releaseType": "release"
   }
 }
+

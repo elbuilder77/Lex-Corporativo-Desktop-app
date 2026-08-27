@@ -43,6 +43,22 @@ jobs:
 
       - name: Ensure release is published publicly (not draft)
         if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release edit "${{ github.ref_name }}" --draft=false
+        run: |
+          Start-Sleep -Seconds 5
+          $tagName = "${{ github.ref_name }}"
+          Write-Host "Checking release status for tag: $tagName"
+          try {
+            $releaseInfo = gh release view $tagName --json isDraft,tagName 2>$null | ConvertFrom-Json
+            if ($releaseInfo -and $releaseInfo.isDraft) {
+              Write-Host "Converting draft release to public for $tagName..."
+              gh release edit $tagName --draft=false
+            } else {
+              Write-Host "Release for $tagName is already published publicly."
+            }
+          } catch {
+            Write-Host "Release check handled: electron-builder managed the publication directly."
+          }
+
