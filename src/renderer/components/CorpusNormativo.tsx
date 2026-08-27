@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  BookOpen,
   BookOpenCheck,
   Database,
   Download,
@@ -11,6 +12,7 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { useUiStore } from '../store/useUiStore';
+import { LectorNormativoModal } from './LectorNormativoModal';
 
 type CorpusOverview = Awaited<ReturnType<typeof window.lexDesktop.legalCorpus.list>>;
 type CorpusLaw = CorpusOverview['laws'][number];
@@ -62,6 +64,7 @@ export const CorpusNormativo: React.FC = () => {
   const [selectedArea, setSelectedArea] = useState<CorpusArea>('todos');
   const [loading, setLoading] = useState(true);
   const [downloadingCode, setDownloadingCode] = useState<string | null>(null);
+  const [selectedLawForReader, setSelectedLawForReader] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -113,8 +116,8 @@ export const CorpusNormativo: React.FC = () => {
                 <BookOpenCheck size={22} />
               </div>
               <div>
-                <h1 className="text-base font-bold text-slate-950">Corpus Normativo</h1>
-                <p className="text-xs text-slate-500">Encuentra y descarga los textos íntegros que utiliza la aplicación.</p>
+                <h1 className="text-base font-bold text-slate-950">Corpus Normativo Oficial</h1>
+                <p className="text-xs text-slate-500">Consulta en pantalla y descarga los textos legales íntegros instalados.</p>
               </div>
             </div>
             {overview && (
@@ -148,7 +151,7 @@ export const CorpusNormativo: React.FC = () => {
                 type="button"
                 onClick={() => setSelectedArea(area.id)}
                 className={cn(
-                  'min-h-8 rounded-lg border px-3 text-xs font-bold transition',
+                  'min-h-8 rounded-lg border px-3 text-xs font-bold transition cursor-pointer',
                   selectedArea === area.id
                     ? 'border-slate-800 bg-slate-900 text-white'
                     : 'border-slate-200 bg-white text-slate-600 hover:border-slate-400 hover:text-slate-900',
@@ -183,19 +186,26 @@ export const CorpusNormativo: React.FC = () => {
                   </div>
                 </div>
                 <div className="mt-5 space-y-3 border-t border-slate-100 pt-4">
-                  <p className="flex items-start gap-1.5 text-[10px] leading-4 text-slate-500">
-                    <ShieldCheck size={13} className="mt-0.5 shrink-0 text-emerald-700" />
-                    Texto canónico íntegro utilizado por el buscador, sin modificaciones al descargar.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => void handleDownload(law)}
-                    disabled={downloadingCode !== null}
-                    className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-xs font-bold text-white transition hover:bg-slate-800 disabled:cursor-wait disabled:opacity-60"
-                  >
-                    {downloadingCode === law.code ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
-                    Descargar ley (.md)
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedLawForReader(law.code)}
+                      className="flex-1 inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-xs font-bold text-white transition hover:bg-slate-800 cursor-pointer shadow-xs"
+                    >
+                      <BookOpen size={14} />
+                      Leer en Pantalla
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleDownload(law)}
+                      disabled={downloadingCode !== null}
+                      className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60 cursor-pointer"
+                      title="Descargar archivo en Markdown"
+                    >
+                      {downloadingCode === law.code ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                      <span className="hidden sm:inline">Descargar .md</span>
+                    </button>
+                  </div>
                 </div>
               </article>
             ))}
@@ -208,8 +218,15 @@ export const CorpusNormativo: React.FC = () => {
           </div>
         )}
       </div>
+
+      <LectorNormativoModal
+        isOpen={Boolean(selectedLawForReader)}
+        onClose={() => setSelectedLawForReader(null)}
+        lawCode={selectedLawForReader}
+      />
     </div>
   );
 };
 
 export default CorpusNormativo;
+

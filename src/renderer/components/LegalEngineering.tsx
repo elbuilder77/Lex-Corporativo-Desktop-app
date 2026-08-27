@@ -26,6 +26,7 @@ import {
   Landmark,
   ListFilter,
   Loader2,
+  Plus,
   ReceiptText,
   RefreshCw,
   RotateCcw,
@@ -68,6 +69,7 @@ import { useUiStore } from '../store/useUiStore';
 import { cn } from '../lib/utils';
 import { useProcessingGuard } from '../hooks/useProcessingGuard';
 import logoMarkUrl from '../assets/logo-mark.png';
+import { LectorNormativoModal } from './LectorNormativoModal';
 
 type WorkspaceTab = 'estacion' | 'drafting' | 'analysis';
 type SourceMode = 'template' | 'reference' | 'analysis';
@@ -92,45 +94,45 @@ const AREA_CONTENT: Record<LegalEngineeringArea, {
     label: 'Mercantil y corporativo',
     shortLabel: 'Mercantil',
     description: 'Contratos, actas, poderes, pagarés, gobierno societario y convenios comerciales.',
-    icon: <Scale size={18} />,
+    icon: <Scale size={16} />,
     tone: 'blue',
-    activeClass: 'border-blue-300 bg-blue-50 text-blue-950 ring-blue-500/20',
+    activeClass: 'border-blue-500 bg-blue-50 text-blue-950 ring-2 ring-blue-500/20',
     focusPlaceholder: 'Indica partes, objeto, montos, vigencia, obligaciones y condiciones que debe contener el documento.',
   },
   laboral: {
     label: 'Laboral y relaciones de trabajo',
     shortLabel: 'Laboral',
     description: 'Contratos individuales, teletrabajo, confidencialidad, actas y terminación.',
-    icon: <BriefcaseBusiness size={18} />,
+    icon: <BriefcaseBusiness size={16} />,
     tone: 'amber',
-    activeClass: 'border-amber-300 bg-amber-50 text-amber-950 ring-amber-500/20',
+    activeClass: 'border-amber-500 bg-amber-50 text-amber-950 ring-2 ring-amber-500/20',
     focusPlaceholder: 'Indica patrón, persona trabajadora, puesto, salario, jornada, prestaciones, centro de trabajo y modalidad.',
   },
   comercio_exterior: {
     label: 'Comercio exterior y contratos globales',
     shortLabel: 'Comercio exterior',
     description: 'Compraventa internacional, distribución, Incoterms 2020 y coordinación logística.',
-    icon: <Globe2 size={18} />,
+    icon: <Globe2 size={16} />,
     tone: 'emerald',
-    activeClass: 'border-emerald-300 bg-emerald-50 text-emerald-950 ring-emerald-500/20',
+    activeClass: 'border-emerald-500 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/20',
     focusPlaceholder: 'Indica partes, mercancías, Incoterm, país de origen, entrega, pago, documentos y permisos aplicables.',
   },
   aduanal: {
     label: 'Aduanal y despacho',
     shortLabel: 'Aduanal',
     description: 'Expedientes de pedimento, valor en aduana, rectificaciones y requerimientos.',
-    icon: <ShipWheel size={18} />,
+    icon: <ShipWheel size={16} />,
     tone: 'blue',
-    activeClass: 'border-slate-300 bg-slate-50 text-slate-950 ring-slate-500/20',
+    activeClass: 'border-purple-500 bg-purple-50 text-purple-950 ring-2 ring-purple-500/20',
     focusPlaceholder: 'Indica pedimento, régimen, aduana, importador/exportador, mercancía, valor y documentos soporte.',
   },
   fiscal: {
     label: 'Fiscal y patrimonial',
     shortLabel: 'Fiscal',
     description: 'Contratos con estipulaciones fiscales, mutuo, reconocimientos de adeudo y escritos de defensa.',
-    icon: <ReceiptText size={18} />,
+    icon: <ReceiptText size={16} />,
     tone: 'emerald',
-    activeClass: 'border-emerald-300 bg-emerald-50 text-emerald-950 ring-emerald-500/20',
+    activeClass: 'border-teal-500 bg-teal-50 text-teal-950 ring-2 ring-teal-500/20',
     focusPlaceholder: 'Indica partes, objeto de la operación, contraprestación, comprobantes (CFDI), retenciones, pagos y obligaciones de cumplimiento.',
   },
 };
@@ -143,39 +145,39 @@ const AREA_THEMES: Record<LegalEngineeringArea, {
   button: string;
 }> = {
   mercantil: {
-    text: 'text-mercantil',
-    border: 'border-mercantil',
-    rail: 'bg-mercantil',
-    ring: 'focus:border-mercantil focus:ring-mercantil/15',
-    button: 'bg-mercantil hover:bg-mercantil-dark',
+    text: 'text-blue-700',
+    border: 'border-blue-600',
+    rail: 'bg-blue-600',
+    ring: 'focus:border-blue-600 focus:ring-blue-600/15',
+    button: 'bg-blue-600 hover:bg-blue-700',
   },
   laboral: {
     text: 'text-amber-700',
-    border: 'border-amber-500',
-    rail: 'bg-amber-500',
+    border: 'border-amber-600',
+    rail: 'bg-amber-600',
     ring: 'focus:border-amber-500 focus:ring-amber-500/20',
     button: 'bg-amber-600 hover:bg-amber-700',
   },
   comercio_exterior: {
     text: 'text-emerald-700',
-    border: 'border-emerald-500',
+    border: 'border-emerald-600',
     rail: 'bg-emerald-600',
     ring: 'focus:border-emerald-500 focus:ring-emerald-500/20',
     button: 'bg-emerald-700 hover:bg-emerald-800',
   },
   aduanal: {
-    text: 'text-slate-700',
-    border: 'border-slate-700',
-    rail: 'bg-slate-700',
-    ring: 'focus:border-slate-500 focus:ring-slate-500/20',
-    button: 'bg-slate-800 hover:bg-slate-950',
+    text: 'text-purple-700',
+    border: 'border-purple-600',
+    rail: 'bg-purple-600',
+    ring: 'focus:border-purple-500 focus:ring-purple-500/20',
+    button: 'bg-purple-700 hover:bg-purple-800',
   },
   fiscal: {
-    text: 'text-emerald-800',
-    border: 'border-emerald-600',
-    rail: 'bg-emerald-600',
-    ring: 'focus:border-emerald-600 focus:ring-emerald-600/20',
-    button: 'bg-emerald-700 hover:bg-emerald-800',
+    text: 'text-teal-700',
+    border: 'border-teal-600',
+    rail: 'bg-teal-600',
+    ring: 'focus:border-teal-600 focus:ring-teal-600/20',
+    button: 'bg-teal-700 hover:bg-teal-800',
   },
 };
 
@@ -239,7 +241,6 @@ export const LegalEngineering: React.FC = () => {
     engineeringDraftState,
     setEngineeringDraftState,
     engineeringDraftingHistory,
-    engineeringAnalysisHistory,
     addEngineeringDrafting,
     addEngineeringAnalysis,
     saveEngineeringWork,
@@ -274,6 +275,16 @@ export const LegalEngineering: React.FC = () => {
   const [isDraggingAnalysis, setIsDraggingAnalysis] = useState(false);
   const [documentViewMode, setDocumentViewMode] = useState<'letterhead' | 'edit' | 'raw'>('letterhead');
   const [auditFilter, setAuditFilter] = useState<'all' | 'high' | 'medium' | 'low' | 'missing' | 'foundations' | 'actions'>('all');
+
+  // Lector Normativo modal state
+  const [lectorState, setLectorState] = useState<{
+    isOpen: boolean;
+    lawCode: string | null;
+    articleNumber?: string | null;
+  }>({
+    isOpen: false,
+    lawCode: null,
+  });
 
   // Estación Hub Guide State
   const [guideMessages, setGuideMessages] = useState<GuideMessage[]>([
@@ -482,7 +493,22 @@ export const LegalEngineering: React.FC = () => {
     }
   };
 
-  // Puente Directo: Análisis ➔ Redactor Contractual
+  // Remodelación 2: Auto-remediación individual por hallazgo
+  const handleRemediateSingleFinding = (title: string, explanation: string, lawReference?: string) => {
+    const text = [
+      `Redactar cláusula correctiva formal para subsanar la siguiente contingencia jurídica:`,
+      `CONTINGENCIA / RIESGO DETECTADO:\n${title}: ${explanation}`,
+      lawReference ? `FUNDAMENTO LEGAL APLICABLE:\n${lawReference}` : '',
+      `INSTRUCCIONES:\nRedactar la cláusula contractual con técnica jurídica mexicana, subsanando la contingencia y protegiendo a las partes con plena validez legal.`,
+    ].filter(Boolean).join('\n\n');
+
+    setPrompt(text);
+    setSourceMode('analysis');
+    switchWorkspaceTab('drafting');
+    notify(`Instrucción de subsanación cargada en el Redactor: "${title}".`, 'success', 'Auto-remediación');
+  };
+
+  // Remodelación 2: Puente Directo Integral (Auditoría ➔ Redactor Contractual)
   const deriveDraftFromAnalysis = () => {
     if (!analysisResult) return;
     const missing = [...(analysisResult.missingClauses || []), ...(analysisResult.missingData || [])];
@@ -583,7 +609,6 @@ export const LegalEngineering: React.FC = () => {
     } finally {
       setIsGenerating(false);
     }
-
   };
 
   const handleExport = async () => {
@@ -634,12 +659,13 @@ export const LegalEngineering: React.FC = () => {
     }
   };
 
+  // Remodelación 4: Carga directa de machote 100% Offline / Gratuito
   const handleOpenTemplateDirectly = (template: DraftingTemplate) => {
     setSelectedTemplate(template);
     const fullBody = getFullTemplateBody(template);
     setGeneratedDoc(fullBody);
     setDocumentViewMode('letterhead');
-    notify(`Machote "${template.title}" cargado en el editor. Puedes modificarlo o exportarlo directamente sin IA.`, 'success', 'Plantilla Lista');
+    notify(`Machote "${template.title}" cargado en el editor. Listo para editar y exportar sin costo de IA.`, 'success', 'Plantilla Lista');
   };
 
   const handleExportTemplateDirectly = async (template: DraftingTemplate, format: 'pdf' | 'docx') => {
@@ -671,7 +697,6 @@ export const LegalEngineering: React.FC = () => {
     }
   };
 
-
   const resetDocument = () => {
     setGeneratedDoc('');
     setPrompt('');
@@ -682,7 +707,7 @@ export const LegalEngineering: React.FC = () => {
     setAnalysisId(null);
     setAnalysisPrompt('');
   };
-  // Guide Assistant Handler (for Estación Hub)
+
   const handleSendGuide = async (textToSend: string) => {
     if (!textToSend.trim() || isGuideGenerating) return;
     if (!guideReady) {
@@ -714,7 +739,6 @@ export const LegalEngineering: React.FC = () => {
     switchWorkspaceTab('drafting');
   };
 
-  // Split risks by severity for Semáforo
   const highRisks = useMemo(() => analysisResult?.risks?.filter((r) => r.severity === 'high') || [], [analysisResult]);
   const mediumRisks = useMemo(() => analysisResult?.risks?.filter((r) => r.severity === 'medium') || [], [analysisResult]);
   const lowRisks = useMemo(() => analysisResult?.risks?.filter((r) => r.severity === 'low') || [], [analysisResult]);
@@ -722,27 +746,27 @@ export const LegalEngineering: React.FC = () => {
   const hubActions = [
     {
       title: 'Redactar documento',
-      description: 'Contratos de servicios, trabajo, pagarés, compraventa, arrendamiento y acuerdos.',
+      description: 'Contratos de servicios, trabajo, pagarés, compraventa, arrendamiento y convenios.',
       icon: FileSignature,
       iconBg: 'bg-blue-50 text-blue-700',
       action: () => switchWorkspaceTab('drafting'),
     },
     {
-      title: 'Revisar documento',
+      title: 'Revisar / Auditar documento',
       description: 'Sube un contrato o archivo para detectar riesgos, omisiones y cláusulas faltantes.',
       icon: ShieldAlert,
       iconBg: 'bg-rose-50 text-rose-700',
       action: () => switchWorkspaceTab('analysis'),
     },
     {
-      title: 'Buscador Normativo Oficial',
-      description: 'Localiza y ordena artículos oficiales por materia, concepto, ley o número de artículo.',
+      title: 'Centro de Inteligencia Normativa',
+      description: 'Consulta y coteja 7,348 artículos oficiales de leyes federales con lector íntegro.',
       icon: Search,
       iconBg: 'bg-emerald-50 text-emerald-700',
       action: () => navigate('/buscador'),
     },
     {
-      title: 'Documentos guardados',
+      title: 'Bóveda de Documentos',
       description: 'Tus contratos, borradores y revisiones almacenados de forma local y privada.',
       icon: FolderOpen,
       iconBg: 'bg-slate-100 text-slate-700',
@@ -750,32 +774,38 @@ export const LegalEngineering: React.FC = () => {
     },
   ];
 
+  // Plantillas rápidas para el estado inicial del Workbench
+  const popularTemplates = useMemo(() => {
+    return (templates || []).slice(0, 3);
+  }, [templates]);
+
   return (
     <div className="relative h-full overflow-y-auto bg-slate-50 text-slate-800">
       <div className={cn('pointer-events-none sticky left-0 top-0 z-20 h-1 w-full', areaTheme.rail)} />
-      <div className="mx-auto w-full max-w-7xl px-5 pb-12 pt-6 md:px-8">
+      <div className="mx-auto w-full max-w-7xl px-4 pb-12 pt-5 md:px-6 space-y-5">
         
         {/* Header Principal de la Suite */}
-        <header className="flex items-center justify-between border-b border-slate-200 bg-white p-5 rounded-2xl shadow-xs window-drag-region">
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-white p-4.5 rounded-2xl shadow-xs window-drag-region">
           <div className="flex items-center gap-3">
-            <img src={logoMarkUrl} alt="Lex Corporativo" className="h-9 w-9 rounded-lg object-contain window-no-drag" />
+            <img src={logoMarkUrl} alt="Lex Corporativo" className="h-8 w-8 rounded-lg object-contain window-no-drag" />
             <div>
               <h1 className="text-base font-bold text-slate-950">Ingeniería Jurídica</h1>
-              <p className="text-xs text-slate-500">Lex Corporativo</p>
+              <p className="text-xs text-slate-500">Estación privada de trabajo legal</p>
             </div>
           </div>
+
           <div className="flex items-center gap-2 window-no-drag">
             <button
               type="button"
               onClick={() => setShowHistory((v) => !v)}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 cursor-pointer"
             >
               <History size={14} /> Guardados ({visibleHistory.length})
             </button>
             <button
               type="button"
               onClick={() => navigate('/settings?tab=ia')}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 cursor-pointer"
             >
               <CircleDot size={13} className={byokActive ? 'text-emerald-600' : 'text-amber-600'} />
               {processingLabel}
@@ -784,13 +814,13 @@ export const LegalEngineering: React.FC = () => {
           </div>
         </header>
 
-        {/* Pestañas Principales: Estación (Carátula) + 2 Modos de Trabajo */}
-        <nav className="mt-5 flex flex-wrap gap-2 border-b border-slate-200 pb-3" aria-label="Navegación de Ingeniería Jurídica">
+        {/* Pestañas Principales: Estación + Redactor + Auditoría */}
+        <nav className="flex flex-wrap gap-2 border-b border-slate-200 pb-3" aria-label="Navegación de Ingeniería Jurídica">
           <button
             type="button"
             onClick={() => switchWorkspaceTab('estacion')}
             className={cn(
-              'inline-flex min-h-10 items-center gap-2 rounded-xl px-4 text-xs font-bold transition shadow-xs',
+              'inline-flex min-h-10 items-center gap-2 rounded-xl px-4 text-xs font-bold transition shadow-xs cursor-pointer',
               workspaceTab === 'estacion'
                 ? 'bg-slate-950 text-white'
                 : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
@@ -803,7 +833,7 @@ export const LegalEngineering: React.FC = () => {
             type="button"
             onClick={() => switchWorkspaceTab('drafting')}
             className={cn(
-              'inline-flex min-h-10 items-center gap-2 rounded-xl px-4 text-xs font-bold transition shadow-xs',
+              'inline-flex min-h-10 items-center gap-2 rounded-xl px-4 text-xs font-bold transition shadow-xs cursor-pointer',
               workspaceTab === 'drafting'
                 ? 'bg-slate-950 text-white'
                 : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
@@ -816,7 +846,7 @@ export const LegalEngineering: React.FC = () => {
             type="button"
             onClick={() => switchWorkspaceTab('analysis')}
             className={cn(
-              'inline-flex min-h-10 items-center gap-2 rounded-xl px-4 text-xs font-bold transition shadow-xs',
+              'inline-flex min-h-10 items-center gap-2 rounded-xl px-4 text-xs font-bold transition shadow-xs cursor-pointer',
               workspaceTab === 'analysis'
                 ? 'bg-slate-950 text-white'
                 : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
@@ -829,7 +859,7 @@ export const LegalEngineering: React.FC = () => {
 
         {/* Historial Flotante */}
         {showHistory && (
-          <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs" aria-label="Historial de documentos">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs" aria-label="Historial de documentos">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">Documentos guardados recientemente</h2>
               <button type="button" onClick={() => setShowHistory(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Cerrar historial"><X size={15} /></button>
@@ -849,7 +879,7 @@ export const LegalEngineering: React.FC = () => {
                       setShowHistory(false);
                       switchWorkspaceTab('drafting');
                     }}
-                    className="flex w-full items-center justify-between gap-4 py-2 text-left hover:text-slate-950 transition"
+                    className="flex w-full items-center justify-between gap-4 py-2 text-left hover:text-slate-950 transition cursor-pointer"
                   >
                     <span className="min-w-0">
                       <span className="block truncate text-xs font-bold text-slate-900">{item.templateTitle || item.referenceFileName || 'Documento personalizado'}</span>
@@ -867,10 +897,10 @@ export const LegalEngineering: React.FC = () => {
         {/* CARÁTULA OFICIAL: ESTACIÓN                                                */}
         {/* ========================================================================= */}
         {workspaceTab === 'estacion' && (
-          <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
             <main className="space-y-6">
               {/* Opciones directas */}
-              <section className="grid gap-3 sm:grid-cols-2">
+              <section className="grid gap-3.5 sm:grid-cols-2">
                 {hubActions.map((item) => {
                   const Icon = item.icon;
                   return (
@@ -878,7 +908,7 @@ export const LegalEngineering: React.FC = () => {
                       key={item.title}
                       type="button"
                       onClick={item.action}
-                      className="group flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-xs transition hover:border-slate-300 hover:shadow-sm"
+                      className="group flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-xs transition hover:border-slate-300 hover:shadow-sm cursor-pointer"
                     >
                       <div>
                         <span className={cn('inline-flex h-10 w-10 items-center justify-center rounded-xl', item.iconBg)}>
@@ -892,7 +922,7 @@ export const LegalEngineering: React.FC = () => {
                         </p>
                       </div>
                       <div className="mt-4 flex items-center gap-1 text-xs font-bold text-slate-700 group-hover:text-slate-950">
-                        <span>Abrir</span>
+                        <span>Abrir herramienta</span>
                         <ArrowRight size={14} className="transition group-hover:translate-x-1" />
                       </div>
                     </button>
@@ -908,7 +938,7 @@ export const LegalEngineering: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => navigate('/portafolio')}
-                      className="text-xs font-semibold text-slate-600 hover:text-slate-950"
+                      className="text-xs font-semibold text-slate-600 hover:text-slate-950 cursor-pointer"
                     >
                       Ver todos ({recentCases.length})
                     </button>
@@ -919,7 +949,7 @@ export const LegalEngineering: React.FC = () => {
                         key={savedCase.id}
                         type="button"
                         onClick={() => void resumeCase(savedCase)}
-                        className="group flex w-full items-center justify-between py-2.5 text-left hover:text-slate-950 transition"
+                        className="group flex w-full items-center justify-between py-2.5 text-left hover:text-slate-950 transition cursor-pointer"
                       >
                         <div className="min-w-0 pr-3">
                           <span className="block truncate text-xs font-bold text-slate-900 group-hover:text-blue-900">
@@ -966,7 +996,7 @@ export const LegalEngineering: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setHelpOpen((o) => !o)}
-                  className="flex w-full items-center gap-3 p-4 text-left hover:bg-slate-50 transition"
+                  className="flex w-full items-center gap-3 p-4 text-left hover:bg-slate-50 transition cursor-pointer"
                 >
                   <Bot size={17} className="text-slate-700" />
                   <div className="flex-1 min-w-0">
@@ -981,7 +1011,7 @@ export const LegalEngineering: React.FC = () => {
                     {!guideReady && (
                       <div className="flex gap-2 rounded-xl bg-amber-50 p-2.5 text-[11px] text-amber-900">
                         <AlertTriangle size={14} className="shrink-0 mt-0.5" />
-                        <span>Conecta una API en Configuración para usar la guía.</span>
+                        <span>Conecta una API en Configuración para usar la guía interactiva.</span>
                       </div>
                     )}
                     <div className="max-h-56 space-y-2 overflow-y-auto">
@@ -1021,7 +1051,7 @@ export const LegalEngineering: React.FC = () => {
                       <button
                         type="submit"
                         disabled={isGuideGenerating || !guideInput.trim()}
-                        className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900 text-white disabled:opacity-30 shadow-xs"
+                        className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900 text-white disabled:opacity-30 shadow-xs cursor-pointer"
                         aria-label="Enviar"
                       >
                         <Send size={13} />
@@ -1040,72 +1070,83 @@ export const LegalEngineering: React.FC = () => {
         )}
 
         {/* ========================================================================= */}
-        {/* MODOS DE TRABAJO (DRAFTING, ANALYSIS, CONSULTATION)                       */}
+        {/* REMODELACIÓN 1 & 4: WORKBENCH UNIFICADO (SPLIT-PANE WORKSPACE)            */}
         {/* ========================================================================= */}
-        {workspaceTab !== 'estacion' && (
-          <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">Materia jurídica</h2>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-              {ENGINEERING_AREAS.map((item) => {
-                const content = AREA_CONTENT[item];
-                const active = area === item;
-                return (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => changeArea(item)}
-                    aria-pressed={active}
-                    className={cn(
-                      'rounded-xl border p-3 text-left transition focus:outline-hidden',
-                      active ? `${content.activeClass} ring-2 shadow-xs` : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/70',
-                    )}
-                  >
-                    <span className="flex items-center gap-2 text-xs font-bold">
-                      {content.icon}
-                      {content.shortLabel}
-                      {active && <Check size={14} className="ml-auto text-current" />}
-                    </span>
-                    <span className="mt-1 block text-[11px] leading-4 text-slate-600 line-clamp-2">{content.description}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* PESTAÑA: REDACTOR CONTRACTUAL & PLANTILLAS */}
         {workspaceTab === 'drafting' && (
-          <div className="mt-5">
-            {!generatedDoc ? (
-              <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
-                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-4">
-                  <div>
-                    <h2 className="text-sm font-bold text-slate-950">Modalidad de origen</h2>
-                    <p className="text-xs text-slate-500">Selecciona si partirás de una plantilla predefinida, un machote propio o un documento previamente auditado.</p>
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-3">
+          <div className="space-y-4">
+            
+            {/* Barra Segmentada de Materias Jurídicas */}
+            <section className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xs" aria-label="Materia Jurídica">
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">Materia Jurídica del Documento</h2>
+                <span className="text-xs text-slate-400 font-semibold">
+                  Materia seleccionada: <strong className="text-slate-800">{areaContent.label}</strong>
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                {ENGINEERING_AREAS.map((item) => {
+                  const content = AREA_CONTENT[item];
+                  const active = area === item;
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => changeArea(item)}
+                      aria-pressed={active}
+                      className={cn(
+                        'flex items-center gap-2 rounded-xl border p-2.5 text-left text-xs font-bold transition shadow-2xs cursor-pointer',
+                        active ? `${content.activeClass} shadow-xs` : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                      )}
+                    >
+                      <span className="shrink-0">{content.icon}</span>
+                      <span className="truncate">{content.shortLabel}</span>
+                      {active && <Check size={14} className="ml-auto text-current shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* Split-Pane: Columna Izquierda (Controles & Datos) + Columna Derecha (Canvas & Editor) */}
+            <div className="grid items-start gap-5 lg:grid-cols-[minmax(340px,430px)_minmax(0,1fr)]">
+              
+              {/* COLUMNA IZQUIERDA: CONTROLES, ORIGEN Y PARÁMETROS */}
+              <section className="space-y-4">
+                
+                {/* Selector de Origen */}
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                    1. Origen del Documento
+                  </h3>
+                  <div className="grid grid-cols-3 gap-1.5">
                     <button
                       type="button"
                       onClick={() => { setSourceMode('template'); setReferenceFile(null); }}
                       className={cn(
-                        'flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 text-xs font-bold transition shadow-xs',
-                        sourceMode === 'template' ? `${areaTheme.border} ${areaTheme.button} text-white` : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        'flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition cursor-pointer text-xs font-bold',
+                        sourceMode === 'template'
+                          ? `${areaTheme.border} ${areaTheme.button} text-white shadow-xs`
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                       )}
                     >
-                      <FileText size={16} /> Plantilla jurídica ({templates.length})
+                      <FileText size={16} className="mb-1" />
+                      <span>Plantilla ({templates.length})</span>
                     </button>
+
                     <button
                       type="button"
                       onClick={() => { setSourceMode('reference'); setSelectedTemplate(null); }}
                       className={cn(
-                        'flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 text-xs font-bold transition shadow-xs',
-                        sourceMode === 'reference' ? `${areaTheme.border} ${areaTheme.button} text-white` : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        'flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition cursor-pointer text-xs font-bold',
+                        sourceMode === 'reference'
+                          ? `${areaTheme.border} ${areaTheme.button} text-white shadow-xs`
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                       )}
                     >
-                      <Upload size={16} /> Documento propio
+                      <Upload size={16} className="mb-1" />
+                      <span>Mi Archivo</span>
                     </button>
+
                     <button
                       type="button"
                       onClick={() => {
@@ -1114,17 +1155,20 @@ export const LegalEngineering: React.FC = () => {
                         setSelectedTemplate(null);
                       }}
                       className={cn(
-                        'flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 text-xs font-bold transition shadow-xs',
-                        sourceMode === 'analysis' ? 'border-emerald-600 bg-emerald-700 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        'flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition cursor-pointer text-xs font-bold',
+                        sourceMode === 'analysis'
+                          ? 'border-emerald-600 bg-emerald-700 text-white shadow-xs'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                       )}
                     >
-                      <ShieldCheck size={16} className={sourceMode === 'analysis' ? 'text-white' : 'text-emerald-600'} />
-                      Documento Auditado {analysisResult ? '✓' : ''}
+                      <ShieldCheck size={16} className="mb-1" />
+                      <span>Auditoría {analysisResult ? '✓' : ''}</span>
                     </button>
                   </div>
 
+                  {/* Detalle del Origen */}
                   {sourceMode === 'template' ? (
-                    <div className="space-y-3">
+                    <div className="pt-2 border-t border-slate-100">
                       <DraftingTemplatePicker
                         templates={templates}
                         selectedTemplate={selectedTemplate}
@@ -1134,69 +1178,19 @@ export const LegalEngineering: React.FC = () => {
                         onOpenDirectly={handleOpenTemplateDirectly}
                         onExportDirectly={handleExportTemplateDirectly}
                       />
-                      {selectedTemplate && (
-                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs">
-                          <div className="flex items-center gap-2 text-emerald-950 font-semibold">
-                            <Sparkles size={14} className="text-emerald-700" />
-                            <span>¿Deseas editar el machote base directamente sin procesar con IA?</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenTemplateDirectly(selectedTemplate)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 font-bold text-emerald-900 shadow-2xs hover:bg-emerald-100 transition cursor-pointer"
-                          >
-                            <Edit3 size={13} />
-                            Abrir y Editar en Documento
-                          </button>
-                        </div>
-                      )}
                     </div>
                   ) : sourceMode === 'analysis' ? (
-                    <div className="space-y-3">
+                    <div className="pt-2 border-t border-slate-100 space-y-2">
                       {(referenceFile || analysisFile) ? (
                         <UniversalDocumentBadge
                           file={(referenceFile || analysisFile)!}
                           area={area}
-                          onRemove={() => {
-                            setReferenceFile(null);
-                            setSourceMode('template');
-                          }}
+                          onRemove={() => { setReferenceFile(null); setSourceMode('template'); }}
                         />
                       ) : (
-                        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 p-6 text-center">
-                          <ShieldCheck size={28} className="mx-auto mb-2 text-emerald-600" />
-                          <p className="text-xs font-bold text-slate-900">Sin archivo físico vinculado a la auditoría</p>
-                          <p className="text-[11px] text-slate-500 mt-1">
-                            Las instrucciones correctivas se basarán en el dictamen legal registrado.
-                          </p>
-                        </div>
-                      )}
-
-                      {analysisResult && (
-                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 space-y-2.5">
-                          <div className="flex items-center justify-between">
-                            <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-950">
-                              <ShieldCheck size={16} className="text-emerald-700" />
-                              Base fijada desde auditoría previa
-                            </span>
-                            <span className="rounded-md bg-white border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-900">
-                              Riesgo inicial: {analysisResult.riskScore}/100
-                            </span>
-                          </div>
-                          <p className="text-xs text-emerald-900 leading-relaxed font-medium">
-                            El redactor utilizará las cláusulas del documento original como base y subsanará automáticamente las siguientes contingencias:
-                          </p>
-                          <div className="flex flex-wrap gap-1.5 pt-1">
-                            <span className="inline-flex items-center gap-1 rounded-lg bg-white border border-emerald-200 px-2.5 py-1 text-[11px] font-semibold text-emerald-950">
-                              ⚠️ {(analysisResult.missingClauses?.length || 0)} cláusulas omitidas
-                            </span>
-                            <span className="inline-flex items-center gap-1 rounded-lg bg-white border border-emerald-200 px-2.5 py-1 text-[11px] font-semibold text-emerald-950">
-                              🛡️ {(analysisResult.risks?.length || 0)} riesgos a mitigar
-                            </span>
-                            <span className="inline-flex items-center gap-1 rounded-lg bg-white border border-emerald-200 px-2.5 py-1 text-[11px] font-semibold text-emerald-950">
-                              ⚖️ {(analysisResult.legalFoundations?.length || 0)} fundamentos normativos
-                            </span>
-                          </div>
+                        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center">
+                          <ShieldCheck size={24} className="mx-auto mb-1 text-emerald-600" />
+                          <p className="text-xs font-bold text-slate-900">Instrucciones desde Dictamen de Auditoría</p>
                         </div>
                       )}
                     </div>
@@ -1213,9 +1207,9 @@ export const LegalEngineering: React.FC = () => {
                         if (file) applyReferenceFile(file);
                       }}
                       className={cn(
-                        'rounded-xl border border-dashed transition-all p-6 text-center',
+                        'rounded-xl border border-dashed transition-all p-5 text-center',
                         isDraggingDraft
-                          ? 'border-blue-500 bg-blue-50/80 ring-4 ring-blue-500/20 scale-[1.01]'
+                          ? 'border-blue-500 bg-blue-50/80 ring-4 ring-blue-500/20'
                           : 'border-slate-300 bg-slate-50/60'
                       )}
                     >
@@ -1234,262 +1228,304 @@ export const LegalEngineering: React.FC = () => {
                         />
                       ) : (
                         <div>
-                          <Upload size={24} className={cn('mx-auto mb-2 transition-transform', isDraggingDraft ? 'scale-125 text-blue-600 animate-bounce' : 'text-slate-400')} />
-                          <p className="text-xs font-bold text-slate-900">
-                            {isDraggingDraft ? '¡Suelta el documento aquí!' : 'Sube o arrastra el documento base, machote o factura'}
-                          </p>
-                          <p className="text-[11px] text-slate-500 mt-0.5">PDF, Word (.docx), CFDI/XML, TXT o MD · hasta 20 MB</p>
+                          <Upload size={22} className="mx-auto mb-1.5 text-slate-400" />
+                          <p className="text-xs font-bold text-slate-900">Sube o arrastra el documento base</p>
+                          <p className="text-[10px] text-slate-500 mt-0.5">PDF, Word (.docx), CFDI/XML, TXT</p>
                           <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            className={cn('mt-3 inline-flex min-h-9 items-center gap-1.5 rounded-xl px-4 text-xs font-bold text-white transition shadow-xs cursor-pointer', areaTheme.button)}
+                            className={cn('mt-2.5 inline-flex min-h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-bold text-white transition cursor-pointer', areaTheme.button)}
                           >
-                            <Upload size={14} /> Seleccionar archivo
+                            <Upload size={13} /> Examinar archivo
                           </button>
                         </div>
                       )}
                     </div>
                   )}
-                </section>
+                </div>
 
-                {/* Formulario de Instrucciones / Variables */}
-                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-3 lg:sticky lg:top-5">
+                {/* Formulario de Variables / Instrucciones */}
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-3">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-sm font-bold text-slate-950">
-                        {sourceMode === 'reference' ? 'Instrucciones de corrección' : sourceMode === 'analysis' ? 'Instrucciones derivadas de auditoría' : 'Variables y cláusulas específicas'}
-                      </h2>
-                      <p className="text-xs text-slate-500">
-                        {sourceMode === 'analysis'
-                          ? 'Ajusta los puntos correctivos antes de ensamblar el instrumento formal.'
-                          : 'Ingresa las partes, montos, plazos y condiciones a incorporar en el documento.'}
-                      </p>
-                    </div>
-                    <span className="hidden sm:inline-block rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-mono font-semibold text-slate-500">
-                      Ctrl + Enter para generar
-                    </span>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                      2. Datos e Instrucciones
+                    </h3>
+                    {selectedTemplate && (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenTemplateDirectly(selectedTemplate)}
+                        className="text-[11px] font-bold text-emerald-700 hover:underline inline-flex items-center gap-1"
+                        title="Cargar el machote sin procesar"
+                      >
+                        <Edit3 size={11} /> Cargar machote directo
+                      </button>
+                    )}
                   </div>
+
                   <textarea
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
-                    onKeyDown={(e) => {
-                      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                        e.preventDefault();
-                        void handleGenerate();
-                      }
-                    }}
-                    rows={13}
+                    rows={8}
                     placeholder={
                       sourceMode === 'reference'
-                        ? 'Indica las correcciones de fondo, cláusulas a modificar o adiciones que necesitas (Ctrl + Enter para generar).'
+                        ? 'Indica las modificaciones o cláusulas a cambiar en el archivo...'
                         : selectedTemplate
-                        ? `Completa los datos requeridos para ${selectedTemplate.title}:\n${selectedTemplate.requiredFields.join('\n- ')}`
-                        : `${areaContent.focusPlaceholder} (Ctrl + Enter para generar)`
+                        ? `Ingresa los datos para ${selectedTemplate.title}:\n- ${selectedTemplate.requiredFields.join('\n- ')}`
+                        : `${areaContent.focusPlaceholder}`
                     }
-                    className={cn('w-full resize-y rounded-xl border border-slate-300 bg-slate-50/60 p-3.5 text-xs leading-relaxed text-slate-900 outline-hidden transition placeholder:text-slate-400 focus:bg-white focus:ring-2', areaTheme.ring)}
+                    className={cn('w-full resize-y rounded-xl border border-slate-300 bg-slate-50/60 p-3 text-xs leading-relaxed text-slate-900 outline-hidden transition placeholder:text-slate-400 focus:bg-white focus:ring-2', areaTheme.ring)}
                   />
-                  <button
-                    type="button"
-                    onClick={handleGenerate}
-                    disabled={isGenerating || (sourceMode === 'analysis' && !analysisResult && !referenceFile && !analysisFile)}
-                    className={cn('inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-6 text-xs font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50 shadow-xs cursor-pointer', areaTheme.button)}
-                  >
-                    {isGenerating ? (
-                      <><Loader2 size={16} className="animate-spin" /> Redactando documento con IA...</>
-                    ) : sourceMode === 'analysis' ? (
-                      <><FileSignature size={16} /> Generar Adenda / Documento Corregido</>
-                    ) : (
-                      <><FileSignature size={16} /> Generar documento legal</>
-                    )}
-                  </button>
-                </section>
-              </div>
-            ) : (
-              <main className="mt-2 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className={cn('text-xs font-bold uppercase tracking-wider', areaTheme.text)}>
-                        Documento legal generado
-                      </span>
-                      <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
-                        {areaContent.shortLabel}
-                      </span>
+
+                  {/* Atajos Rápidos de Cláusulas Comunes */}
+                  <div className="space-y-1 pt-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Agregar cláusula sugerida:</span>
+                    <div className="flex flex-wrap gap-1">
+                      {['+ Confidencialidad (NDA)', '+ Cláusula Penal', '+ Rescisión sin responsabilidad', '+ Jurisdicción y Ley Aplicable'].map((chip) => (
+                        <button
+                          key={chip}
+                          type="button"
+                          onClick={() => setPrompt((p) => p ? `${p}\n- Incluir ${chip.replace('+', '')}` : `Incluir ${chip.replace('+', '')}`)}
+                          className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                        >
+                          {chip}
+                        </button>
+                      ))}
                     </div>
-                    <h2 className="font-serif text-xl sm:text-2xl font-bold text-slate-950 mt-1">
-                      {sourceMode === 'analysis'
-                        ? `Adenda / Documento Corregido (${(referenceFile || analysisFile)?.name || 'Instrumento'})`
-                        : selectedTemplate?.title || referenceFile?.name || 'Instrumento jurídico'}
+                  </div>
+
+                  {/* BOTONES BIMODALES DE ACCIÓN */}
+                  <div className="space-y-2 pt-2 border-t border-slate-100">
+                    {selectedTemplate && (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenTemplateDirectly(selectedTemplate)}
+                        className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-950 px-4 text-xs font-bold shadow-2xs hover:bg-emerald-100 transition cursor-pointer"
+                      >
+                        <FileText size={15} className="text-emerald-700" />
+                        <span>📄 Usar Machote Directo (100% Offline / Gratis)</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={handleGenerate}
+                      disabled={isGenerating || (sourceMode === 'analysis' && !analysisResult && !referenceFile && !analysisFile)}
+                      className={cn(
+                        'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-5 text-xs font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50 shadow-xs cursor-pointer',
+                        areaTheme.button
+                      )}
+                    >
+                      {isGenerating ? (
+                        <><Loader2 size={16} className="animate-spin" /> Redactando con IA ({providerLabel})...</>
+                      ) : sourceMode === 'analysis' ? (
+                        <><FileSignature size={15} /> ✨ Redactar Adenda con IA</>
+                      ) : (
+                        <><Sparkles size={15} /> ✨ Redactar y Personalizar con IA</>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+              </section>
+
+              {/* COLUMNA DERECHA: CANVAS DEL DOCUMENTO & EDITOR EN VIVO */}
+              <main className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-4 min-h-[640px] flex flex-col">
+                
+                {/* Barra de Herramientas del Canvas */}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className={cn('rounded-lg px-2.5 py-1 text-xs font-bold text-white shrink-0', areaTheme.button)}>
+                      {areaContent.shortLabel}
+                    </span>
+                    <h2 className="text-sm font-bold text-slate-950 truncate max-w-sm">
+                      {selectedTemplate?.title || referenceFile?.name || (generatedDoc ? 'Instrumento Jurídico' : 'Lienzo de Redacción')}
                     </h2>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    {/* View Switcher Button */}
+                    {/* Switcher de Vista */}
                     <div className="flex rounded-xl border border-slate-200 bg-slate-50 p-0.5">
                       <button
                         type="button"
                         onClick={() => setDocumentViewMode('letterhead')}
                         className={cn(
-                          'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer',
+                          'inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer',
                           documentViewMode === 'letterhead'
                             ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
                             : 'text-slate-600 hover:text-slate-900'
                         )}
-                        title="Vista Documento Formal (Hoja Membretada)"
+                        title="Vista Formal Membretada"
                       >
-                        <FileText size={13} />
-                        <span>Formal</span>
+                        <FileText size={12} />
+                        <span>Membrete</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => setDocumentViewMode('edit')}
                         className={cn(
-                          'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer',
+                          'inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer',
                           documentViewMode === 'edit'
                             ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
                             : 'text-slate-600 hover:text-slate-900'
                         )}
-                        title="Editar texto y cláusulas del documento en vivo"
+                        title="Editor de Texto en Vivo"
                       >
-                        <Edit3 size={13} />
-                        <span>Editar</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDocumentViewMode('raw')}
-                        className={cn(
-                          'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer',
-                          documentViewMode === 'raw'
-                            ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
-                            : 'text-slate-600 hover:text-slate-900'
-                        )}
-                        title="Vista Código / Markdown Plano"
-                      >
-                        <Code2 size={13} />
-                        <span>Texto</span>
+                        <Edit3 size={12} />
+                        <span>Editor</span>
                       </button>
                     </div>
 
                     <button
                       type="button"
-                      onClick={async () => { await navigator.clipboard.writeText(generatedDoc); notify('Documento copiado al portapapeles.', 'success'); }}
-                      className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-bold hover:bg-slate-50 transition text-slate-700 shadow-xs cursor-pointer"
+                      onClick={async () => {
+                        if (!generatedDoc) return;
+                        await navigator.clipboard.writeText(generatedDoc);
+                        notify('Documento copiado al portapapeles.', 'success');
+                      }}
+                      disabled={!generatedDoc}
+                      className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 transition cursor-pointer"
+                      title="Copiar texto al portapapeles"
                     >
-                      <Clipboard size={14} /> Copiar texto
+                      <Clipboard size={12} /> Copiar
                     </button>
+
                     <button
                       type="button"
                       onClick={handleExport}
-                      disabled={isExporting}
-                      className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-bold hover:bg-slate-50 transition text-slate-700 shadow-xs disabled:opacity-50 cursor-pointer"
+                      disabled={!generatedDoc || isExporting}
+                      className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 transition cursor-pointer"
                     >
-                      {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} PDF
+                      {isExporting ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} PDF
                     </button>
+
                     <button
                       type="button"
                       onClick={handleExportDocx}
-                      disabled={isExporting}
-                      className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50/60 text-blue-900 px-3.5 text-xs font-bold hover:bg-blue-100 transition shadow-xs disabled:opacity-50 cursor-pointer"
+                      disabled={!generatedDoc || isExporting}
+                      className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 text-blue-900 px-2.5 text-xs font-bold hover:bg-blue-100 disabled:opacity-40 transition cursor-pointer"
                     >
-                      {isExporting ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />} Word (.docx)
+                      {isExporting ? <Loader2 size={12} className="animate-spin" /> : <FileText size={12} />} Word (.docx)
                     </button>
-                    <button
-                      type="button"
-                      onClick={resetDocument}
-                      className={cn('inline-flex min-h-10 items-center gap-1.5 rounded-xl px-4 text-xs font-bold text-white transition shadow-xs cursor-pointer', areaTheme.button)}
-                    >
-                      <RefreshCw size={14} /> Nuevo
-                    </button>
+
+                    {generatedDoc && (
+                      <button
+                        type="button"
+                        onClick={resetDocument}
+                        className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                        title="Limpiar documento"
+                      >
+                        <RefreshCw size={12} />
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                {/* Hoja Membretada vs Editor Directo vs Texto Plano */}
-                {documentViewMode === 'letterhead' ? (
-                  <div className="rounded-2xl border border-slate-200/80 bg-slate-100/70 p-4 sm:p-8">
-                    <article className="legal-letterhead mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-8 sm:p-14 shadow-lg">
-                      {/* Cabecera institucional de la hoja membretada */}
-                      <header className="border-b-2 border-slate-900 pb-6 mb-8 flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <img src={logoMarkUrl} alt="Lex Corporativo" className="h-10 w-10 object-contain" />
-                          <div>
-                            <span className="font-serif text-sm font-bold tracking-wider text-slate-900 uppercase">
-                              LEX CORPORATIVO
+                {/* Canvas Render: Si hay documento o Estado Inicial Asistido */}
+                {generatedDoc ? (
+                  <div className="flex-1">
+                    {documentViewMode === 'letterhead' ? (
+                      <article className="legal-letterhead rounded-2xl border border-slate-200 bg-white p-6 sm:p-10 shadow-xs space-y-6">
+                        <header className="border-b-2 border-slate-900 pb-4 flex items-start justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <img src={logoMarkUrl} alt="Lex Corporativo" className="h-8 w-8 object-contain" />
+                            <div>
+                              <span className="font-serif text-xs font-bold tracking-wider text-slate-900 uppercase">
+                                LEX CORPORATIVO
+                              </span>
+                              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                                INSTRUMENTO JURÍDICO FORMAL
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="rounded-md bg-slate-900 text-white px-2 py-0.5 text-[9px] font-extrabold uppercase">
+                              {areaContent.label}
                             </span>
-                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
-                              ESTACIÓN DE INTELIGENCIA JURÍDICA
+                            <p className="text-[10px] text-slate-500 mt-0.5">
+                              {new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}
                             </p>
                           </div>
-                        </div>
-                        <div className="text-right">
-                          <span className="inline-block rounded-md bg-slate-900 text-white px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider">
-                            {areaContent.label}
-                          </span>
-                          <p className="text-[11px] text-slate-500 mt-1 font-medium">
-                            {new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })}
-                          </p>
-                        </div>
-                      </header>
+                        </header>
 
-                      {/* Cuerpo del documento con ReactMarkdown enriquecido */}
-                      <div className="prose-legal">
-                        <ReactMarkdown>{generatedDoc}</ReactMarkdown>
+                        <div className="prose-legal select-text">
+                          <ReactMarkdown>{generatedDoc}</ReactMarkdown>
+                        </div>
+
+                        <footer className="pt-4 border-t border-slate-200 text-center flex items-center justify-between text-[9px] text-slate-400">
+                          <span>Texto estructurado con técnica jurídica mexicana</span>
+                          <span>FOLIO: {analysisId || 'DOC-LOCAL'} · LEX CORP</span>
+                        </footer>
+                      </article>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-xs text-slate-500 font-semibold">
+                          <span>Edita el texto directamente (reemplaza corchetes [ ]):</span>
+                          <span>{generatedDoc.length} caracteres</span>
+                        </div>
+                        <textarea
+                          value={generatedDoc}
+                          onChange={(e) => setGeneratedDoc(e.target.value)}
+                          rows={24}
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50/70 p-4 font-mono text-xs leading-relaxed text-slate-900 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/15"
+                          placeholder="Escribe o personaliza el contenido del documento..."
+                        />
                       </div>
-
-                      {/* Pie de página institucional */}
-                      <footer className="mt-14 pt-6 border-t border-slate-200 text-center flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] text-slate-400 font-medium">
-                        <span>Documento generado con Inteligencia Jurídica y anclaje normativo local</span>
-                        <span className="font-mono">FOLIO: {analysisId || 'DOC-LOCAL'} · LEX CORP</span>
-                      </footer>
-                    </article>
+                    )}
                   </div>
-                ) : documentViewMode === 'edit' ? (
-                  <article className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs space-y-3">
-                    <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-                      <span className="font-bold text-slate-800">
-                        Editor de Instrumento Jurídico (edita el texto y reemplaza los corchetes [ ]):
-                      </span>
-                      <span>{generatedDoc.length} caracteres</span>
-                    </div>
-                    <textarea
-                      value={generatedDoc}
-                      onChange={(e) => setGeneratedDoc(e.target.value)}
-                      rows={26}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 p-4 font-mono text-xs leading-relaxed text-slate-900 focus:border-blue-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                      placeholder="Escribe o personaliza el contenido del documento..."
-                    />
-                    <p className="text-[11px] text-slate-400 font-medium">
-                      * Todos los cambios que realices se actualizan en tiempo real para la vista formal membretada y las descargas en PDF y Word (.docx).
-                    </p>
-                  </article>
                 ) : (
-                  <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-                    <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-slate-800 bg-slate-50 p-4 rounded-xl border border-slate-200 overflow-x-auto">
-                      {generatedDoc}
-                    </pre>
-                  </article>
+                  /* Estado Inicial del Canvas con Accesos Directos */
+                  <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50/40">
+                    <div className="h-12 w-12 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 shadow-2xs">
+                      <FileSignature size={24} />
+                    </div>
+                    <div className="max-w-md space-y-1">
+                      <h3 className="text-sm font-bold text-slate-900">Lienzo de Redacción Listo</h3>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Selecciona una plantilla de la izquierda o haz clic en uno de los machotes más utilizados en materia <strong className="text-slate-800">{areaContent.label}</strong> para comenzar inmediatamente sin costo:
+                      </p>
+                    </div>
+
+                    <div className="grid gap-2 sm:grid-cols-3 w-full max-w-lg">
+                      {popularTemplates.map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => handleOpenTemplateDirectly(t)}
+                          className="flex flex-col items-start p-3 rounded-xl border border-slate-200 bg-white text-left hover:border-slate-300 hover:shadow-xs transition cursor-pointer"
+                        >
+                          <span className="text-xs font-bold text-slate-900 line-clamp-1">{t.title}</span>
+                          <span className="text-[10px] text-emerald-700 font-semibold mt-1">⚡ Usar machote</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )}
+
               </main>
-            )}
+
+            </div>
           </div>
         )}
 
-        {/* PESTAÑA: AUDITORÍA DOCUMENTAL & RIESGOS */}
+        {/* ========================================================================= */}
+        {/* REMODELACIÓN 2: AUDITORÍA CON AUTO-REMEDIACIÓN CLÁUSULA POR CLÁUSULA     */}
+        {/* ========================================================================= */}
         {workspaceTab === 'analysis' && (
-          <div className="mt-5 space-y-6">
+          <div className="space-y-5">
             {!analysisResult ? (
               <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4 max-w-3xl mx-auto">
                 <div>
-                  <h2 className="text-base font-bold text-slate-950">Auditoría y Detección de Riesgos Contractuales</h2>
+                  <h2 className="text-base font-bold text-slate-950">Auditoría Jurídica y Detección de Riesgos</h2>
                   <p className="text-xs text-slate-500 mt-0.5">
                     Sube un contrato o instrumento legal para auditar riesgos críticos, cláusulas faltantes y cotejo normativo oficial.
                   </p>
                 </div>
 
-                {/* Selector Multidisciplinario de Materias para la Auditoría */}
+                {/* Selector de Materias para la Auditoría */}
                 <div className="space-y-2.5 rounded-xl border border-slate-200/80 bg-slate-50/50 p-3.5">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-slate-800">
-                      Materias de Enfoque Normativo ({analysisAreas.length} seleccionada{analysisAreas.length > 1 ? 's' : ''})
+                      Materias de Cotejo ({analysisAreas.length} seleccionada{analysisAreas.length > 1 ? 's' : ''})
                     </label>
                     <button
                       type="button"
@@ -1525,6 +1561,7 @@ export const LegalEngineering: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Dropzone de Carga */}
                 <div
                   onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingAnalysis(true); }}
                   onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingAnalysis(true); }}
@@ -1539,7 +1576,7 @@ export const LegalEngineering: React.FC = () => {
                   className={cn(
                     'rounded-2xl border border-dashed transition-all p-6 text-center',
                     isDraggingAnalysis
-                      ? 'border-blue-500 bg-blue-50/80 ring-4 ring-blue-500/20 scale-[1.01]'
+                      ? 'border-blue-500 bg-blue-50/80 ring-4 ring-blue-500/20'
                       : 'border-slate-300 bg-slate-50/70'
                   )}
                 >
@@ -1558,11 +1595,11 @@ export const LegalEngineering: React.FC = () => {
                     />
                   ) : (
                     <div>
-                      <ShieldAlert size={32} className={cn('mx-auto mb-2 transition-transform', isDraggingAnalysis ? 'scale-125 text-blue-600 animate-bounce' : 'text-slate-400')} />
+                      <ShieldAlert size={32} className="mx-auto mb-2 text-slate-400" />
                       <p className="text-sm font-bold text-slate-900">
                         {isDraggingAnalysis ? '¡Suelta el documento legal aquí!' : 'Carga o arrastra el contrato, factura o instrumento a auditar'}
                       </p>
-                      <p className="text-xs text-slate-500 mt-1">Formatos compatibles: PDF, Word (.docx), CFDI/XML, TXT o MD (hasta 20 MB)</p>
+                      <p className="text-xs text-slate-500 mt-1">PDF, Word (.docx), CFDI/XML, TXT (hasta 20 MB)</p>
                       <button
                         type="button"
                         onClick={() => analysisInputRef.current?.click()}
@@ -1574,14 +1611,13 @@ export const LegalEngineering: React.FC = () => {
                   )}
                 </div>
 
-
                 <div>
-                  <label className="mb-1 block text-xs font-bold text-slate-700">Enfoque específico de auditoría (opcional)</label>
+                  <label className="mb-1 block text-xs font-bold text-slate-700">Instrucciones o enfoque específico (opcional)</label>
                   <textarea
                     value={analysisPrompt}
                     onChange={(e) => setAnalysisPrompt(e.target.value)}
-                    rows={3}
-                    placeholder="Ej: auditar estipulaciones de rescisión, validez de penas convencionales, facultades del apoderado y omisión de cláusulas de jurisdicción."
+                    rows={2}
+                    placeholder="Ej: auditar estipulaciones de rescisión, penas convencionales y validez de poderes..."
                     className={cn('w-full resize-y rounded-xl border border-slate-300 bg-white p-3 text-xs leading-relaxed text-slate-900 outline-hidden transition placeholder:text-slate-400 focus:ring-2', areaTheme.ring)}
                   />
                 </div>
@@ -1592,25 +1628,14 @@ export const LegalEngineering: React.FC = () => {
                   disabled={isAnalyzing || !analysisFile}
                   className={cn('inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-6 text-xs font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50 shadow-xs cursor-pointer', areaTheme.button)}
                 >
-                  {isAnalyzing ? <><Loader2 size={16} className="animate-spin" /> {analysisProgress || 'Procesando auditoría...'}</> : <><SearchCheck size={16} /> Iniciar auditoría de riesgos</>}
+                  {isAnalyzing ? <><Loader2 size={16} className="animate-spin" /> {analysisProgress || 'Procesando auditoría...'}</> : <><SearchCheck size={16} /> Iniciar Auditoría Jurídica</>}
                 </button>
-
-                {isAnalyzing && (
-                  <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-4 text-xs space-y-1 text-slate-700">
-                    <div className="flex items-center gap-2 font-bold text-blue-950">
-                      <Loader2 size={14} className="animate-spin text-blue-600" />
-                      <span>{analysisProgress || 'Analizando documento y cotejando corpus legal local...'}</span>
-                    </div>
-                    <p className="text-slate-500 text-[11px]">
-                      Extrayendo cláusulas, consultando índices normativos en LanceDB y clasificando riesgos con IA BYOK.
-                    </p>
-                  </div>
-                )}
               </section>
             ) : (
-              /* RESULTADO DE LA AUDITORÍA DE RIESGOS - REDISEÑADO */
-              <div className="space-y-6">
-                {/* Cabecera Principal de Auditoría */}
+              /* RESULTADO DE AUDITORÍA CON ACCIONES DIRECTAS POR CLÁUSULA */
+              <div className="space-y-5">
+                
+                {/* Cabecera Principal */}
                 <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
                   <div>
                     <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-700">
@@ -1627,12 +1652,13 @@ export const LegalEngineering: React.FC = () => {
                         </span>
                       ))}
                       {analysisAreas.length > 1 && (
-                        <span className="rounded-md bg-purple-700 text-white px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider">
+                        <span className="rounded-md bg-purple-700 text-white px-2 py-0.5 text-[10px] font-extrabold uppercase">
                           ✨ 360° Integral
                         </span>
                       )}
                     </div>
                   </div>
+
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
@@ -1642,7 +1668,7 @@ export const LegalEngineering: React.FC = () => {
                         areaTheme.button
                       )}
                     >
-                      <FileSignature size={15} /> Generar Adenda / Cláusula Correctiva
+                      <FileSignature size={15} /> ✍️ Redactar Adenda Completa con Todos los Hallazgos
                     </button>
                     <button
                       type="button"
@@ -1654,12 +1680,11 @@ export const LegalEngineering: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Scorecard y Métricas Clave de la Auditoría */}
+                {/* Scorecard y Métricas */}
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {/* Score de Riesgo */}
                   <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs flex flex-col justify-between">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Nivel de Riesgo</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Nivel de Riesgo Global</span>
                       <span className={cn(
                         'rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider',
                         analysisResult.riskScore > 65
@@ -1688,7 +1713,6 @@ export const LegalEngineering: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Riesgos Críticos / Altos */}
                   <button
                     type="button"
                     onClick={() => setAuditFilter(auditFilter === 'high' ? 'all' : 'high')}
@@ -1706,10 +1730,9 @@ export const LegalEngineering: React.FC = () => {
                     <div className="mt-2 text-2xl font-bold text-rose-950">
                       {highRisks.length}
                     </div>
-                    <p className="text-[11px] text-rose-800 font-medium">Requieren subsanación obligatoria</p>
+                    <p className="text-[11px] text-rose-800 font-medium">Subsanación obligatoria</p>
                   </button>
 
-                  {/* Riesgos Medios */}
                   <button
                     type="button"
                     onClick={() => setAuditFilter(auditFilter === 'medium' ? 'all' : 'medium')}
@@ -1727,10 +1750,9 @@ export const LegalEngineering: React.FC = () => {
                     <div className="mt-2 text-2xl font-bold text-amber-950">
                       {mediumRisks.length}
                     </div>
-                    <p className="text-[11px] text-amber-800 font-medium">Generan contingencia o duda legal</p>
+                    <p className="text-[11px] text-amber-800 font-medium">Contingencia o duda legal</p>
                   </button>
 
-                  {/* Cláusulas Faltantes */}
                   <button
                     type="button"
                     onClick={() => setAuditFilter(auditFilter === 'missing' ? 'all' : 'missing')}
@@ -1742,31 +1764,28 @@ export const LegalEngineering: React.FC = () => {
                     )}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase tracking-wider text-blue-700">Omisiones y Faltantes</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-blue-700">Cláusulas Faltantes</span>
                       <FileSignature size={16} className="text-blue-600" />
                     </div>
                     <div className="mt-2 text-2xl font-bold text-blue-950">
                       {(analysisResult.missingClauses?.length || 0) + (analysisResult.missingData?.length || 0)}
                     </div>
-                    <p className="text-[11px] text-blue-800 font-medium">Cláusulas o datos indispensables</p>
+                    <p className="text-[11px] text-blue-800 font-medium">Cláusulas omitidas</p>
                   </button>
                 </div>
 
-                {/* Resumen Ejecutivo del Dictamen */}
+                {/* Resumen Ejecutivo */}
                 {analysisResult.summary && (
-                  <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-2.5">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                      <div className="flex items-center gap-2">
-                        <Scale size={16} className={areaTheme.text} />
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                          Dictamen Jurídico Ejecutivo
-                        </h3>
-                      </div>
+                  <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-2">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                        <Scale size={15} className={areaTheme.text} />
+                        Dictamen Jurídico Ejecutivo
+                      </h3>
                       {analysisResult.detectedParties && analysisResult.detectedParties.length > 0 && (
-                        <div className="flex items-center gap-1 text-[11px] text-slate-500 font-medium">
-                          <User size={13} className="text-slate-400" />
-                          <span>Partes: {analysisResult.detectedParties.join(' · ')}</span>
-                        </div>
+                        <span className="text-[11px] text-slate-500">
+                          Partes: {analysisResult.detectedParties.join(' · ')}
+                        </span>
                       )}
                     </div>
                     <p className="text-xs leading-relaxed text-slate-700">
@@ -1775,29 +1794,25 @@ export const LegalEngineering: React.FC = () => {
                   </section>
                 )}
 
-                {/* Filtros Segmentados de Hallazgos */}
+                {/* Filtros de Hallazgos */}
                 <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2">
                   <button
                     type="button"
                     onClick={() => setAuditFilter('all')}
                     className={cn(
-                      'inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition cursor-pointer shadow-xs',
-                      auditFilter === 'all'
-                        ? 'bg-slate-950 text-white'
-                        : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      'inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition cursor-pointer shadow-xs',
+                      auditFilter === 'all' ? 'bg-slate-950 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                     )}
                   >
                     <ListFilter size={13} />
-                    <span>Todos los hallazgos ({(analysisResult.risks?.length || 0) + (analysisResult.missingClauses?.length || 0) + (analysisResult.missingData?.length || 0) + (analysisResult.legalFoundations?.length || 0)})</span>
+                    <span>Todos</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setAuditFilter('high')}
                     className={cn(
-                      'inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition cursor-pointer shadow-xs',
-                      auditFilter === 'high'
-                        ? 'bg-rose-700 text-white'
-                        : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      'inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition cursor-pointer shadow-xs',
+                      auditFilter === 'high' ? 'bg-rose-700 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                     )}
                   >
                     <span>🔴 Críticos ({highRisks.length})</span>
@@ -1806,10 +1821,8 @@ export const LegalEngineering: React.FC = () => {
                     type="button"
                     onClick={() => setAuditFilter('medium')}
                     className={cn(
-                      'inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition cursor-pointer shadow-xs',
-                      auditFilter === 'medium'
-                        ? 'bg-amber-600 text-white'
-                        : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      'inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition cursor-pointer shadow-xs',
+                      auditFilter === 'medium' ? 'bg-amber-600 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                     )}
                   >
                     <span>🟡 Medios ({mediumRisks.length})</span>
@@ -1818,77 +1831,67 @@ export const LegalEngineering: React.FC = () => {
                     type="button"
                     onClick={() => setAuditFilter('missing')}
                     className={cn(
-                      'inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition cursor-pointer shadow-xs',
-                      auditFilter === 'missing'
-                        ? 'bg-blue-700 text-white'
-                        : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      'inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition cursor-pointer shadow-xs',
+                      auditFilter === 'missing' ? 'bg-blue-700 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                     )}
                   >
-                    <span>⚠️ Cláusulas Faltantes ({(analysisResult.missingClauses?.length || 0) + (analysisResult.missingData?.length || 0)})</span>
+                    <span>⚠️ Faltantes ({(analysisResult.missingClauses?.length || 0) + (analysisResult.missingData?.length || 0)})</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setAuditFilter('foundations')}
                     className={cn(
-                      'inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition cursor-pointer shadow-xs',
-                      auditFilter === 'foundations'
-                        ? 'bg-emerald-700 text-white'
-                        : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      'inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition cursor-pointer shadow-xs',
+                      auditFilter === 'foundations' ? 'bg-emerald-700 text-white' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                     )}
                   >
-                    <span>⚖️ Leyes & Fundamentos ({analysisResult.legalFoundations?.length || 0})</span>
+                    <span>⚖️ Leyes ({analysisResult.legalFoundations?.length || 0})</span>
                   </button>
-                  {analysisResult.recommendedActions && analysisResult.recommendedActions.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setAuditFilter('actions')}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition cursor-pointer shadow-xs',
-                        auditFilter === 'actions'
-                          ? 'bg-purple-700 text-white'
-                          : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                      )}
-                    >
-                      <span>🎯 Plan de Acción ({analysisResult.recommendedActions.length})</span>
-                    </button>
-                  )}
                 </div>
 
-                {/* Listado Armónico de Hallazgos */}
+                {/* TARJETAS DE HALLAZGOS CON BOTÓN DE AUTO-REMEDIACIÓN QUIRÚRGICO */}
                 <div className="space-y-4">
                   {/* Riesgos Altos */}
                   {(auditFilter === 'all' || auditFilter === 'high') && highRisks.length > 0 && (
                     <section className="space-y-3">
                       <h3 className="text-xs font-bold uppercase tracking-wider text-rose-700 flex items-center gap-1.5">
-                        <ShieldAlert size={14} /> Riesgos Altos y Contingencias Críticas ({highRisks.length})
+                        <ShieldAlert size={14} /> Riesgos Críticos ({highRisks.length})
                       </h3>
                       <div className="grid gap-3 md:grid-cols-2">
                         {highRisks.map((risk, index) => (
-                          <div key={`high-${index}`} className="rounded-2xl border border-rose-200 bg-white p-4.5 shadow-xs space-y-2.5 hover:shadow-sm transition">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex items-start gap-2.5">
-                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-700 mt-0.5">
-                                  <ShieldAlert size={15} />
+                          <div key={`high-${index}`} className="flex flex-col justify-between rounded-2xl border border-rose-200 bg-white p-4.5 shadow-xs space-y-3">
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="rounded-md bg-rose-100 text-rose-800 px-2 py-0.5 text-[10px] font-bold uppercase">
+                                  Severidad Alta
                                 </span>
-                                <div>
-                                  <h4 className="font-bold text-xs text-slate-900">{risk.title}</h4>
-                                  <span className="mt-0.5 inline-block rounded-md bg-rose-100 text-rose-800 px-2 py-0.5 text-[10px] font-bold uppercase">
-                                    Severidad Alta
-                                  </span>
-                                </div>
                               </div>
+                              <h4 className="font-bold text-xs text-slate-900">{risk.title}</h4>
+                              <p className="text-xs leading-relaxed text-slate-700">{risk.explanation}</p>
                             </div>
-                            <p className="text-xs leading-relaxed text-slate-700 pl-9.5">{risk.explanation}</p>
-                            {risk.relatedClauses && risk.relatedClauses.length > 0 && (
-                              <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
-                                <span className="font-semibold text-slate-600">Cláusulas vinculadas:</span>
-                                {risk.relatedClauses.map((cl, i) => (
-                                  <span key={i} className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
-                                    {cl}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
+
+                            {/* Barra de Acción Directa por Cláusula */}
+                            <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleRemediateSingleFinding(risk.title, risk.explanation)}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-rose-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-rose-800 transition cursor-pointer shadow-xs"
+                              >
+                                <FileSignature size={13} />
+                                <span>⚡ Subsanar en Redactor</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  await navigator.clipboard.writeText(`${risk.title}:\n${risk.explanation}`);
+                                  notify('Riesgo copiado.', 'success');
+                                }}
+                                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+                              >
+                                <Clipboard size={12} /> Copiar
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1899,162 +1902,150 @@ export const LegalEngineering: React.FC = () => {
                   {(auditFilter === 'all' || auditFilter === 'medium') && mediumRisks.length > 0 && (
                     <section className="space-y-3">
                       <h3 className="text-xs font-bold uppercase tracking-wider text-amber-700 flex items-center gap-1.5">
-                        <AlertTriangle size={14} /> Riesgos Medios y Ambigüedades ({mediumRisks.length})
+                        <AlertTriangle size={14} /> Ambigüedades y Riesgos Medios ({mediumRisks.length})
                       </h3>
                       <div className="grid gap-3 md:grid-cols-2">
                         {mediumRisks.map((risk, index) => (
-                          <div key={`med-${index}`} className="rounded-2xl border border-amber-200 bg-white p-4.5 shadow-xs space-y-2.5 hover:shadow-sm transition">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex items-start gap-2.5">
-                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 mt-0.5">
-                                  <AlertTriangle size={15} />
+                          <div key={`med-${index}`} className="flex flex-col justify-between rounded-2xl border border-amber-200 bg-white p-4.5 shadow-xs space-y-3">
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="rounded-md bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold uppercase">
+                                  Severidad Media
                                 </span>
-                                <div>
-                                  <h4 className="font-bold text-xs text-slate-900">{risk.title}</h4>
-                                  <span className="mt-0.5 inline-block rounded-md bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold uppercase">
-                                    Severidad Media
-                                  </span>
-                                </div>
                               </div>
-                            </div>
-                            <p className="text-xs leading-relaxed text-slate-700 pl-9.5">{risk.explanation}</p>
-                            {risk.relatedClauses && risk.relatedClauses.length > 0 && (
-                              <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
-                                <span className="font-semibold text-slate-600">Cláusulas vinculadas:</span>
-                                {risk.relatedClauses.map((cl, i) => (
-                                  <span key={i} className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
-                                    {cl}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                  )}
-
-                  {/* Riesgos Bajos */}
-                  {(auditFilter === 'all' || auditFilter === 'low') && lowRisks.length > 0 && (
-                    <section className="space-y-3">
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
-                        <CheckSquare size={14} /> Observaciones de Mejora ({lowRisks.length})
-                      </h3>
-                      <div className="grid gap-3 md:grid-cols-2">
-                        {lowRisks.map((risk, index) => (
-                          <div key={`low-${index}`} className="rounded-2xl border border-slate-200 bg-white p-4.5 shadow-xs space-y-2 hover:shadow-sm transition">
-                            <div className="flex items-center gap-2">
-                              <span className="rounded-md bg-slate-100 text-slate-700 px-2 py-0.5 text-[10px] font-bold uppercase">
-                                Mejora
-                              </span>
                               <h4 className="font-bold text-xs text-slate-900">{risk.title}</h4>
+                              <p className="text-xs leading-relaxed text-slate-700">{risk.explanation}</p>
                             </div>
-                            <p className="text-xs leading-relaxed text-slate-600">{risk.explanation}</p>
+
+                            <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleRemediateSingleFinding(risk.title, risk.explanation)}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700 transition cursor-pointer shadow-xs"
+                              >
+                                <FileSignature size={13} />
+                                <span>⚡ Subsanar en Redactor</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  await navigator.clipboard.writeText(`${risk.title}:\n${risk.explanation}`);
+                                  notify('Observación copiada.', 'success');
+                                }}
+                                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+                              >
+                                <Clipboard size={12} /> Copiar
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
                     </section>
                   )}
 
-                  {/* Cláusulas y Requisitos Faltantes */}
-                  {(auditFilter === 'all' || auditFilter === 'missing') && (
+                  {/* Cláusulas Faltantes */}
+                  {(auditFilter === 'all' || auditFilter === 'missing') && (analysisResult.missingClauses?.length || 0) > 0 && (
                     <section className="space-y-3">
                       <h3 className="text-xs font-bold uppercase tracking-wider text-blue-700 flex items-center gap-1.5">
-                        <FileSignature size={14} /> Cláusulas y Requisitos Faltantes Obligatorios ({(analysisResult.missingClauses?.length || 0) + (analysisResult.missingData?.length || 0)})
-                      </h3>
-                      {(analysisResult.missingClauses?.length || 0) + (analysisResult.missingData?.length || 0) === 0 ? (
-                        <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center text-xs text-slate-500">
-                          El instrumento cuenta con el clausulado estructural mínimo.
-                        </div>
-                      ) : (
-                        <div className="grid gap-3 md:grid-cols-2">
-                          {analysisResult.missingClauses?.map((clause, index) => (
-                            <div key={`mc-${index}`} className="rounded-2xl border border-blue-200/80 bg-blue-50/40 p-4 shadow-xs flex items-start gap-3">
-                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700 text-xs font-bold mt-0.5">
-                                •
-                              </span>
-                              <div>
-                                <h4 className="font-bold text-xs text-blue-950">Cláusula Omitida</h4>
-                                <p className="text-xs text-blue-900 mt-0.5 leading-relaxed font-medium">{clause}</p>
-                              </div>
-                            </div>
-                          ))}
-                          {analysisResult.missingData?.map((data, index) => (
-                            <div key={`md-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-xs flex items-start gap-3">
-                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-200 text-slate-700 text-xs font-bold mt-0.5">
-                                i
-                              </span>
-                              <div>
-                                <h4 className="font-bold text-xs text-slate-900">Requisito de dato omitido</h4>
-                                <p className="text-xs text-slate-700 mt-0.5 leading-relaxed">{data}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </section>
-                  )}
-
-                  {/* Fundamentos Normativos */}
-                  {(auditFilter === 'all' || auditFilter === 'foundations') && (
-                    <section className="space-y-3">
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-700 flex items-center gap-1.5">
-                        <Scale size={14} /> Referencias Normativas Aplicables ({analysisResult.legalFoundations?.length || 0})
-                      </h3>
-                      {(!analysisResult.legalFoundations || analysisResult.legalFoundations.length === 0) ? (
-                        <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center text-xs text-slate-500">
-                          Correlaciones normativas generales aplicadas en el dictamen.
-                        </div>
-                      ) : (
-                        <div className="grid gap-3 md:grid-cols-2">
-                          {analysisResult.legalFoundations.map((found, idx) => (
-                            <div key={`found-${idx}`} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-1.5 hover:border-slate-300 transition">
-                              <div className="flex items-center justify-between font-bold text-xs text-slate-900">
-                                <span className="flex items-center gap-1.5">
-                                  <Scale size={14} className="text-emerald-600" />
-                                  {found.law} {found.article ? `· ${found.article}` : ''}
-                                </span>
-                                <span className="text-[10px] text-slate-500 font-mono bg-slate-100 px-2 py-0.5 rounded-md">
-                                  DOF OFICIAL
-                                </span>
-                              </div>
-                              {found.excerpt && (
-                                <p className="text-xs text-slate-600 italic leading-relaxed pl-5 border-l-2 border-slate-200">
-                                  "{found.excerpt}"
-                                </p>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </section>
-                  )}
-
-                  {/* Plan de Acción */}
-                  {(auditFilter === 'all' || auditFilter === 'actions') && analysisResult.recommendedActions && analysisResult.recommendedActions.length > 0 && (
-                    <section className="space-y-3">
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-purple-700 flex items-center gap-1.5">
-                        <Sparkles size={14} /> Acciones y Pasos Correctivos Recomendados ({analysisResult.recommendedActions.length})
+                        <FileSignature size={14} /> Cláusulas Indispensables Omitidas ({analysisResult.missingClauses?.length || 0})
                       </h3>
                       <div className="grid gap-3 md:grid-cols-2">
-                        {analysisResult.recommendedActions.map((action, i) => (
-                          <div key={`act-${i}`} className="rounded-2xl border border-purple-200/80 bg-purple-50/40 p-4 shadow-xs flex items-start gap-3">
-                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-purple-200 text-purple-800 text-xs font-bold mt-0.5">
-                              {i + 1}
-                            </span>
-                            <p className="text-xs text-purple-950 font-medium leading-relaxed">{action}</p>
+                        {analysisResult.missingClauses?.map((clause, index) => (
+                          <div key={`missing-${index}`} className="flex flex-col justify-between rounded-2xl border border-blue-200 bg-white p-4.5 shadow-xs space-y-3">
+                            <div className="space-y-1.5">
+                              <span className="rounded-md bg-blue-100 text-blue-800 px-2 py-0.5 text-[10px] font-bold uppercase">
+                                Cláusula Omitida
+                              </span>
+                              <p className="text-xs font-bold text-slate-900 mt-1">{clause}</p>
+                            </div>
+
+                            <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleRemediateSingleFinding(`Incorporación de cláusula omitida: ${clause}`, `Redactar e incorporar la cláusula de ${clause} con plena validez legal.`)}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-800 transition cursor-pointer shadow-xs"
+                              >
+                                <Plus size={13} />
+                                <span>Redactar e Insertar Cláusula</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  await navigator.clipboard.writeText(clause);
+                                  notify('Cláusula copiada.', 'success');
+                                }}
+                                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+                              >
+                                <Clipboard size={12} /> Copiar
+                              </button>
+                            </div>
                           </div>
                         ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Fundamentos Jurídicos con Acceso al Lector */}
+                  {(auditFilter === 'all' || auditFilter === 'foundations') && (analysisResult.legalFoundations?.length || 0) > 0 && (
+                    <section className="space-y-3">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-700 flex items-center gap-1.5">
+                        <Scale size={14} /> Fundamentos y Leyes Oficiales Aplicables ({analysisResult.legalFoundations?.length || 0})
+                      </h3>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {analysisResult.legalFoundations?.map((found, index) => {
+                          const codeCandidate = found.law || 'LFT';
+                          return (
+                            <div key={`found-${index}`} className="flex flex-col justify-between rounded-2xl border border-emerald-200 bg-white p-4.5 shadow-xs space-y-3">
+                              <div className="space-y-1.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="rounded-md bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-bold uppercase">
+                                    {found.law || 'Fundamento Oficial'}
+                                  </span>
+                                  {found.article && (
+                                    <span className="text-xs font-bold text-slate-900">{found.article}</span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-slate-700 leading-relaxed">{found.excerpt || found.title || 'Disposición aplicable al caso.'}</p>
+                              </div>
+
+                              <div className="pt-3 border-t border-slate-100 flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setLectorState({ isOpen: true, lawCode: codeCandidate, articleNumber: found.article || null })}
+                                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-800 transition cursor-pointer shadow-xs"
+                                >
+                                  <BookOpen size={13} />
+                                  <span>📖 Leer Ley en Lector</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </section>
                   )}
                 </div>
+
               </div>
             )}
           </div>
         )}
 
       </div>
+
+      {/* Lector Normativo Modal Integrado */}
+      <LectorNormativoModal
+        isOpen={lectorState.isOpen}
+        onClose={() => setLectorState({ isOpen: false, lawCode: null })}
+        lawCode={lectorState.lawCode}
+        initialArticleNumber={lectorState.articleNumber}
+        onInsertGrounding={(groundingText) => {
+          setPrompt((p) => p ? `${p}\n\n${groundingText}` : groundingText);
+          switchWorkspaceTab('drafting');
+        }}
+      />
     </div>
   );
 };

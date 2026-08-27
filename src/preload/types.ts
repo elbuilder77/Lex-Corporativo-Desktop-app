@@ -112,6 +112,14 @@ export interface LexDesktopAPI {
       code?: string;
       sha256?: string;
     }>;
+    read: (payload: { code: string }) => Promise<{
+      success: boolean;
+      code: string;
+      name: string;
+      module: 'mercantil' | 'laboral' | 'comercio_exterior' | 'aduanal' | 'fiscal';
+      content: string;
+      provisions: number;
+    }>;
   };
   runtime: {
     getHealth: () => Promise<{

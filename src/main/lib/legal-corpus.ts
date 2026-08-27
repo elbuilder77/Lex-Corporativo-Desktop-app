@@ -136,6 +136,24 @@ export function getInstalledCorpusLaw(code: string): InstalledCorpusLaw {
   return law;
 }
 
+export function readLegalCorpusLawContent(code: string): {
+  code: string;
+  name: string;
+  module: LegalCorpusModule;
+  content: string;
+  provisions: number;
+} {
+  const law = getInstalledCorpusLaw(code);
+  const content = readFileSync(law.filePath, 'utf8');
+  return {
+    code: law.code,
+    name: law.name,
+    module: law.module,
+    content,
+    provisions: law.provisions,
+  };
+}
+
 export function isLegalCorpusAvailable(): boolean {
   try {
     const overview = getLegalCorpusOverview();
@@ -144,3 +162,4 @@ export function isLegalCorpusAvailable(): boolean {
     return false;
   }
 }
+
