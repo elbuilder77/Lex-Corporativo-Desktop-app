@@ -11,6 +11,7 @@ import {
   getInstalledCorpusLaw,
   getLegalCorpusOverview,
   isLegalCorpusAvailable,
+  readLegalCorpusLawContent,
   resolveCorpusFile,
 } from './legal-corpus';
 
@@ -47,4 +48,14 @@ describe('legal corpus catalog', () => {
     expect(() => getInstalledCorpusLaw('NO-EXISTE')).toThrow(/no forma parte/i);
     expect(isLegalCorpusAvailable()).toBe(true);
   });
+
+  it('reads full law content successfully', () => {
+    const lft = readLegalCorpusLawContent('LFT');
+    expect(lft.code).toBe('LFT');
+    expect(lft.name).toBe('Ley Federal del Trabajo');
+    expect(lft.content).toContain('Ley Federal del Trabajo');
+    expect(lft.content).toContain('Artículo 1');
+    expect(lft.provisions).toBeGreaterThan(100);
+  });
 });
+

@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   AlertTriangle,
+  BookOpen,
+  BookOpenCheck,
   Bot,
   BriefcaseBusiness,
   Check,
@@ -9,13 +11,17 @@ import {
   ChevronUp,
   Clipboard,
   Database,
+  Download,
   FileSearch,
   FileSignature,
+  FileText,
   Globe2,
+  Layers,
   Loader2,
   ReceiptText,
   Scale,
   Search,
+  ShieldCheck,
   ShipWheel,
   Sparkles,
   X,
@@ -26,6 +32,7 @@ import { cn } from '../lib/utils';
 import { useUiStore } from '../store/useUiStore';
 import { useCaseStore } from '../store/useCaseStore';
 import { suggestAlternativeLegalModule } from '../lib/legal-search-routing';
+import { LectorNormativoModal } from './LectorNormativoModal';
 
 type LegalSubjectArea = 'mercantil' | 'laboral' | 'comercio_exterior' | 'aduanal' | 'fiscal';
 type LegalSearchArea = 'todos' | LegalSubjectArea;
@@ -173,9 +180,12 @@ const SEARCH_AREAS: SearchAreaConfig[] = [
   },
 ];
 
+type ViewTab = 'articles' | 'catalog';
+
 export const BuscadorLegal: React.FC = () => {
   const navigate = useNavigate();
   const { notify } = useUiStore();
+  const [activeTab, setActiveTab] = useState<ViewTab>('articles');
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<LegalSearchResult[] | null>(null);
@@ -185,7 +195,33 @@ export const BuscadorLegal: React.FC = () => {
   const [selectedArea, setSelectedArea] = useState<LegalSearchArea>('todos');
   const [pendingRouting, setPendingRouting] = useState<{ query: string; suggestedArea: LegalSearchArea } | null>(null);
 
+  // Laws catalog state
+  const [lawsOverview, setLawsOverview] = useState<Awaited<ReturnType<typeof window.lexDesktop.legalCorpus.list>> | null>(null);
+  const [loadingLaws, setLoadingLaws] = useState(false);
+  const [downloadingLawCode, setDownloadingLawCode] = useState<string | null>(null);
+
+  // Lector modal state
+  const [lectorState, setLectorState] = useState<{
+    isOpen: boolean;
+    lawCode: string | null;
+    articleNumber?: string | null;
+  }>({
+    isOpen: false,
+    lawCode: null,
+  });
+
   const currentArea = SEARCH_AREAS.find((a) => a.id === selectedArea) || SEARCH_AREAS[0];
+
+  useEffect(() => {
+    if (activeTab === 'catalog' && !lawsOverview) {
+      setLoadingLaws(true);
+      window.lexDesktop.legalCorpus
+        .list()
+        .then(setLawsOverview)
+        .catch((err: any) => notify(err?.message || 'No se pudo cargar el catálogo de leyes.', 'error'))
+        .finally(() => setLoadingLaws(false));
+    }
+  }, [activeTab, lawsOverview, notify]);
 
   const runSearch = async (
     searchValue = query,
@@ -271,314 +307,470 @@ export const BuscadorLegal: React.FC = () => {
     navigate('/ingenieria-juridica?tab=drafting');
   };
 
+  const openLector = (lawCode?: string, articleNumber?: string) => {
+    if (!lawCode) return;
+    setLectorState({
+      isOpen: true,
+      lawCode,
+      articleNumber: articleNumber || null,
+    });
+  };
+
+  const handleDownloadLaw = async (code: string, name: string) => {
+    setDownloadingLawCode(code);
+    try {
+      const res = await window.lexDesktop.legalCorpus.download({ code });
+      if (res.success) notify(`Ley ${name} descargada exitosamente.`, 'success');
+    } catch (err: any) {
+      notify(err?.message || 'Error al descargar la ley.', 'error');
+    } finally {
+      setDownloadingLawCode(null);
+    }
+  };
+
   return (
     <div className="relative h-full overflow-y-auto bg-slate-50 text-slate-800">
       <div className={cn('pointer-events-none sticky left-0 top-0 z-20 h-1 w-full', currentArea.railClass)} />
       
       <div className="mx-auto w-full max-w-7xl px-5 pb-12 pt-6 md:px-8 space-y-6">
         
-        {/* Header del Buscador */}
-        <header className="flex items-center justify-between border-b border-slate-200 bg-white p-5 rounded-2xl shadow-xs window-drag-region">
+        {/* Header Principal con Pestañas de Vista Unificadas */}
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-white p-5 rounded-2xl shadow-xs window-drag-region">
           <div className="flex items-center gap-3">
             <div className={cn('rounded-xl border p-2.5 window-no-drag', currentArea.badgeClass)}>
-              <FileSearch size={22} />
+              <BookOpenCheck size={22} />
             </div>
             <div>
-              <h1 className="text-base font-bold text-slate-950">Buscador Normativo Oficial</h1>
+              <h1 className="text-base font-bold text-slate-950">Centro de Inteligencia Normativa</h1>
               <p className="text-xs text-slate-500">
-                Consulta artículos oficiales de leyes federales mexicanas indexadas en tu computadora
+                Buscador semántico de 7,348 artículos y lector íntegro de 16 leyes federales oficiales
               </p>
             </div>
           </div>
-          <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700 window-no-drag">
-            <Database size={13} /> Corpus normativo instalado
-          </span>
-        </header>
 
-        {/* Selector de Materias con Colores Diferenciados */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-2" aria-label="Selector de materia">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Selecciona la materia y leyes a consultar
-            </h2>
-            <span className="text-xs font-semibold text-slate-400">
-              Leyes incluidas en esta materia: <strong className="text-slate-700">{currentArea.lawsIncluded}</strong>
-            </span>
-          </div>
-
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
-            {SEARCH_AREAS.map((area) => {
-              const active = area.id === selectedArea;
-              return (
-                <button
-                  key={area.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedArea(area.id);
-                    setResults(null);
-                    setSummary('');
-                    setPendingRouting(null);
-                    setExpandedArticles(new Set());
-                  }}
-                  className={cn(
-                    'rounded-xl border p-3 text-left transition focus:outline-hidden',
-                    active
-                      ? `${area.activeClass} shadow-xs`
-                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-                  )}
-                >
-                  <div className="flex items-center gap-2 text-xs font-bold">
-                    <span className="shrink-0">{area.icon}</span>
-                    <span className="truncate">{area.label}</span>
-                    {active && <Check size={14} className="ml-auto text-current" />}
-                  </div>
-                  <span className="mt-1 block text-[11px] leading-tight text-slate-500 truncate">
-                    {area.lawsIncluded}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* Barra de Búsqueda */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-3">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void runSearch();
-            }}
-            className="flex gap-2"
-          >
-            <div className="relative flex-1">
-              <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={`Busca un artículo o concepto en ${currentArea.label} (ej: ${currentArea.examples[0].query})...`}
-                className={cn(
-                  'w-full rounded-xl border border-slate-300 bg-white py-3 pl-10 pr-10 text-xs text-slate-900 outline-hidden transition placeholder:text-slate-400 focus:ring-2',
-                  currentArea.ringClass
-                )}
-              />
-              {query && (
-                <button
-                  type="button"
-                  onClick={() => setQuery('')}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
-                  aria-label="Limpiar búsqueda"
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-
+          <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 p-1 window-no-drag">
             <button
-              type="submit"
-              disabled={isSearching || !query.trim()}
+              type="button"
+              onClick={() => setActiveTab('articles')}
               className={cn(
-                'inline-flex min-h-11 items-center gap-2 rounded-xl px-6 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 shadow-xs',
-                currentArea.buttonClass
+                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition',
+                activeTab === 'articles'
+                  ? 'bg-white text-slate-950 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-950'
               )}
             >
-              {isSearching ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
-              <span>Buscar</span>
+              <Search size={14} />
+              <span>Buscador de Artículos</span>
             </button>
-          </form>
-
-          <p className="text-[11px] leading-relaxed text-slate-500">
-            <strong className="text-slate-700">Formato recomendado:</strong> sujeto + tema en 2–4 palabras, por ejemplo
-            {' '}<span className="font-semibold text-slate-800">prestaciones trabajadores hogar</span>. No necesitas escribir la ley ni el artículo.
-          </p>
-          <p className="flex items-start gap-1.5 text-[10px] leading-relaxed text-slate-400">
-            <Bot size={12} className="mt-0.5 shrink-0" />
-            Con BYOK activo, el proveedor configurado puede ayudar a ordenar resultados. El texto mostrado siempre proviene del corpus instalado.
-          </p>
-
-          <AnimatePresence initial={false}>
-            {pendingRouting && (() => {
-              const suggested = SEARCH_AREAS.find(area => area.id === pendingRouting.suggestedArea) || SEARCH_AREAS[0];
-              return (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-950">
-                    <div className="flex items-start gap-2.5">
-                      <AlertTriangle size={17} className="mt-0.5 shrink-0 text-amber-700" />
-                      <div className="flex-1">
-                        <p className="text-xs font-bold">La consulta parece corresponder a {suggested.label}.</p>
-                        <p className="mt-0.5 text-[11px] leading-relaxed text-amber-800">
-                          Elegiste {currentArea.label}. Buscar en esa materia puede omitir el artículo aplicable.
-                        </p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => void runSearch(pendingRouting.query, { skipRouting: true, area: pendingRouting.suggestedArea })}
-                            className="rounded-lg bg-amber-900 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-amber-950"
-                          >
-                            Cambiar a {suggested.shortLabel} y buscar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void runSearch(pendingRouting.query, { skipRouting: true, area: selectedArea })}
-                            className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-[11px] font-bold text-amber-900 hover:bg-amber-100"
-                          >
-                            Continuar en {currentArea.shortLabel}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setPendingRouting(null)}
-                            className="rounded-lg px-3 py-1.5 text-[11px] font-bold text-amber-800 hover:bg-amber-100"
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })()}
-          </AnimatePresence>
-
-          {/* Sugerencias Rápidas */}
-          <div className="flex flex-wrap items-center gap-1.5 pt-1">
-            <span className="text-[11px] font-bold text-slate-400 mr-1">Artículos clave:</span>
-            {currentArea.examples.map((ex) => (
-              <button
-                key={ex.label}
-                type="button"
-                onClick={() => void runSearch(ex.query)}
-                className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 hover:bg-slate-100 transition"
-              >
-                <Sparkles size={11} className="inline mr-1 text-legal-gold" />
-                {ex.label}
-              </button>
-            ))}
+            <button
+              type="button"
+              onClick={() => setActiveTab('catalog')}
+              className={cn(
+                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition',
+                activeTab === 'catalog'
+                  ? 'bg-white text-slate-950 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-950'
+              )}
+            >
+              <Database size={14} />
+              <span>Biblioteca de Leyes (16)</span>
+            </button>
           </div>
-        </section>
+        </header>
 
-        {/* Estado de Carga / Búsqueda */}
-        {isSearching && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-xs space-y-3">
-            <Loader2 size={32} className="animate-spin mx-auto text-slate-700" />
-            <p className="text-sm font-bold text-slate-900">Consultando leyes oficiales en {currentArea.label}...</p>
-            <p className="text-xs text-slate-500">Localizando las disposiciones más relacionadas.</p>
-          </div>
-        )}
-
-        {/* Resultados de la Búsqueda */}
-        {!isSearching && results !== null && (
-          <div className="space-y-4">
-            
-            {/* Banner Informativo de Resultados */}
-            <div className={cn('flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-4 shadow-xs', results.length > 0 ? currentArea.badgeClass : 'bg-amber-50 border-amber-200 text-amber-950')}>
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 size={17} className="shrink-0" />
-                <span className="text-xs font-bold">{summary}</span>
+        {activeTab === 'articles' ? (
+          <>
+            {/* Selector de Materias con Colores Diferenciados */}
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-2" aria-label="Selector de materia">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Selecciona la materia y leyes a consultar
+                </h2>
+                <span className="hidden sm:inline text-xs font-semibold text-slate-400">
+                  Leyes incluidas: <strong className="text-slate-700">{currentArea.lawsIncluded}</strong>
+                </span>
               </div>
-              <div className="flex flex-wrap items-center justify-end gap-1.5 text-[10px] font-bold">
-                <span className="rounded-full bg-white/70 px-2.5 py-1">Materia: {currentArea.shortLabel}</span>
-              </div>
-            </div>
 
-            {/* Grid de Artículos */}
-            {results.length > 0 && (
-              <div className="grid gap-4 md:grid-cols-2">
-                {results.map((item, index) => {
-                  const isExpanded = expandedArticles.has(index);
-                  const isCopied = copiedIndex === index;
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+                {SEARCH_AREAS.map((area) => {
+                  const active = area.id === selectedArea;
                   return (
-                    <motion.article
-                      key={item.id || index}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.04 }}
-                      className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-xs hover:border-slate-300 transition"
+                    <button
+                      key={area.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedArea(area.id);
+                        setResults(null);
+                        setSummary('');
+                        setPendingRouting(null);
+                        setExpandedArticles(new Set());
+                      }}
+                      className={cn(
+                        'rounded-xl border p-3 text-left transition focus:outline-hidden cursor-pointer',
+                        active
+                          ? `${area.activeClass} shadow-xs`
+                          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                      )}
                     >
-                      <div className="space-y-3">
-                        {/* Cabecera del Artículo */}
-                        <div className="flex items-start gap-3 border-b border-slate-100 pb-3">
-                          <div className="flex items-start gap-2.5">
-                            <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-slate-950 px-1.5 text-[10px] font-bold text-white">
-                              {index + 1}
-                            </span>
-                            <div>
-                              <span className={cn('inline-block rounded-lg px-2 py-0.5 text-[11px] font-bold', currentArea.badgeClass)}>
-                                {item.article_number || item.subtitle || 'Artículo'}
-                              </span>
-                            <h3 className="mt-1 text-xs font-bold text-slate-950">
-                              {item.law_code || item.title || 'Normativa'}
-                            </h3>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Contenido del Artículo */}
-                        <div className="text-xs leading-relaxed text-slate-700">
-                          <p className={cn(!isExpanded && 'line-clamp-4')}>
-                            {item.content || 'Sin texto registrado para esta disposición.'}
-                          </p>
-                        </div>
+                      <div className="flex items-center gap-2 text-xs font-bold">
+                        <span className="shrink-0">{area.icon}</span>
+                        <span className="truncate">{area.label}</span>
+                        {active && <Check size={14} className="ml-auto text-current" />}
                       </div>
-
-                      {/* Footer de Acciones */}
-                      <div className="mt-4 pt-3 border-t border-slate-100 space-y-2.5">
-                        <div className="flex items-center">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setExpandedArticles((prev) => {
-                                const next = new Set(prev);
-                                if (next.has(index)) next.delete(index);
-                                else next.add(index);
-                                return next;
-                              });
-                            }}
-                            className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 hover:text-slate-800"
-                          >
-                            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                            {isExpanded ? 'Ver menos' : 'Leer artículo completo'}
-                          </button>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleCopyCitation(item, index)}
-                            className="flex-1 inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
-                          >
-                            {isCopied ? <Check size={14} className="text-emerald-600" /> : <Clipboard size={14} />}
-                            <span>{isCopied ? 'Copiado' : 'Copiar cita'}</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleCarryToDrafting(item)}
-                            className={cn(
-                              'flex-1 inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-bold text-white transition shadow-xs',
-                              currentArea.buttonClass
-                            )}
-                          >
-                            <FileSignature size={14} />
-                            <span>Llevar a Redactor</span>
-                          </button>
-                        </div>
-                      </div>
-                    </motion.article>
+                      <span className="mt-1 block text-[11px] leading-tight text-slate-500 truncate">
+                        {area.lawsIncluded}
+                      </span>
+                    </button>
                   );
                 })}
               </div>
+            </section>
+
+            {/* Barra de Búsqueda */}
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-3">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void runSearch();
+                }}
+                className="flex gap-2"
+              >
+                <div className="relative flex-1">
+                  <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder={`Busca un artículo o concepto en ${currentArea.label} (ej: ${currentArea.examples[0].query})...`}
+                    className={cn(
+                      'w-full rounded-xl border border-slate-300 bg-white py-3 pl-10 pr-10 text-xs text-slate-900 outline-hidden transition placeholder:text-slate-400 focus:ring-2',
+                      currentArea.ringClass
+                    )}
+                  />
+                  {query && (
+                    <button
+                      type="button"
+                      onClick={() => setQuery('')}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                      aria-label="Limpiar búsqueda"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSearching || !query.trim()}
+                  className={cn(
+                    'inline-flex min-h-11 items-center gap-2 rounded-xl px-6 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 shadow-xs cursor-pointer',
+                    currentArea.buttonClass
+                  )}
+                >
+                  {isSearching ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
+                  <span>Buscar</span>
+                </button>
+              </form>
+
+              <p className="text-[11px] leading-relaxed text-slate-500">
+                <strong className="text-slate-700">Consejo de búsqueda:</strong> escribe 2 a 4 palabras clave sobre el tema (ej. <span className="font-semibold text-slate-800">rescisión laboral sin responsabilidad</span> o <span className="font-semibold text-slate-800">requisitos pagaré</span>).
+              </p>
+
+              <AnimatePresence initial={false}>
+                {pendingRouting && (() => {
+                  const suggested = SEARCH_AREAS.find(area => area.id === pendingRouting.suggestedArea) || SEARCH_AREAS[0];
+                  return (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-950">
+                        <div className="flex items-start gap-2.5">
+                          <AlertTriangle size={17} className="mt-0.5 shrink-0 text-amber-700" />
+                          <div className="flex-1">
+                            <p className="text-xs font-bold">La consulta parece corresponder a {suggested.label}.</p>
+                            <p className="mt-0.5 text-[11px] leading-relaxed text-amber-800">
+                              Elegiste {currentArea.label}. Buscar en esa materia puede omitir el artículo aplicable.
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => void runSearch(pendingRouting.query, { skipRouting: true, area: pendingRouting.suggestedArea })}
+                                className="rounded-lg bg-amber-900 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-amber-950 cursor-pointer"
+                              >
+                                Cambiar a {suggested.shortLabel} y buscar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void runSearch(pendingRouting.query, { skipRouting: true, area: selectedArea })}
+                                className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-[11px] font-bold text-amber-900 hover:bg-amber-100 cursor-pointer"
+                              >
+                                Continuar en {currentArea.shortLabel}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setPendingRouting(null)}
+                                className="rounded-lg px-3 py-1.5 text-[11px] font-bold text-amber-800 hover:bg-amber-100 cursor-pointer"
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })()}
+              </AnimatePresence>
+
+              {/* Sugerencias Rápidas */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                <span className="text-[11px] font-bold text-slate-400 mr-1">Artículos sugeridos:</span>
+                {currentArea.examples.map((ex) => (
+                  <button
+                    key={ex.label}
+                    type="button"
+                    onClick={() => void runSearch(ex.query)}
+                    className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-300 hover:bg-slate-100 transition cursor-pointer"
+                  >
+                    <Sparkles size={11} className="inline mr-1 text-legal-gold" />
+                    {ex.label}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {/* Estado de Carga */}
+            {isSearching && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-xs space-y-3">
+                <Loader2 size={32} className="animate-spin mx-auto text-slate-700" />
+                <p className="text-sm font-bold text-slate-900">Consultando leyes oficiales en {currentArea.label}...</p>
+                <p className="text-xs text-slate-500">Localizando y cotejando las disposiciones más relacionadas.</p>
+              </div>
             )}
 
+            {/* Resultados de Búsqueda */}
+            {!isSearching && results !== null && (
+              <div className="space-y-4">
+                
+                {/* Banner Informativo */}
+                <div className={cn('flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-4 shadow-xs', results.length > 0 ? currentArea.badgeClass : 'bg-amber-50 border-amber-200 text-amber-950')}>
+                  <div className="flex items-center gap-2.5">
+                    <CheckCircle2 size={17} className="shrink-0" />
+                    <span className="text-xs font-bold">{summary}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-end gap-1.5 text-[10px] font-bold">
+                    <span className="rounded-full bg-white/70 px-2.5 py-1">Materia: {currentArea.shortLabel}</span>
+                  </div>
+                </div>
+
+                {/* Grid de Artículos */}
+                {results.length > 0 && (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {results.map((item, index) => {
+                      const isExpanded = expandedArticles.has(index);
+                      const isCopied = copiedIndex === index;
+                      const lawCode = item.law_code || item.title || 'Normativa';
+                      const articleNum = item.article_number || item.subtitle || 'Artículo';
+
+                      return (
+                        <motion.article
+                          key={item.id || index}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.04 }}
+                          className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-xs hover:border-slate-300 transition"
+                        >
+                          <div className="space-y-3">
+                            {/* Cabecera del Artículo */}
+                            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+                              <div className="flex items-start gap-2.5">
+                                <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-slate-950 px-1.5 text-[10px] font-bold text-white">
+                                  {index + 1}
+                                </span>
+                                <div>
+                                  <span className={cn('inline-block rounded-lg px-2 py-0.5 text-[11px] font-bold', currentArea.badgeClass)}>
+                                    {articleNum}
+                                  </span>
+                                  <h3 className="mt-1 text-xs font-bold text-slate-950">
+                                    {lawCode}
+                                  </h3>
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => openLector(item.law_code || undefined, item.article_number || undefined)}
+                                className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-bold text-blue-800 hover:bg-blue-100 transition cursor-pointer"
+                                title="Abrir ley completa en el lector interactivo"
+                              >
+                                <BookOpen size={12} />
+                                <span className="hidden sm:inline">Leer en Contexto</span>
+                              </button>
+                            </div>
+
+                            {/* Contenido del Artículo */}
+                            <div className="text-xs leading-relaxed text-slate-700 font-serif">
+                              <p className={cn(!isExpanded && 'line-clamp-4')}>
+                                {item.content || 'Sin texto registrado para esta disposición.'}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Footer de Acciones */}
+                          <div className="mt-4 pt-3 border-t border-slate-100 space-y-2.5">
+                            <div className="flex items-center justify-between">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setExpandedArticles((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(index)) next.delete(index);
+                                    else next.add(index);
+                                    return next;
+                                  });
+                                }}
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
+                              >
+                                {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                {isExpanded ? 'Ver menos' : 'Expandir texto'}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => openLector(item.law_code || undefined, item.article_number || undefined)}
+                                className="text-[11px] font-semibold text-blue-600 hover:underline"
+                              >
+                                Ver ley completa ({item.law_code}) &rarr;
+                              </button>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleCopyCitation(item, index)}
+                                className="flex-1 inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                              >
+                                {isCopied ? <Check size={14} className="text-emerald-600" /> : <Clipboard size={14} />}
+                                <span>{isCopied ? 'Copiado' : 'Copiar cita'}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleCarryToDrafting(item)}
+                                className={cn(
+                                  'flex-1 inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-bold text-white transition shadow-xs cursor-pointer',
+                                  currentArea.buttonClass
+                                )}
+                              >
+                                <FileSignature size={14} />
+                                <span>Llevar a Redactor</span>
+                              </button>
+                            </div>
+                          </div>
+                        </motion.article>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          /* PESTAÑA: BIBLIOTECA DE LEYES COMPLETAS */
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="text-sm font-bold text-slate-950">Ordenamientos Federales Mexicanos Instalados</h2>
+                <p className="text-xs text-slate-500">
+                  Textos oficiales íntegros disponibles para lectura en pantalla, consulta y descarga local.
+                </p>
+              </div>
+              {lawsOverview && (
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                  <span className="rounded-lg bg-slate-100 px-3 py-1">16 Leyes Certificadas</span>
+                  <span className="rounded-lg bg-slate-100 px-3 py-1">{lawsOverview.provisionsCount.toLocaleString('es-MX')} Disposiciones</span>
+                </div>
+              )}
+            </div>
+
+            {loadingLaws ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-xs">
+                <Loader2 size={32} className="animate-spin mx-auto text-blue-600" />
+                <p className="text-sm font-bold text-slate-900 mt-2">Cargando biblioteca de leyes...</p>
+              </div>
+            ) : lawsOverview?.laws ? (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {lawsOverview.laws.map((law) => {
+                  const isDownloading = downloadingLawCode === law.code;
+                  return (
+                    <article
+                      key={law.code}
+                      className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-xs hover:border-slate-300 transition space-y-4"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-mono font-bold text-slate-800">
+                            {law.code}
+                          </span>
+                          <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-600">
+                            {law.module}
+                          </span>
+                        </div>
+                        <h3 className="text-sm font-bold text-slate-950 mt-3 line-clamp-2">
+                          {law.name}
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-1">
+                          {law.provisions.toLocaleString('es-MX')} artículos y disposiciones
+                        </p>
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-100 flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openLector(law.code)}
+                          className="flex-1 inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-3 text-xs font-bold text-white hover:bg-slate-800 transition cursor-pointer shadow-xs"
+                        >
+                          <BookOpen size={13} />
+                          <span>Leer en Pantalla</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleDownloadLaw(law.code, law.name)}
+                          disabled={isDownloading}
+                          className="inline-flex min-h-9 items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                          title="Descargar archivo en Markdown"
+                        >
+                          {isDownloading ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                          <span className="hidden xl:inline">Descargar</span>
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
         )}
 
       </div>
+
+      {/* Lector Normativo Modal Integrado */}
+      <LectorNormativoModal
+        isOpen={lectorState.isOpen}
+        onClose={() => setLectorState({ isOpen: false, lawCode: null })}
+        lawCode={lectorState.lawCode}
+        initialArticleNumber={lectorState.articleNumber}
+        onInsertGrounding={(groundingText) => {
+          const currentPrompt = useCaseStore.getState().engineeringDraftState.prompt || '';
+          useCaseStore.getState().setEngineeringDraftState({
+            prompt: currentPrompt ? `${currentPrompt}\n\n${groundingText}` : groundingText,
+          });
+          navigate('/ingenieria-juridica?tab=drafting');
+        }}
+      />
     </div>
   );
 };
