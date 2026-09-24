@@ -33,6 +33,9 @@ jobs:
       - name: Prebuild assets, model embeddings and rebuild native modules
         run: npm run prebuild:electron
 
+      - name: Verify release preflight checklist (vector store, manifest, embeddings)
+        run: npm run preflight:release
+
       - name: Build Electron frontend and main process
         run: npm run build
 

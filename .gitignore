@@ -50,6 +50,5 @@ tmp/
 tmp-asar-extract/
 tmp-packaged-package.json
 reports/
-legal-runtime/lance_data/
 *.gguf
 legal-runtime/models/*.gguf

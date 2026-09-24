@@ -23,9 +23,9 @@
     "engine": "LanceDB",
     "table": "legal_knowledge",
     "exists": true,
-    "fileCount": 29,
-    "totalBytes": 33484302,
-    "sha256": "439a83f93358cf9c06ff4f70ad5b8a4f7f290d743a9e13053c6bda4d48fe36a0"
+    "fileCount": 24,
+    "totalBytes": 33366828,
+    "sha256": "0637bac6db53b436b758684e1f61286b6e698dfb0d155c2a9f7442a46fb8564a"
   },
   "laws": [
     {
@@ -594,5 +594,5 @@
     "status": "pass",
     "failures": []
   },
-  "artifactSha256": "9644d6acd94290c60151e91125767f643cadfd37e9365abb27a374f34b763da0"
+  "artifactSha256": "469fe4ada8352c5bb43968f5b68c17e4ece2bc4120e41337919acaeb404ec337"
 }
