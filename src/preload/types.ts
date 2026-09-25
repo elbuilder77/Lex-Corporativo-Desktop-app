@@ -5,8 +5,8 @@ export interface LexDesktopAPI {
     getCase: (caseId: string) => Promise<any>;
     renameCase: (payload: { caseId: string; name: string }) => Promise<any>;
     deleteCase: (caseId: string) => Promise<any>;
-    saveAnalysis: (payload: { caseId: string; analysisId: string; analysisData: any; expectedModule?: 'engineering' | 'fiscal' | 'mercantil' }) => Promise<any>;
-    saveDraft: (payload: { caseId: string; draftId: string; draftData: any; expectedModule?: 'engineering' | 'fiscal' | 'mercantil' }) => Promise<any>;
+    saveAnalysis: (payload: { caseId: string; analysisId: string; analysisData: Record<string, any>; expectedModule?: 'engineering' | 'fiscal' | 'mercantil' }) => Promise<{ success: true }>;
+    saveDraft: (payload: { caseId: string; draftId: string; draftData: Record<string, any>; expectedModule?: 'engineering' | 'fiscal' | 'mercantil' }) => Promise<{ success: true }>;
     deleteAnalysis: (payload: { caseId: string; analysisId: string; expectedModule?: 'engineering' | 'fiscal' | 'mercantil' }) => Promise<{ success: true; deleted: boolean }>;
     deleteDraft: (payload: { caseId: string; draftId: string; expectedModule?: 'engineering' | 'fiscal' | 'mercantil' }) => Promise<{ success: true; deleted: boolean }>;
     saveState: (payload: { caseId: string; stateData: Record<string, unknown>; expectedModule?: 'engineering' | 'fiscal' | 'mercantil' }) => Promise<{ success: true }>;
@@ -89,7 +89,18 @@ export interface LexDesktopAPI {
       module: 'todos' | 'mercantil' | 'fiscal' | 'laboral' | 'comercio_exterior' | 'aduanal';
       limit?: number;
       useReranker?: boolean;
-    }) => Promise<any>;
+    }) => Promise<{
+      context: string;
+      citations: Array<{
+        id: string | number;
+        title: string;
+        subtitle?: string;
+        content: string;
+        law_code?: string;
+        article_number?: string;
+        module?: string;
+      }>;
+    }>;
   };
   legalCorpus: {
     list: () => Promise<{

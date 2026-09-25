@@ -1,4 +1,5 @@
 import type { ByokProvider } from './byok-settings';
+import { redactApiKeysAndSecrets } from './sanitizer';
 
 export interface ByokJsonSchema {
   name: string;
@@ -125,7 +126,7 @@ export function composeLimitedByokPrompt(sections: ByokPromptSections): string {
 }
 
 function sanitizedApiError(provider: ByokProvider, status: number, body: string): Error {
-  const compact = body.replace(/\s+/g, ' ').slice(0, 500);
+  const compact = redactApiKeysAndSecrets(body.replace(/\s+/g, ' ')).slice(0, 500);
   return new Error(`${provider} API error ${status}${compact ? `: ${compact}` : ''}`);
 }
 

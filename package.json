@@ -1,7 +1,7 @@
 {
   "name": "lex-corporativo-desktop",
   "private": true,
-  "version": "1.0.0-rc.15",
+  "version": "1.0.0-rc.16",
   "description": "Estacion de trabajo juridica desktop con corpus local y API propia del usuario.",
   "author": "Lex Corporativo",
   "type": "module",

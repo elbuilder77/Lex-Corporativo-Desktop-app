@@ -12,8 +12,8 @@ import { testByokConnection } from '../lib/byok-client';
 
 const ByokProviderSchema = z.enum(BYOK_PROVIDERS as ['gemini', 'openai', 'anthropic']);
 
-const SaveByokSettingsSchema = z.object({
-  enabled: z.literal(true),
+export const SaveByokSettingsSchema = z.object({
+  enabled: z.boolean(),
   provider: ByokProviderSchema.optional(),
   model: z.string().trim().min(1).max(120).optional(),
   apiKey: z.string().trim().min(10).max(500).optional(),

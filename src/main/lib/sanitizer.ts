@@ -97,3 +97,25 @@ export function sanitizeForLocalCache(data: any): any {
   recursiveSanitize(copy);
   return copy;
 }
+
+const KEY_PATTERNS = [
+  /AIza[0-9A-Za-z-_]{35}/g,
+  /sk-(?:proj-)?[a-zA-Z0-9_-]{20,}/g,
+  /xox[baprs]-[0-9a-zA-Z]{10,48}/g,
+  /Bearer\s+[a-zA-Z0-9_\-\.]{20,}/gi,
+  /(?:api[_-]?key|secret|password|token)\s*[:=]\s*["']?([a-zA-Z0-9_\-\.]{8,})["']?/gi,
+];
+
+export function redactApiKeysAndSecrets(text: string): string {
+  if (!text || typeof text !== 'string') return text;
+  let redacted = text;
+  for (const pattern of KEY_PATTERNS) {
+    redacted = redacted.replace(pattern, (match, capture) => {
+      if (capture) {
+        return match.replace(capture, '[REDACTED_SECRET]');
+      }
+      return '[REDACTED_API_KEY]';
+    });
+  }
+  return redacted;
+}

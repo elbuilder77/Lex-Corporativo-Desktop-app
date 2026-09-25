@@ -13,51 +13,93 @@ const RAGPayloadSchema = z.object({
   useReranker: z.boolean().default(true).optional(),
 });
 
-export function registerRagHandlers(): void {
-  // IPC vector search proxy
-  ipcMain.handle('ipc:rag-search', async (_event, rawPayload: unknown) => {
-    try {
-      const payload = RAGPayloadSchema.parse(rawPayload);
-      const localResult = await searchLegalArticles(payload.query, payload.module, 24);
-      const rerankResult = payload.useReranker === false
-        ? { matches: localResult.matches, status: 'disabled' as const }
-        : await rerankLegalArticles(payload.query, payload.module, localResult.matches);
-      const sources = rerankResult.matches.slice(0, payload.limit || 8);
-      const publicCitations = sources.map((source) => ({
-        id: source.id,
-        title: source.title,
-        subtitle: source.subtitle,
-        content: source.content,
-        law_code: source.law_code,
-        article_number: source.article_number,
-        module: source.module,
-      }));
-      const context = formatRAGContext(sources, payload.module);
-      const finalModelUsed = rerankResult.status === 'applied'
-        ? `${rerankResult.provider}:${rerankResult.model}`
-        : 'extractive-hybrid-search';
+export async function processRagSearch(rawPayload: unknown): Promise<{
+  context: string;
+  citations: Array<{
+    id: string | number;
+    title: string;
+    subtitle?: string;
+    content: string;
+    law_code?: string;
+    article_number?: string;
+    module?: string;
+  }>;
+}> {
+  let parsedPayload: z.infer<typeof RAGPayloadSchema> | null = null;
+  try {
+    parsedPayload = RAGPayloadSchema.parse(rawPayload);
+    const localResult = await searchLegalArticles(parsedPayload.query, parsedPayload.module, 24);
+    const rerankResult = parsedPayload.useReranker === false
+      ? { matches: localResult.matches, status: 'disabled' as const }
+      : await rerankLegalArticles(parsedPayload.query, parsedPayload.module, localResult.matches);
+    const sources = rerankResult.matches.slice(0, parsedPayload.limit || 8);
+    const publicCitations = sources.map((source) => ({
+      id: source.id,
+      title: source.title,
+      subtitle: source.subtitle,
+      content: source.content,
+      law_code: source.law_code,
+      article_number: source.article_number,
+      module: source.module,
+    }));
+    const context = formatRAGContext(sources, parsedPayload.module);
+    const finalModelUsed = rerankResult.status === 'applied'
+      ? `${rerankResult.provider}:${rerankResult.model}`
+      : 'extractive-hybrid-search';
 
+    logLegalExecution({
+      requestId: crypto.randomUUID(),
+      operation: 'search',
+      module: parsedPayload.module,
+      primaryModel: 'lancedb-minilm-fts',
+      finalModelUsed,
+      hasFallback: rerankResult.status === 'fallback',
+      fallbackReason: rerankResult.fallbackReason,
+      prompt: parsedPayload.query,
+      ragContext: context,
+      output: context,
+      sources,
+    });
+
+    return {
+      context,
+      citations: publicCitations,
+    };
+  } catch (err: any) {
+    console.error('[IPC RAG] Search handler failed:', err);
+    const rawModule = (typeof rawPayload === 'object' && rawPayload && 'module' in rawPayload)
+      ? String((rawPayload as any).module)
+      : 'unknown';
+    const rawQuery = (typeof rawPayload === 'object' && rawPayload && 'query' in rawPayload)
+      ? String((rawPayload as any).query).slice(0, 500)
+      : '';
+    const errorMessage = err?.message || 'Error desconocido en búsqueda jurídica';
+
+    try {
       logLegalExecution({
         requestId: crypto.randomUUID(),
         operation: 'search',
-        module: payload.module,
+        module: (parsedPayload?.module || 'todos') as any,
         primaryModel: 'lancedb-minilm-fts',
-        finalModelUsed,
-        hasFallback: rerankResult.status === 'fallback',
-        fallbackReason: rerankResult.fallbackReason,
-        prompt: payload.query,
-        ragContext: context,
-        output: context,
-        sources,
+        finalModelUsed: 'none',
+        hasFallback: false,
+        fallbackReason: `rag_search_error: ${errorMessage}`,
+        prompt: parsedPayload?.query || rawQuery,
+        ragContext: '',
+        output: `ERROR: ${errorMessage}`,
+        sources: [],
       });
-      
-      return {
-        context,
-        citations: publicCitations,
-      };
-    } catch (err: any) {
-      console.error('[IPC RAG] Search handler failed:', err);
-      return { context: '', citations: [] };
+    } catch {
+      // Traceability fallback logging
     }
+
+    throw new Error(`[IPC RAG] Fallo en la búsqueda del corpus legal: ${errorMessage}`);
+  }
+}
+
+export function registerRagHandlers(): void {
+  // IPC vector search proxy
+  ipcMain.handle('ipc:rag-search', async (_event, rawPayload: unknown) => {
+    return processRagSearch(rawPayload);
   });
 }

@@ -1,4 +1,5 @@
 import { ipcMain, app, dialog, BrowserWindow } from 'electron';
+import { z } from 'zod';
 import { copyFileSync } from 'fs';
 import { existsSync } from 'fs';
 import { join, resolve, basename } from 'path';
@@ -13,8 +14,9 @@ import { getLegalKnowledgeRuntimePath, isLocalRagAvailable } from '../lib/rag';
 import { isLegalCorpusAvailable } from '../lib/legal-corpus';
 import { getVaultProtectionStatus, listCases } from '../lib/case-vault';
 import { getByokSettings, saveByokSettings } from '../lib/byok-settings';
-import { getTraceLedgerStatus } from '../lib/traceability';
+import { getTraceLedgerStatus, logLegalExecution } from '../lib/traceability';
 import { sanitizeForLogs } from '../lib/sanitizer';
+import * as crypto from 'crypto';
 
 const ALLOWED_EXPORT_EXTS = ['json', 'pdf', 'docx', 'jsonl'];
 
@@ -189,7 +191,8 @@ export function registerIpcHandlers(): void {
   });
 
   // ── Update Consent ───────────────────────────
-  ipcMain.handle('settings:set-update-consent', async (_event, consent: boolean) => {
+  ipcMain.handle('settings:set-update-consent', async (_event, rawConsent: unknown) => {
+    const consent = z.boolean().parse(rawConsent);
     const settings = getByokSettings();
     return saveByokSettings({
       enabled: settings.enabled,
@@ -207,7 +210,19 @@ export function registerIpcHandlers(): void {
     try {
       const cleanReport = sanitizeForLogs(report);
       console.warn('[CSP Violation]', JSON.stringify(cleanReport));
-      // Could also append to traceability ledger
+      logLegalExecution({
+        requestId: crypto.randomUUID(),
+        operation: 'consultation',
+        module: 'todos',
+        primaryModel: 'csp_shield',
+        finalModelUsed: 'none',
+        hasFallback: false,
+        fallbackReason: 'csp_directive_violation',
+        prompt: 'CSP Violation Report',
+        ragContext: '',
+        output: JSON.stringify(cleanReport).slice(0, 1000),
+        sources: [],
+      });
       return { ok: true };
     } catch {
       return { ok: false };

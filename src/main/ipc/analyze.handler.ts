@@ -252,9 +252,9 @@ const AnalyzePayloadSchema = z.object({
   ecosystems: z.array(z.enum(LEGAL_ECOSYSTEMS)).min(1).max(5).optional(),
   module: z.literal('analysis').optional(),
   files: z.array(z.object({
-    name: z.string(),
-    base64: z.string(),
-    mimeType: z.string(),
+    name: z.string().trim().min(1).max(255),
+    base64: z.string().min(1).max(30_000_000),
+    mimeType: z.string().trim().min(1).max(120),
   })).min(1).max(5),
   prompt: z.string().optional(),
   focusedInstruction: z.string().optional(),

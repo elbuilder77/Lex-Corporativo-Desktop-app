@@ -115,7 +115,7 @@ try {
   const env = { ...process.env, LEX_VAULT_TEST_USER_DATA: userDataPath };
   delete env.ELECTRON_RUN_AS_NODE;
   const result = await new Promise((resolve, reject) => {
-    const child = spawn(electronPath, ['--enable-logging', bundlePath], {
+    const child = spawn(electronPath, ['--enable-logging', '--no-sandbox', '--disable-gpu', bundlePath], {
       cwd: repoRoot,
       env,
       stdio: ['ignore', 'pipe', 'pipe'],

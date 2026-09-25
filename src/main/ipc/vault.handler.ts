@@ -1,5 +1,6 @@
-import { dialog, ipcMain } from 'electron';
+import { app, dialog, ipcMain } from 'electron';
 import { writeFileSync } from 'fs';
+import { basename, resolve } from 'path';
 import { createHash } from 'crypto';
 import { z } from 'zod';
 import {
@@ -20,52 +21,52 @@ import {
 const caseIdRegex = /^[a-zA-Z0-9-_]+$/;
 
 // Zero-Trust input validation schemas for Vault operations
-const CreateCaseSchema = z.object({
+export const CreateCaseSchema = z.object({
   caseId: z.string().min(1).regex(caseIdRegex, "Invalid case ID format"),
   name: z.string().min(1),
   module: z.enum(['engineering', 'fiscal', 'mercantil']),
   retentionUntil: z.string().datetime().optional(),
 });
 
-const RenameCaseSchema = z.object({
+export const RenameCaseSchema = z.object({
   caseId: z.string().min(1).regex(caseIdRegex, "Invalid case ID format"),
   name: z.string().trim().min(1).max(160),
   expectedModule: z.enum(['engineering', 'fiscal', 'mercantil']).optional(),
 });
 
-const SaveAnalysisSchema = z.object({
+export const SaveAnalysisSchema = z.object({
   caseId: z.string().min(1).regex(caseIdRegex, "Invalid case ID format"),
   analysisId: z.string().min(1),
-  analysisData: z.any(),
+  analysisData: z.record(z.string(), z.unknown()),
   expectedModule: z.enum(['engineering', 'fiscal', 'mercantil']).optional(),
 });
 
-const SaveDraftSchema = z.object({
+export const SaveDraftSchema = z.object({
   caseId: z.string().min(1).regex(caseIdRegex, "Invalid case ID format"),
   draftId: z.string().min(1),
-  draftData: z.any(),
+  draftData: z.record(z.string(), z.unknown()),
   expectedModule: z.enum(['engineering', 'fiscal', 'mercantil']).optional(),
 });
 
-const DeleteAnalysisSchema = z.object({
+export const DeleteAnalysisSchema = z.object({
   caseId: z.string().min(1).regex(caseIdRegex, "Invalid case ID format"),
   analysisId: z.string().min(1),
   expectedModule: z.enum(['engineering', 'fiscal', 'mercantil']).optional(),
 });
 
-const DeleteDraftSchema = z.object({
+export const DeleteDraftSchema = z.object({
   caseId: z.string().min(1).regex(caseIdRegex, "Invalid case ID format"),
   draftId: z.string().min(1),
   expectedModule: z.enum(['engineering', 'fiscal', 'mercantil']).optional(),
 });
 
-const SaveStateSchema = z.object({
+export const SaveStateSchema = z.object({
   caseId: z.string().min(1).regex(caseIdRegex, "Invalid case ID format"),
   stateData: z.record(z.string(), z.unknown()),
   expectedModule: z.enum(['engineering', 'fiscal', 'mercantil']).optional(),
 });
 
-const CaseOperationSchema = z.union([
+export const CaseOperationSchema = z.union([
   z.string().min(1).regex(caseIdRegex, "Invalid case ID format"),
   z.object({
     caseId: z.string().min(1).regex(caseIdRegex, "Invalid case ID format"),
@@ -73,13 +74,13 @@ const CaseOperationSchema = z.union([
   }),
 ]);
 
-const ExportPdfSchema = z.object({
-  base64: z.string().min(1),
+export const ExportPdfSchema = z.object({
+  base64: z.string().min(1).max(30_000_000),
   defaultPath: z.string().min(1).max(260),
 });
 
-const ExportDocxSchema = z.object({
-  base64: z.string().min(1),
+export const ExportDocxSchema = z.object({
+  base64: z.string().min(1).max(30_000_000),
   defaultPath: z.string().min(1).max(260),
 });
 
@@ -203,7 +204,15 @@ export function registerVaultHandlers(): void {
 
   ipcMain.handle('vault:export-all', async () => {
     const metadata = await listCases();
-    const cases = await Promise.all(metadata.map(async item => JSON.parse(await exportCase(item.caseId))));
+    const cases: any[] = [];
+    const batchSize = 10;
+    for (let i = 0; i < metadata.length; i += batchSize) {
+      const batch = metadata.slice(i, i + batchSize);
+      const batchResults = await Promise.all(
+        batch.map(async item => JSON.parse(await exportCase(item.caseId)))
+      );
+      cases.push(...batchResults);
+    }
     const exportCore = {
       format: 'lex-corporativo-vault-backup',
       formatVersion: 1,
@@ -213,8 +222,12 @@ export function registerVaultHandlers(): void {
     };
     const packageHash = createHash('sha256').update(JSON.stringify(exportCore)).digest('hex');
     const backup = { ...exportCore, packageHash };
+    const defaultBackupPath = resolve(
+      app.getPath('downloads'),
+      `lex-corporativo-respaldo-${new Date().toISOString().slice(0, 10)}.json`
+    );
     const { canceled, filePath } = await dialog.showSaveDialog({
-      defaultPath: `lex-corporativo-respaldo-${new Date().toISOString().slice(0, 10)}.json`,
+      defaultPath: defaultBackupPath,
       filters: [{ name: 'Respaldo Lex Corporativo', extensions: ['json'] }],
     });
     if (canceled || !filePath) {
@@ -241,9 +254,11 @@ export function registerVaultHandlers(): void {
   ipcMain.handle('vault:export-pdf', async (_event, rawPayload: unknown) => {
     try {
       const payload = ExportPdfSchema.parse(rawPayload);
-      
+      const safeFileName = basename(payload.defaultPath);
+      const safeDefaultPath = resolve(app.getPath('downloads'), safeFileName);
+
       const { canceled, filePath } = await dialog.showSaveDialog({
-        defaultPath: payload.defaultPath,
+        defaultPath: safeDefaultPath,
         filters: [{ name: 'Documentos PDF', extensions: ['pdf'] }]
       });
 
@@ -251,7 +266,11 @@ export function registerVaultHandlers(): void {
         // Strip any data URI prefix (e.g. data:application/pdf;filename=...;base64,)
         const parts = payload.base64.split('base64,');
         const base64Data = parts.length > 1 ? parts[1] : payload.base64;
-        writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
+        const buffer = Buffer.from(base64Data, 'base64');
+        if (buffer.length < 5 || buffer.toString('utf8', 0, 5) !== '%PDF-') {
+          throw new Error('El contenido proporcionado no es un archivo PDF válido.');
+        }
+        writeFileSync(filePath, buffer);
         return { success: true, filePath };
       }
       return { success: false, canceled: true };
@@ -265,16 +284,22 @@ export function registerVaultHandlers(): void {
   ipcMain.handle('vault:export-docx', async (_event, rawPayload: unknown) => {
     try {
       const payload = ExportDocxSchema.parse(rawPayload);
-      
+      const safeFileName = basename(payload.defaultPath);
+      const safeDefaultPath = resolve(app.getPath('downloads'), safeFileName);
+
       const { canceled, filePath } = await dialog.showSaveDialog({
-        defaultPath: payload.defaultPath,
+        defaultPath: safeDefaultPath,
         filters: [{ name: 'Documento de Microsoft Word (.docx)', extensions: ['docx'] }]
       });
 
       if (!canceled && filePath) {
         const parts = payload.base64.split('base64,');
         const base64Data = parts.length > 1 ? parts[1] : payload.base64;
-        writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
+        const buffer = Buffer.from(base64Data, 'base64');
+        if (buffer.length < 4 || buffer[0] !== 0x50 || buffer[1] !== 0x4b || buffer[2] !== 0x03 || buffer[3] !== 0x04) {
+          throw new Error('El contenido proporcionado no es un documento Word (.docx) válido.');
+        }
+        writeFileSync(filePath, buffer);
         return { success: true, filePath };
       }
       return { success: false, canceled: true };
